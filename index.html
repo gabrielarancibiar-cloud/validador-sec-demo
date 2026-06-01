@@ -1,106 +1,98 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="es">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Validador Documental SEC</title>
   <style>
-    :root{--blue:#1565c0;--navy:#071226;--bg:#eef3f9;--card:#fff;--muted:#5b6b82;--border:#d8e1ee;--green:#00875a;--yellow:#a15c00;--red:#c62828;--gray:#4b5563;--sky:#0369a1}
-    *{box-sizing:border-box} body{margin:0;font-family:Arial,Helvetica,sans-serif;background:var(--bg);color:#071226} header{height:92px;background:white;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;padding:0 28px;position:sticky;top:0;z-index:2} .brand{display:flex;gap:14px;align-items:center}.logo{width:58px;height:58px;border-radius:16px;background:var(--blue);color:white;font-weight:900;display:grid;place-items:center}.brand h1{margin:0;font-size:30px}.brand p{margin:2px 0 0;color:#52657f;font-size:20px}.actions{display:flex;gap:12px}.btn{border:0;border-radius:18px;background:var(--blue);color:white;padding:14px 22px;font-weight:800;font-size:16px;cursor:pointer}.btn.secondary{background:white;color:#071226;border:1px solid var(--border)}.btn.dark{background:#091227}.btn:disabled{opacity:.55;cursor:not-allowed}.wrap{max-width:1680px;margin:0 auto;padding:30px}.stats{display:grid;grid-template-columns:repeat(5,1fr);gap:20px;margin-bottom:24px}.card{background:var(--card);border:1px solid var(--border);border-radius:28px;box-shadow:0 2px 8px rgba(15,23,42,.04)}.stat{padding:26px}.stat span{color:#52657f;font-size:16px}.stat strong{display:block;margin-top:12px;font-size:42px}.grid{display:grid;grid-template-columns:1.55fr .85fr;gap:24px}.panel{padding:26px}.panel h2{font-size:30px;margin:0 0 4px}.panel .sub{margin:0 0 22px;color:#52657f;font-size:20px}.tools{display:grid;grid-template-columns:1fr 280px 230px;gap:14px;margin-bottom:18px}.input,.select{width:100%;border:1px solid var(--border);border-radius:18px;background:white;padding:16px 18px;font-size:18px}.table{border:1px solid var(--border);border-radius:20px;overflow:hidden;background:white}.thead,.row{display:grid;grid-template-columns:80px 1fr 210px 160px 120px;gap:12px;align-items:center}.thead{background:#f8fafc;color:#64748b;font-weight:900;font-size:13px;text-transform:uppercase;padding:14px 18px;letter-spacing:.06em}.row{padding:16px 18px;border-top:1px solid #eef2f7;cursor:pointer}.row:hover,.row.active{background:#eff6ff}.doc-title{font-weight:800;font-size:16px}.doc-small{color:#64748b;font-size:13px;margin-top:5px}.badge{display:inline-flex;align-items:center;gap:7px;border-radius:999px;padding:8px 11px;font-weight:900;font-size:12px}.dot{width:8px;height:8px;border-radius:50%}.vigente{background:#dcfce7;color:#166534}.vigente .dot{background:#16a34a}.vencer{background:#fef3c7;color:#92400e}.vencer .dot{background:#f59e0b}.vencido{background:#fee2e2;color:#991b1b}.vencido .dot{background:#ef4444}.pendiente,.nocargado{background:#e5e7eb;color:#374151}.pendiente .dot,.nocargado .dot{background:#6b7280}.revision{background:#e0f2fe;color:#075985}.revision .dot{background:#0284c7}.field{background:#f8fafc;border-radius:18px;padding:18px;margin-bottom:12px}.field label{display:block;color:#64748b;font-weight:900;font-size:12px;text-transform:uppercase;margin-bottom:7px}.field div{font-weight:800;font-size:17px}.obs{line-height:1.55;color:#334155;font-weight:500}.filebox{border:2px dashed var(--border);border-radius:18px;padding:18px;margin:14px 0}.filebox input{width:100%;font-size:15px}.message{margin-top:12px;padding:12px 14px;border-radius:14px;background:#eff6ff;color:#1e3a8a;font-weight:700;display:none}.message.err{background:#fee2e2;color:#991b1b}.link{color:#1565c0;font-weight:900;text-decoration:none}.empty{padding:30px;text-align:center;color:#64748b}.hidden{display:none!important}@media(max-width:1100px){.stats{grid-template-columns:repeat(2,1fr)}.grid{grid-template-columns:1fr}.tools{grid-template-columns:1fr}.thead,.row{grid-template-columns:60px 1fr 130px}.hide-md{display:none}}
+    :root{--blue:#0b4ea2;--dark:#0f172a;--muted:#64748b;--bg:#f1f5f9;--green:#16a34a;--yellow:#d97706;--red:#dc2626;--gray:#475569;--sky:#0284c7}
+    *{box-sizing:border-box}body{margin:0;font-family:Inter,Arial,sans-serif;background:var(--bg);color:var(--dark)}
+    .login{min-height:100vh;background:#020617;color:white;display:grid;grid-template-columns:1fr 420px;gap:40px;align-items:center;padding:48px;}
+    .hero h1{font-size:58px;line-height:1;margin:0 0 22px;font-weight:900}.hero p{font-size:19px;line-height:1.7;color:#cbd5e1;max-width:650px}.pill{display:inline-block;padding:10px 16px;border:1px solid #334155;border-radius:999px;margin-bottom:24px;color:#bfdbfe;background:#0f172a}.login-card{background:white;color:var(--dark);border-radius:28px;padding:32px;box-shadow:0 20px 70px #0008}.login-card h2{font-size:28px;margin:0 0 6px}.login-card input{width:100%;padding:15px;border:1px solid #cbd5e1;border-radius:16px;margin:8px 0 16px;font-size:15px}.btn{border:0;border-radius:14px;padding:12px 16px;font-weight:800;cursor:pointer;background:var(--blue);color:white}.btn.secondary{background:white;color:var(--dark);border:1px solid #cbd5e1}.btn.dark{background:#0f172a}.btn:disabled{opacity:.5;cursor:not-allowed}
+    header{position:sticky;top:0;z-index:10;background:#ffffffe8;backdrop-filter:blur(8px);border-bottom:1px solid #e2e8f0}.bar{max-width:1320px;margin:auto;padding:18px 24px;display:flex;align-items:center;justify-content:space-between;gap:16px}.brand{display:flex;align-items:center;gap:14px}.logo{width:48px;height:48px;border-radius:16px;background:var(--blue);display:grid;place-items:center;color:white;font-size:24px}.brand h1{margin:0;font-size:22px}.brand p{margin:3px 0 0;color:var(--muted);font-size:14px}
+    main{max-width:1320px;margin:auto;padding:24px}.stats{display:grid;grid-template-columns:repeat(6,1fr);gap:14px}.card{background:white;border:1px solid #e2e8f0;border-radius:24px;box-shadow:0 2px 8px #0f172a0a}.stat{padding:18px}.stat span{font-size:13px;color:var(--muted)}.stat strong{display:block;font-size:30px;margin-top:8px}.stat small{color:var(--muted)}
+    .grid{display:grid;grid-template-columns:1.55fr .95fr;gap:18px;margin-top:18px}.section{padding:20px}.section-title{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;margin-bottom:16px}.section-title h2{margin:0;font-size:26px}.section-title p{margin:4px 0 0;color:var(--muted)}.filters{display:grid;grid-template-columns:1fr 220px;gap:10px;margin-bottom:14px}.filters input,.filters select,.field input,.field select{width:100%;padding:13px;border:1px solid #cbd5e1;border-radius:14px;background:white;font-size:14px}
+    .table{border:1px solid #e2e8f0;border-radius:18px;overflow:hidden}.thead,.row{display:grid;grid-template-columns:70px 1fr 150px 140px 95px;align-items:center}.thead{background:#f8fafc;color:var(--muted);font-size:12px;font-weight:900;text-transform:uppercase}.thead div,.row div{padding:13px}.row{width:100%;border:0;border-top:1px solid #e2e8f0;background:white;text-align:left;cursor:pointer}.row:hover,.row.active{background:#eff6ff}.doc-title{font-weight:800}.doc-sub{font-size:12px;color:var(--muted);margin-top:4px}.badge{display:inline-flex;align-items:center;gap:7px;border-radius:999px;padding:7px 10px;font-size:12px;font-weight:900;border:1px solid}.dot{width:8px;height:8px;border-radius:99px}.vigente{background:#dcfce7;color:#166534;border-color:#bbf7d0}.vigente .dot{background:var(--green)}.por-vencer{background:#fef3c7;color:#92400e;border-color:#fde68a}.por-vencer .dot{background:var(--yellow)}.vencido{background:#fee2e2;color:#991b1b;border-color:#fecaca}.vencido .dot{background:var(--red)}.no-cargado,.pendiente{background:#e2e8f0;color:#334155;border-color:#cbd5e1}.no-cargado .dot,.pendiente .dot{background:#64748b}.en-revisión{background:#e0f2fe;color:#075985;border-color:#bae6fd}.en-revisión .dot{background:var(--sky)}
+    .detail h2{font-size:24px;margin:4px 0 12px}.info{display:grid;grid-template-columns:1fr 1fr;gap:10px}.box{background:#f8fafc;border-radius:18px;padding:14px}.box label,.field label{display:block;color:var(--muted);font-size:12px;font-weight:900;text-transform:uppercase;margin-bottom:6px}.box strong{font-size:15px}.obs{margin-top:10px;line-height:1.6}.upload{margin-top:16px;border:2px dashed #bfdbfe;background:#eff6ff;border-radius:20px;padding:16px}.upload h3{margin:0 0 10px}.field{margin-bottom:10px}.actions{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:10px}.alert{margin-top:14px;padding:14px;border-radius:18px;background:#fef2f2;color:#991b1b;border:1px solid #fecaca;font-weight:800}.ok{background:#f0fdf4;color:#166534;border-color:#bbf7d0}.warn{background:#fffbeb;color:#92400e;border-color:#fde68a}.muted{color:var(--muted)}.link{color:var(--blue);font-weight:900;text-decoration:none}.loading{padding:30px;text-align:center;color:var(--muted)}
+    @media(max-width:1050px){.login{grid-template-columns:1fr}.stats{grid-template-columns:repeat(2,1fr)}.grid{grid-template-columns:1fr}.thead,.row{grid-template-columns:55px 1fr 120px}.thead div:nth-child(3),.thead div:nth-child(5),.row div:nth-child(3),.row div:nth-child(5){display:none}.hero h1{font-size:42px}}
   </style>
 </head>
 <body>
-<header>
-  <div class="brand"><div class="logo">SEC</div><div><h1>Validador Documental SEC</h1><p>EDS 40098 · Base conectada a Supabase</p></div></div>
-  <div class="actions"><button class="btn secondary" id="exportBtn">Exportar CSV</button><button class="btn" id="refreshBtn">Actualizar</button></div>
-</header>
-<main class="wrap">
-  <section class="stats">
-    <div class="card stat"><span>Cumplimiento</span><strong id="sCompliance">0%</strong></div>
-    <div class="card stat"><span>Total índice</span><strong id="sTotal">0</strong></div>
-    <div class="card stat"><span>Vigentes</span><strong id="sVigente">0</strong></div>
-    <div class="card stat"><span>Por vencer</span><strong id="sVencer">0</strong></div>
-    <div class="card stat"><span>Alertas</span><strong id="sAlertas">0</strong></div>
-  </section>
-  <section class="grid">
-    <div class="card panel">
-      <h2>Índice documental</h2><p class="sub">Documentos leídos desde la tabla <b>documentos</b>.</p>
-      <div class="tools"><input class="input" id="q" placeholder="Buscar documento, categoría o responsable"><select class="select" id="status"><option>Todos</option><option>Vigente</option><option>Por vencer</option><option>Vencido</option><option>Pendiente</option><option>No cargado</option><option>En revisión</option></select><button class="btn dark" id="newBtn">+ Nuevo documento</button></div>
-      <div class="table"><div class="thead"><div>N°</div><div>Documento</div><div class="hide-md">Categoría</div><div>Estado</div><div class="hide-md">Archivo</div></div><div id="rows"></div></div>
-    </div>
-    <div class="card panel">
-      <p style="color:#1565c0;font-weight:900;font-size:22px;margin:0 0 8px">Ficha documental</p>
-      <h2 id="fTitle">Seleccione un documento</h2><p class="sub" id="fSub">Sin documento seleccionado.</p>
-      <div id="detail" class="hidden">
-        <div class="field"><label>Categoría</label><div id="fCat"></div></div>
-        <div class="field"><label>Responsable</label><div id="fResp"></div></div>
-        <div class="field"><label>Estado</label><div id="fState"></div></div>
-        <div class="field"><label>Archivo actual</label><div id="fFile"></div></div>
-        <div class="field"><label>Observación</label><div class="obs" id="fObs"></div></div>
-        <div class="filebox"><label style="font-weight:900;display:block;margin-bottom:10px">Cargar PDF para este documento</label><input type="file" id="pdfInput" accept="application/pdf,.pdf"></div>
-        <button class="btn" id="uploadBtn">Cargar PDF</button>
-        <button class="btn secondary" id="validateBtn">Marcar como vigente</button>
-        <div class="message" id="msg"></div>
-      </div>
-    </div>
-  </section>
-</main>
-<script>
+<div id="app"></div>
+<script type="module">
 const SUPABASE_URL = 'https://emyskqnsyspzjrguycjk.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVteXNrcW5zeXNwempyZ3V5Y2prIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzk5MDg5NDcsImV4cCI6MjA5NTQ4NDk0N30.bLCSwgLCop1Gg4rCbunFe4YCP_KHxIIFGF28vR0XD-0';
 const BUCKET = 'documentos-sec';
-let docs = [], selected = null;
-const $ = id => document.getElementById(id);
-function headers(extra={}){return {apikey:SUPABASE_KEY, Authorization:`Bearer ${SUPABASE_KEY}`, ...extra}}
-function cls(s){s=(s||'No cargado').toLowerCase(); if(s==='vigente')return 'vigente'; if(s==='por vencer')return 'vencer'; if(s==='vencido')return 'vencido'; if(s==='en revisión'||s==='en revision')return 'revision'; if(s==='pendiente')return 'pendiente'; return 'nocargado'}
-function badge(s){return `<span class="badge ${cls(s)}"><span class="dot"></span>${s||'No cargado'}</span>`}
+const headers = { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}`, 'Content-Type': 'application/json' };
+let docs = [], selected = null, query = '', filter = 'Todos', logged = false, busy = false, message = '';
+const $ = (id)=>document.getElementById(id);
+function normalize(s){return (s||'').toString().normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase()}
+function daysBetween(dateStr){ if(!dateStr) return null; const today = new Date(); today.setHours(0,0,0,0); const d = new Date(dateStr+'T00:00:00'); return Math.ceil((d-today)/(1000*60*60*24)); }
+function calcStatus(doc){
+  if(!doc.archivo_url) return {estado:'No cargado', dias:null, alerta:false};
+  if(!doc.fecha_vencimiento) return {estado:'En revisión', dias:null, alerta:false};
+  const dias = daysBetween(doc.fecha_vencimiento);
+  const alerta = Number(doc.dias_alerta ?? 30);
+  if(dias < 0) return {estado:'Vencido', dias, alerta:true};
+  if(dias <= alerta) return {estado:'Por vencer', dias, alerta:true};
+  return {estado:'Vigente', dias, alerta:false};
+}
+function cls(status){return normalize(status).replace(/ /g,'-')}
+function badge(status){return `<span class="badge ${cls(status)}"><span class="dot"></span>${status}</span>`}
 async function loadDocs(){
-  const res = await fetch(`${SUPABASE_URL}/rest/v1/documentos?select=*&order=numero_indice.asc`, {headers:headers()});
-  if(!res.ok){ $('rows').innerHTML = `<div class="empty">No se pudo leer Supabase. Revise permisos RLS.</div>`; return; }
-  docs = await res.json(); render();
-}
-function render(){
-  const q = $('q').value.toLowerCase(); const st = $('status').value;
-  const filtered = docs.filter(d => (`${d.numero_indice} ${d.nombre} ${d.categoria} ${d.responsable}`.toLowerCase().includes(q)) && (st==='Todos'||d.estado===st));
-  $('rows').innerHTML = filtered.length ? filtered.map(d=>`<div class="row ${selected&&selected.id===d.id?'active':''}" data-id="${d.id}"><div style="font-weight:900">${d.numero_indice}</div><div><div class="doc-title">${d.nombre}</div><div class="doc-small">Responsable: ${d.responsable||'-'}</div></div><div class="hide-md">${d.categoria||'-'}</div><div>${badge(d.estado)}</div><div class="hide-md">${d.archivo_url?'<a class="link" target="_blank" href="'+d.archivo_url+'">Ver PDF</a>':'Sin archivo'}</div></div>`).join('') : '<div class="empty">Sin documentos para mostrar.</div>';
-  document.querySelectorAll('.row').forEach(r=>r.onclick=()=>selectDoc(Number(r.dataset.id)));
-  stats();
-}
-function stats(){
-  const total = docs.length, vig = docs.filter(d=>d.estado==='Vigente').length, ven = docs.filter(d=>d.estado==='Por vencer').length;
-  const alertas = docs.filter(d=>['Vencido','Pendiente','No cargado','En revisión'].includes(d.estado)).length;
-  $('sTotal').textContent=total; $('sVigente').textContent=vig; $('sVencer').textContent=ven; $('sAlertas').textContent=alertas; $('sCompliance').textContent= total?Math.round(vig/total*100)+'%':'0%';
-}
-function selectDoc(id){ selected = docs.find(d=>d.id===id); $('detail').classList.remove('hidden'); $('fTitle').textContent=selected.nombre; $('fSub').textContent=`Índice ${selected.numero_indice}`; $('fCat').textContent=selected.categoria||'-'; $('fResp').textContent=selected.responsable||'-'; $('fState').innerHTML=badge(selected.estado); $('fObs').textContent=selected.observacion||'-'; $('fFile').innerHTML=selected.archivo_url?`<a class="link" target="_blank" href="${selected.archivo_url}">${selected.archivo_nombre||'Ver PDF cargado'}</a>`:'Sin archivo cargado'; $('pdfInput').value=''; showMsg('',false,true); render();}
-function showMsg(t,err=false,hide=false){const m=$('msg'); if(hide){m.style.display='none'; return;} m.textContent=t; m.className='message'+(err?' err':''); m.style.display='block';}
-function safeName(name){return name.normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-zA-Z0-9._-]/g,'_')}
-async function uploadPdf(){
-  if(!selected) return showMsg('Seleccione un documento primero.', true);
-  const file = $('pdfInput').files[0];
-  if(!file) return showMsg('Seleccione un archivo PDF.', true);
-  if(file.type !== 'application/pdf' && !file.name.toLowerCase().endsWith('.pdf')) return showMsg('Solo se permite PDF.', true);
-  $('uploadBtn').disabled=true; showMsg('Subiendo PDF...');
   try{
-    const path = `${selected.numero_indice.replace('.','_')}/${Date.now()}_${safeName(file.name)}`;
-    const up = await fetch(`${SUPABASE_URL}/storage/v1/object/${BUCKET}/${path}`, {method:'POST', headers:headers({'Content-Type':file.type || 'application/pdf','x-upsert':'true'}), body:file});
+    const r = await fetch(`${SUPABASE_URL}/rest/v1/documentos?select=*&order=numero_indice.asc`,{headers});
+    if(!r.ok) throw new Error(await r.text());
+    docs = await r.json();
+    docs = docs.map(d=>({...d,...calcStatus(d)}));
+    if(!selected || !docs.find(d=>d.id===selected.id)) selected = docs[0] || null; else selected = docs.find(d=>d.id===selected.id);
+    render();
+  }catch(e){message='Error leyendo Supabase: '+e.message; render();}
+}
+async function syncStatus(doc){
+  const c = calcStatus(doc);
+  await fetch(`${SUPABASE_URL}/rest/v1/documentos?id=eq.${doc.id}`,{method:'PATCH',headers:{...headers,Prefer:'return=minimal'},body:JSON.stringify({estado:c.estado,dias_restantes:c.dias,alerta_activa:c.alerta,updated_at:new Date().toISOString()})});
+}
+async function uploadPdf(){
+  const file = $('pdfFile').files[0];
+  const venc = $('dueDate').value;
+  const alerta = Number($('alertDays').value || 30);
+  if(!selected) return;
+  if(!file){message='Selecciona un archivo PDF.'; render(); return;}
+  if(file.type !== 'application/pdf'){message='Solo se permite PDF.'; render(); return;}
+  if(!venc){message='Ingresa fecha de vencimiento. Este dato manda el semáforo.'; render(); return;}
+  busy=true; message='Subiendo PDF...'; render();
+  try{
+    const clean = file.name.replace(/[^a-zA-Z0-9._-]/g,'_');
+    const path = `${selected.numero_indice}-${Date.now()}-${clean}`;
+    const up = await fetch(`${SUPABASE_URL}/storage/v1/object/${BUCKET}/${path}`,{method:'POST',headers:{apikey:SUPABASE_KEY,Authorization:`Bearer ${SUPABASE_KEY}`,'Content-Type':'application/pdf',x_upsert:'true'},body:file});
     if(!up.ok) throw new Error(await up.text());
     const publicUrl = `${SUPABASE_URL}/storage/v1/object/public/${BUCKET}/${path}`;
-    const patch = await fetch(`${SUPABASE_URL}/rest/v1/documentos?id=eq.${selected.id}`, {method:'PATCH', headers:headers({'Content-Type':'application/json','Prefer':'return=representation'}), body:JSON.stringify({archivo_url:publicUrl, archivo_nombre:file.name, estado:'En revisión', ultima_revision:new Date().toISOString().slice(0,10)})});
+    const temp = {...selected, archivo_url:publicUrl, archivo_nombre:file.name, fecha_vencimiento:venc, dias_alerta:alerta};
+    const c = calcStatus(temp);
+    const patch = await fetch(`${SUPABASE_URL}/rest/v1/documentos?id=eq.${selected.id}`,{method:'PATCH',headers:{...headers,Prefer:'return=minimal'},body:JSON.stringify({archivo_url:publicUrl,archivo_nombre:file.name,fecha_vencimiento:venc,dias_alerta:alerta,estado:c.estado,dias_restantes:c.dias,alerta_activa:c.alerta,ultima_revision:new Date().toISOString().slice(0,10),updated_at:new Date().toISOString()})});
     if(!patch.ok) throw new Error(await patch.text());
-    showMsg('PDF cargado correctamente. Estado cambiado a En revisión.');
-    await loadDocs(); selected = docs.find(d=>d.id===selected.id); selectDoc(selected.id);
-  }catch(e){ showMsg('Error al cargar: '+e.message, true); }
-  finally{$('uploadBtn').disabled=false;}
+    await fetch(`${SUPABASE_URL}/rest/v1/historial_documentos`,{method:'POST',headers,body:JSON.stringify({documento_id:selected.id,accion:'PDF cargado',usuario:'Administrador',comentario:`Archivo: ${file.name}. Vence: ${venc}. Estado: ${c.estado}`})});
+    message='PDF cargado correctamente. Estado actualizado: '+c.estado;
+    busy=false; await loadDocs();
+  }catch(e){busy=false; message='Error cargando PDF: '+e.message; render();}
 }
 async function validateDoc(){
-  if(!selected) return;
-  const patch = await fetch(`${SUPABASE_URL}/rest/v1/documentos?id=eq.${selected.id}`, {method:'PATCH', headers:headers({'Content-Type':'application/json'}), body:JSON.stringify({estado:'Vigente', validado_por:'Administrador', ultima_revision:new Date().toISOString().slice(0,10)})});
-  if(!patch.ok) return showMsg('No se pudo validar. Falta política UPDATE en documentos.', true);
-  showMsg('Documento marcado como vigente.'); await loadDocs(); selected = docs.find(d=>d.id===selected.id); selectDoc(selected.id);
+  if(!selected) return; const c=calcStatus(selected); busy=true; message='Validando documento...'; render();
+  try{
+    const r=await fetch(`${SUPABASE_URL}/rest/v1/documentos?id=eq.${selected.id}`,{method:'PATCH',headers:{...headers,Prefer:'return=minimal'},body:JSON.stringify({estado:c.estado,dias_restantes:c.dias,alerta_activa:c.alerta,ultima_revision:new Date().toISOString().slice(0,10),validado_por:'Administrador',updated_at:new Date().toISOString()})});
+    if(!r.ok) throw new Error(await r.text());
+    await fetch(`${SUPABASE_URL}/rest/v1/historial_documentos`,{method:'POST',headers,body:JSON.stringify({documento_id:selected.id,accion:'Documento validado',usuario:'Administrador',comentario:`Estado calculado: ${c.estado}`})});
+    busy=false; message='Documento validado: '+c.estado; await loadDocs();
+  }catch(e){busy=false; message='Error validando: '+e.message; render();}
 }
-function exportCsv(){ const cols=['numero_indice','nombre','categoria','responsable','estado','archivo_nombre','archivo_url','observacion']; const csv=[cols.join(';')].concat(docs.map(d=>cols.map(c=>'"'+String(d[c]??'').replaceAll('"','""')+'"').join(';'))).join('\n'); const a=document.createElement('a'); a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv'})); a.download='indice_sec.csv'; a.click(); }
-$('q').oninput=render; $('status').onchange=render; $('refreshBtn').onclick=loadDocs; $('uploadBtn').onclick=uploadPdf; $('validateBtn').onclick=validateDoc; $('exportBtn').onclick=exportCsv; $('newBtn').onclick=()=>alert('Lo dejamos para mañana: crear documentos nuevos. Hoy cargamos PDF.');
-loadDocs();
+function filtered(){ return docs.filter(d=> normalize(`${d.numero_indice} ${d.nombre} ${d.categoria} ${d.responsable}`).includes(normalize(query)) && (filter==='Todos'||d.estado===filter));}
+function stats(){ const count=s=>docs.filter(d=>d.estado===s).length; const vig=count('Vigente'); return {total:docs.length,vig,por:count('Por vencer'),ven:count('Vencido'),nc:count('No cargado'),rev:count('En revisión'),cum:docs.length?Math.round((vig/docs.length)*100):0};}
+function login(){ logged=true; loadDocs(); }
+function renderLogin(){ $('app').innerHTML=`<div class="login"><div class="hero"><div class="pill">🛡️ Control documental para fiscalización</div><h1>Validador Documental SEC</h1><p>Índice digital para controlar documentación crítica, vencimientos, respaldos y estado de cumplimiento de la EDS antes de una fiscalización.</p></div><div class="login-card"><h2>Ingreso privado</h2><p class="muted">EDS 40098</p><input placeholder="Usuario"><input type="password" placeholder="Contraseña"><button class="btn" style="width:100%;padding:16px" onclick="window.login()">Ingresar al índice SEC</button><p class="muted" style="font-size:12px;margin-top:15px">Demo operativa conectada a Supabase. Login real queda para la siguiente etapa.</p></div></div>`; }
+function render(){ if(!logged) return renderLogin(); const s=stats(); const list=filtered(); $('app').innerHTML=`<header><div class="bar"><div class="brand"><div class="logo">✓</div><div><h1>Validador Documental SEC</h1><p>EDS 40098 · Carpeta digital de fiscalización</p></div></div><div><button class="btn secondary" onclick="window.loadDocs()">Actualizar</button></div></div></header><main><div class="stats"><div class="card stat"><span>Cumplimiento</span><strong>${s.cum}%</strong><small>Documentos vigentes</small></div><div class="card stat"><span>Total índice</span><strong>${s.total}</strong><small>Documentos</small></div><div class="card stat"><span>Vigentes</span><strong>${s.vig}</strong><small>Listos</small></div><div class="card stat"><span>Por vencer</span><strong>${s.por}</strong><small>Alerta activa</small></div><div class="card stat"><span>Vencidos</span><strong>${s.ven}</strong><small>Urgentes</small></div><div class="card stat"><span>No cargados</span><strong>${s.nc}</strong><small>Pendientes</small></div></div>${message?`<div class="alert ${message.includes('correctamente')||message.includes('validado')?'ok':message.includes('Subiendo')||message.includes('Validando')?'warn':''}">${message}</div>`:''}<div class="grid"><section class="card section"><div class="section-title"><div><h2>Índice documental</h2><p>Control por vencimiento, PDF y semáforo automático.</p></div></div><div class="filters"><input id="q" placeholder="Buscar documento" value="${query.replace(/"/g,'&quot;')}"><select id="f"><option>Todos</option>${['Vigente','Por vencer','Vencido','No cargado','En revisión','Pendiente'].map(x=>`<option ${filter===x?'selected':''}>${x}</option>`).join('')}</select></div><div class="table"><div class="thead"><div>N°</div><div>Documento</div><div>Categoría</div><div>Estado</div><div>Días</div></div>${list.map(d=>`<button class="row ${selected&&selected.id===d.id?'active':''}" onclick="window.selectDoc(${d.id})"><div><b>${d.numero_indice}</b></div><div><div class="doc-title">${d.nombre}</div><div class="doc-sub">Responsable: ${d.responsable||'-'}</div></div><div>${d.categoria}</div><div>${badge(d.estado)}</div><div>${d.dias===null?'-':d.dias}</div></button>`).join('')||'<div class="loading">Sin documentos para mostrar.</div>'}</div></section><aside class="card section detail">${selected?detailHtml(selected):'<div class="loading">Selecciona un documento.</div>'}</aside></div></main>`; $('q').oninput=e=>{query=e.target.value;render()}; $('f').onchange=e=>{filter=e.target.value;render()}; }
+function detailHtml(d){return `<div class="section-title"><div><p class="muted" style="font-weight:900;color:#0b4ea2">Ficha documental</p><h2>${d.nombre}</h2></div>${badge(d.estado)}</div><div class="info"><div class="box"><label>Categoría</label><strong>${d.categoria}</strong></div><div class="box"><label>Responsable</label><strong>${d.responsable||'-'}</strong></div><div class="box"><label>Vencimiento</label><strong>${d.fecha_vencimiento||'No definido'}</strong></div><div class="box"><label>Días restantes</label><strong>${d.dias===null?'Sin cálculo':d.dias}</strong></div><div class="box"><label>Alerta</label><strong>${d.alerta?'Activa':'Sin alerta'}</strong></div><div class="box"><label>Días alerta</label><strong>${d.dias_alerta||30}</strong></div></div><div class="box obs"><label>Archivo</label>${d.archivo_url?`<a class="link" href="${d.archivo_url}" target="_blank">Ver PDF: ${d.archivo_nombre||'documento'}</a>`:'<strong>No cargado</strong>'}</div><div class="box obs"><label>Observación</label>${d.observacion||'-'}</div>${d.alerta?`<div class="alert ${d.estado==='Por vencer'?'warn':''}">⚠️ Alerta: este documento está ${d.estado.toLowerCase()}${d.dias!==null?` (${d.dias} días restantes)`:''}.</div>`:''}<div class="upload"><h3>Cargar PDF para este documento</h3><div class="field"><label>Archivo PDF</label><input id="pdfFile" type="file" accept="application/pdf"></div><div class="field"><label>Fecha de vencimiento</label><input id="dueDate" type="date" value="${d.fecha_vencimiento||''}"></div><div class="field"><label>Días antes para alarma</label><input id="alertDays" type="number" min="1" value="${d.dias_alerta||30}"></div><div class="actions"><button class="btn" ${busy?'disabled':''} onclick="window.uploadPdf()">Cargar PDF</button><button class="btn dark" ${busy?'disabled':''} onclick="window.validateDoc()">Validar estado</button></div><p class="muted" style="font-size:12px">Regla: con PDF + fecha vigente queda Vigente; si faltan X días queda Por vencer; si pasó la fecha queda Vencido.</p></div>`}
+window.login=login; window.loadDocs=loadDocs; window.uploadPdf=uploadPdf; window.validateDoc=validateDoc; window.selectDoc=(id)=>{selected=docs.find(d=>d.id===id);render()}; render();
 </script>
 </body>
 </html>
