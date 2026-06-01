@@ -5,7 +5,6 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Validador Documental SEC - VTA No Abonada</title>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
   <style>
     :root{--blue:#0f4caa;--dark:#0f172a;--bg:#f1f5f9;--card:#fff;--muted:#64748b;--border:#e2e8f0;--green:#16a34a;--yellow:#ca8a04;--red:#dc2626;--cyan:#0284c7}
     *{box-sizing:border-box} body{margin:0;font-family:Arial,Helvetica,sans-serif;background:var(--bg);color:var(--dark)}
@@ -27,7 +26,7 @@
     <section id="sec" class="module hidden"><div class="card placeholder"><h2>Validador Documental SEC</h2><p>Este módulo se mantiene igual. No se modifica en esta actualización.</p></div></section>
     <section id="bitacora" class="module hidden"><div class="card placeholder"><h2>Bitácora Estación</h2><p>Este módulo se mantiene igual. No se modifica en esta actualización.</p></div></section>
     <section id="vta" class="module">
-      <div class="top"><div><h2>Ventas No Abonadas</h2><p>Control de requerimientos Llámenos, respaldos, avances y resolución COPEC.</p></div><div style="display:flex;gap:10px;flex-wrap:wrap"><button class="btn light" onclick="exportExcel()">⬇ Descargar Excel</button><button class="btn" onclick="openNewCase()">+ Nuevo requerimiento</button></div></div>
+      <div class="top"><div><h2>Ventas No Abonadas</h2><p>Control de requerimientos Llámenos, respaldos, avances y resolución COPEC.</p></div><button class="btn" onclick="openNewCase()">+ Nuevo requerimiento</button></div>
       <div class="notice">Cada modificación queda registrada con fecha y hora en el historial del caso. Eso es auditoría real, no memoria de WhatsApp.</div>
       <div class="grid stats">
         <div class="card stat"><small>Total casos</small><strong id="stTotal">0</strong></div>
@@ -35,16 +34,16 @@
         <div class="card stat"><small>Documentación</small><strong id="stDoc">0</strong></div>
         <div class="card stat"><small>Cerrados</small><strong id="stCerrados">0</strong></div>
       </div>
-      <div class="toolbar card"><input id="search" class="input" placeholder="Buscar por requerimiento, surtidor, folio DTE, conductor, atendedor, producto o detalle" oninput="renderCases()" style="flex:1;min-width:260px"><select id="stageFilter" onchange="renderCases()" style="max-width:250px"><option value="Todos">Todas las etapas</option><option>Ingresado</option><option>Documentación y respaldo</option><option>Aprobado</option><option>Rechazado</option></select><button class="btn light" onclick="loadCases()">Actualizar</button></div>
+      <div class="toolbar card"><input id="search" class="input" placeholder="Buscar por requerimiento, cliente, banco, boleta o detalle" oninput="renderCases()" style="flex:1;min-width:260px"><select id="stageFilter" onchange="renderCases()" style="max-width:250px"><option value="Todos">Todas las etapas</option><option>Ingresado</option><option>Documentación y respaldo</option><option>Aprobado</option><option>Rechazado</option></select><button class="btn light" onclick="loadCases()">Actualizar</button></div>
       <div class="split">
-        <div class="card"><h3>Listado de tickets</h3><div style="overflow:auto"><table class="table"><thead><tr><th>Req.</th><th>Fecha/Hora</th><th>Surtidor</th><th>Folio DTE</th><th>Monto</th><th>Conductor</th><th>Etapa</th><th>Acción</th></tr></thead><tbody id="casesBody"></tbody></table></div></div>
+        <div class="card"><h3>Listado de tickets</h3><div style="overflow:auto"><table class="table"><thead><tr><th>Req.</th><th>Fecha</th><th>Monto</th><th>Cliente/Banco</th><th>Etapa</th><th>Acción</th></tr></thead><tbody id="casesBody"></tbody></table></div></div>
         <div class="card" id="detailCard"><h3>Ficha del caso</h3><p class="placeholder">Selecciona un ticket para ver detalle, agregar respaldo o registrar progreso.</p></div>
       </div>
     </section>
   </main>
 </div>
 
-<div class="modal" id="caseModal"><div class="modal-box"><h3>Nuevo requerimiento VTA No Abonada</h3><div class="form-grid"><input id="mReq" class="input" placeholder="N° requerimiento Llámenos *"><input id="mSurtidor" class="input" placeholder="Surtidor"><input id="mFolioDte" class="input" placeholder="Folio DTE"><input id="mMonto" class="input" type="number" placeholder="Monto"><input id="mProducto" class="input" placeholder="Producto"><input id="mMedioPago" class="input" placeholder="Medio de pago"><input id="mFechaHora" class="input" type="datetime-local"><input id="mAtendedor" class="input" placeholder="Atendedor"><input id="mNombreConductor" class="input" placeholder="Nombre conductor"><input id="mRutConductor" class="input" placeholder="RUT conductor"><input id="mCorreoConductor" class="input" placeholder="Correo conductor"><input id="mCelularConductor" class="input" placeholder="Celular conductor"><input id="mUltimos4" class="input" maxlength="4" placeholder="4 últimos dígitos tarjeta"><textarea id="mDetalle" class="input full" placeholder="Detalle preliminar del caso"></textarea></div><div class="toolbar"><button class="btn green" onclick="createCase()">Crear caso</button><button class="btn light" onclick="closeModal('caseModal')">Cancelar</button></div></div></div>
+<div class="modal" id="caseModal"><div class="modal-box"><h3>Nuevo requerimiento VTA No Abonada</h3><div class="form-grid"><input id="mReq" class="input" placeholder="N° requerimiento Llámenos *"><input id="mFecha" class="input" type="date"><input id="mMonto" class="input" type="number" placeholder="Monto"><input id="mCliente" class="input" placeholder="Cliente"><input id="mBanco" class="input" placeholder="Banco"><input id="mBoleta" class="input" placeholder="Boleta / transacción"><input id="mCorreo" class="input full" placeholder="Correo respaldo"><textarea id="mDetalle" class="input full" placeholder="Detalle preliminar del caso"></textarea></div><div class="toolbar"><button class="btn green" onclick="createCase()">Crear caso</button><button class="btn light" onclick="closeModal('caseModal')">Cancelar</button></div></div></div>
 
 <div class="modal" id="progressModal"><div class="modal-box"><h3>Agregar avance / respaldo</h3><p id="progressCaseTitle" style="color:#64748b"></p><div class="form-grid"><select id="pEtapa" class="input"><option>Ingresado</option><option>Documentación y respaldo</option><option>Aprobado</option><option>Rechazado</option></select><input id="pUsuario" class="input" placeholder="Usuario / responsable"><input id="pTitulo" class="input full" placeholder="Título del avance *"><textarea id="pComentario" class="input full" placeholder="Comentario, respaldo o progreso del caso"></textarea><input id="pFile" class="input full" type="file" accept="application/pdf,image/*,.xlsx,.xls,.doc,.docx"></div><div class="toolbar"><button class="btn green" onclick="saveProgress()">Guardar avance</button><button class="btn light" onclick="closeModal('progressModal')">Cancelar</button></div></div></div>
 
@@ -60,100 +59,13 @@ function fmt(d){if(!d)return '-'; return new Date(d).toLocaleString('es-CL',{dat
 function openNewCase(){document.getElementById('caseModal').classList.add('open')}
 function closeModal(id){document.getElementById(id).classList.remove('open')}
 async function loadCases(){const {data,error}=await sb.from('ventas_no_abonadas').select('*').order('created_at',{ascending:false}); if(error){alert('Error cargando casos: '+error.message);return} cases=data||[]; renderCases(); if(selectedCase){const updated=cases.find(c=>c.id===selectedCase.id); if(updated) selectCase(updated.id)}}
-function renderCases(){const q=document.getElementById('search').value.toLowerCase(); const f=document.getElementById('stageFilter').value; let rows=cases.filter(c=>{const txt=`${c.requerimiento} ${c.surtidor||''} ${c.folio_dte||''} ${c.producto||''} ${c.medio_pago||''} ${c.atendedor||''} ${c.nombre_conductor||''} ${c.rut_conductor||''} ${c.correo_conductor||''} ${c.celular_conductor||''} ${c.ultimos4_tarjeta||''} ${c.detalle||''}`.toLowerCase(); return txt.includes(q)&&(f==='Todos'||c.etapa===f)}); document.getElementById('stTotal').textContent=cases.length; document.getElementById('stIngresado').textContent=cases.filter(c=>c.etapa==='Ingresado').length; document.getElementById('stDoc').textContent=cases.filter(c=>c.etapa==='Documentación y respaldo').length; document.getElementById('stCerrados').textContent=cases.filter(c=>['Aprobado','Rechazado'].includes(c.etapa)).length; document.getElementById('casesBody').innerHTML=rows.map(c=>`<tr><td><b>${c.requerimiento}</b></td><td>${c.fecha_hora?fmt(c.fecha_hora):'-'}<br><small>Ingreso: ${fmt(c.created_at)}</small></td><td>${c.surtidor||'-'}</td><td>${c.folio_dte||'-'}</td><td>${money(c.monto)}<br><small>${c.producto||''}</small></td><td>${c.nombre_conductor||'-'}<br><small>${c.rut_conductor||''}</small></td><td>${badge(c.etapa)}</td><td><button class="btn secondary" onclick="selectCase(${c.id})">Trabajar</button></td></tr>`).join('')||'<tr><td colspan="8">Sin casos registrados.</td></tr>'}
-async function createCase(){const req=document.getElementById('mReq').value.trim(); if(!req){alert('Ingresa el número de requerimiento');return} const payload={requerimiento:req,surtidor:document.getElementById('mSurtidor').value,folio_dte:document.getElementById('mFolioDte').value,monto:document.getElementById('mMonto').value||null,producto:document.getElementById('mProducto').value,medio_pago:document.getElementById('mMedioPago').value,fecha_hora:document.getElementById('mFechaHora').value||null,atendedor:document.getElementById('mAtendedor').value,nombre_conductor:document.getElementById('mNombreConductor').value,rut_conductor:document.getElementById('mRutConductor').value,correo_conductor:document.getElementById('mCorreoConductor').value,celular_conductor:document.getElementById('mCelularConductor').value,ultimos4_tarjeta:document.getElementById('mUltimos4').value,detalle:document.getElementById('mDetalle').value,etapa:'Ingresado',resolucion:'Pendiente'}; const {data,error}=await sb.from('ventas_no_abonadas').insert(payload).select().single(); if(error){alert('Error creando caso: '+error.message);return} await sb.from('historial_vta_no_abonada').insert({caso_id:data.id,accion:'Caso ingresado',etapa:'Ingresado',usuario:'Sistema',comentario:payload.detalle||'Ingreso inicial del requerimiento.'}); closeModal('caseModal'); document.querySelectorAll('#caseModal input,#caseModal textarea').forEach(x=>x.value=''); await 
-function exportExcel(){
-  const rows=cases.map(c=>({
-    'Requerimiento Llámenos':c.requerimiento||'',
-    'Etapa':c.etapa||'',
-    'Resolución':c.resolucion||'',
-    'Surtidor':c.surtidor||'',
-    'Folio DTE':c.folio_dte||'',
-    'Monto':c.monto||'',
-    'Producto':c.producto||'',
-    'Medio de pago':c.medio_pago||'',
-    'Fecha y hora venta':c.fecha_hora?new Date(c.fecha_hora).toLocaleString('es-CL'):'',
-    'Atendedor':c.atendedor||'',
-    'Nombre conductor':c.nombre_conductor||'',
-    'RUT conductor':c.rut_conductor||'',
-    'Correo conductor':c.correo_conductor||'',
-    'Celular conductor':c.celular_conductor||'',
-    '4 últimos dígitos tarjeta':c.ultimos4_tarjeta||'',
-    'Detalle':c.detalle||'',
-    'Último respaldo':c.archivo_url||'',
-    'Creado':c.created_at?new Date(c.created_at).toLocaleString('es-CL'):'',
-    'Última modificación':c.updated_at?new Date(c.updated_at).toLocaleString('es-CL'):''
-  }));
-  const ws=XLSX.utils.json_to_sheet(rows);
-  const wb=XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(wb,ws,'VTA No Abonada');
-  XLSX.writeFile(wb,'detalle_vta_no_abonada.xlsx');
-}
-
-loadCases(); selectCase(data.id)}
+function renderCases(){const q=document.getElementById('search').value.toLowerCase(); const f=document.getElementById('stageFilter').value; let rows=cases.filter(c=>{const txt=`${c.requerimiento} ${c.cliente||''} ${c.banco||''} ${c.boleta||''} ${c.detalle||''}`.toLowerCase(); return txt.includes(q)&&(f==='Todos'||c.etapa===f)}); document.getElementById('stTotal').textContent=cases.length; document.getElementById('stIngresado').textContent=cases.filter(c=>c.etapa==='Ingresado').length; document.getElementById('stDoc').textContent=cases.filter(c=>c.etapa==='Documentación y respaldo').length; document.getElementById('stCerrados').textContent=cases.filter(c=>['Aprobado','Rechazado'].includes(c.etapa)).length; document.getElementById('casesBody').innerHTML=rows.map(c=>`<tr><td><b>${c.requerimiento}</b></td><td>${c.fecha_caso||'-'}<br><small>${fmt(c.created_at)}</small></td><td>${money(c.monto)}</td><td>${c.cliente||'-'}<br><small>${c.banco||''}</small></td><td>${badge(c.etapa)}</td><td><button class="btn secondary" onclick="selectCase(${c.id})">Trabajar</button></td></tr>`).join('')||'<tr><td colspan="6">Sin casos registrados.</td></tr>'}
+async function createCase(){const req=document.getElementById('mReq').value.trim(); if(!req){alert('Ingresa el número de requerimiento');return} const payload={requerimiento:req,fecha_caso:document.getElementById('mFecha').value||null,monto:document.getElementById('mMonto').value||null,cliente:document.getElementById('mCliente').value,banco:document.getElementById('mBanco').value,boleta:document.getElementById('mBoleta').value,correo_respaldo:document.getElementById('mCorreo').value,detalle:document.getElementById('mDetalle').value,etapa:'Ingresado',resolucion:'Pendiente'}; const {data,error}=await sb.from('ventas_no_abonadas').insert(payload).select().single(); if(error){alert('Error creando caso: '+error.message);return} await sb.from('historial_vta_no_abonada').insert({caso_id:data.id,accion:'Caso ingresado',etapa:'Ingresado',usuario:'Sistema',comentario:payload.detalle||'Ingreso inicial del requerimiento.'}); closeModal('caseModal'); document.querySelectorAll('#caseModal input,#caseModal textarea').forEach(x=>x.value=''); await loadCases(); selectCase(data.id)}
 async function selectCase(id){selectedCase=cases.find(c=>c.id===id); if(!selectedCase)return; const {data,error}=await sb.from('historial_vta_no_abonada').select('*').eq('caso_id',id).order('created_at',{ascending:false}); history=error?[]:data||[]; renderDetail()}
-function renderDetail(){const c=selectedCase; document.getElementById('detailCard').innerHTML=`<div style="display:flex;justify-content:space-between;gap:10px;align-items:start"><div><h3>Requerimiento ${c.requerimiento}</h3><p style="color:#64748b;margin-top:-6px">Creado: ${fmt(c.created_at)} · Última modificación: ${fmt(c.updated_at)}</p></div>${badge(c.etapa)}</div><div class="grid" style="grid-template-columns:1fr 1fr;margin:12px 0"><div><small>Surtidor</small><br><b>${c.surtidor||'-'}</b></div><div><small>Folio DTE</small><br><b>${c.folio_dte||'-'}</b></div><div><small>Monto</small><br><b>${money(c.monto)}</b></div><div><small>Producto</small><br><b>${c.producto||'-'}</b></div><div><small>Medio de pago</small><br><b>${c.medio_pago||'-'}</b></div><div><small>Fecha y hora venta</small><br><b>${c.fecha_hora?fmt(c.fecha_hora):'-'}</b></div><div><small>Atendedor</small><br><b>${c.atendedor||'-'}</b></div><div><small>Nombre conductor</small><br><b>${c.nombre_conductor||'-'}</b></div><div><small>RUT conductor</small><br><b>${c.rut_conductor||'-'}</b></div><div><small>Correo conductor</small><br><b>${c.correo_conductor||'-'}</b></div><div><small>Celular conductor</small><br><b>${c.celular_conductor||'-'}</b></div><div><small>Últimos 4 tarjeta</small><br><b>${c.ultimos4_tarjeta||'-'}</b></div><div><small>Resolución</small><br><b>${c.resolucion||'Pendiente'}</b></div></div><p><b>Detalle:</b><br>${c.detalle||'-'}</p>${c.archivo_url?`<p><a href="${c.archivo_url}" target="_blank">Ver último respaldo cargado</a></p>`:''}<button class="btn" onclick="openProgress()">+ Agregar respaldo / progreso</button><hr style="border:0;border-top:1px solid #e2e8f0;margin:18px 0"><h3>Historial de auditoría</h3><div class="timeline">${history.map(h=>`<div class="item"><h4>${h.accion}</h4><small>${fmt(h.created_at)} · ${h.usuario||'Sin usuario'} · ${h.etapa||''}</small><p>${h.comentario||''}</p>${h.archivo_url?`<a href="${h.archivo_url}" target="_blank">Ver respaldo</a>`:''}</div>`).join('')||'<p style="color:#64748b">Sin avances registrados.</p>'}</div>`}
+function renderDetail(){const c=selectedCase; document.getElementById('detailCard').innerHTML=`<div style="display:flex;justify-content:space-between;gap:10px;align-items:start"><div><h3>Requerimiento ${c.requerimiento}</h3><p style="color:#64748b;margin-top:-6px">Creado: ${fmt(c.created_at)}</p></div>${badge(c.etapa)}</div><div class="grid" style="grid-template-columns:1fr 1fr;margin:12px 0"><div><small>Monto</small><br><b>${money(c.monto)}</b></div><div><small>Fecha caso</small><br><b>${c.fecha_caso||'-'}</b></div><div><small>Cliente</small><br><b>${c.cliente||'-'}</b></div><div><small>Banco</small><br><b>${c.banco||'-'}</b></div><div><small>Boleta/Transacción</small><br><b>${c.boleta||'-'}</b></div><div><small>Resolución</small><br><b>${c.resolucion||'Pendiente'}</b></div></div><p><b>Detalle:</b><br>${c.detalle||'-'}</p>${c.archivo_url?`<p><a href="${c.archivo_url}" target="_blank">Ver último respaldo cargado</a></p>`:''}<button class="btn" onclick="openProgress()">+ Agregar respaldo / progreso</button><hr style="border:0;border-top:1px solid #e2e8f0;margin:18px 0"><h3>Historial de auditoría</h3><div class="timeline">${history.map(h=>`<div class="item"><h4>${h.accion}</h4><small>${fmt(h.created_at)} · ${h.usuario||'Sin usuario'} · ${h.etapa||''}</small><p>${h.comentario||''}</p>${h.archivo_url?`<a href="${h.archivo_url}" target="_blank">Ver respaldo</a>`:''}</div>`).join('')||'<p style="color:#64748b">Sin avances registrados.</p>'}</div>`}
 function openProgress(){if(!selectedCase)return; document.getElementById('progressCaseTitle').textContent='Caso '+selectedCase.requerimiento; document.getElementById('pEtapa').value=selectedCase.etapa||'Ingresado'; document.getElementById('progressModal').classList.add('open')}
 async function saveProgress(){if(!selectedCase)return; const titulo=document.getElementById('pTitulo').value.trim(); if(!titulo){alert('Ingresa un título para el avance');return} const etapa=document.getElementById('pEtapa').value; const usuario=document.getElementById('pUsuario').value||'Usuario'; const comentario=document.getElementById('pComentario').value; const file=document.getElementById('pFile').files[0]; let archivo_url=null, archivo_nombre=null; if(file){const path=`vta-no-abonada/${selectedCase.requerimiento}/${Date.now()}-${file.name}`; const up=await sb.storage.from('documentos-sec').upload(path,file,{upsert:true}); if(up.error){alert('Error subiendo archivo: '+up.error.message);return} const pub=sb.storage.from('documentos-sec').getPublicUrl(path); archivo_url=pub.data.publicUrl; archivo_nombre=file.name}
- const resolucion = etapa==='Aprobado'?'Aprobado': etapa==='Rechazado'?'Rechazado': selectedCase.resolucion||'Pendiente'; const update={etapa, updated_at:new Date().toISOString(), resolucion}; if(archivo_url){update.archivo_url=archivo_url; update.archivo_nombre=archivo_nombre} const {error:upderr}=await sb.from('ventas_no_abonadas').update(update).eq('id',selectedCase.id); if(upderr){alert('Error actualizando caso: '+upderr.message);return} const {error:herr}=await sb.from('historial_vta_no_abonada').insert({caso_id:selectedCase.id,accion:titulo,etapa,usuario,comentario,archivo_url,archivo_nombre}); if(herr){alert('Caso actualizado, pero error guardando historial: '+herr.message);return} closeModal('progressModal'); ['pTitulo','pUsuario','pComentario'].forEach(id=>document.getElementById(id).value=''); document.getElementById('pFile').value=''; await 
-function exportExcel(){
-  const rows=cases.map(c=>({
-    'Requerimiento Llámenos':c.requerimiento||'',
-    'Etapa':c.etapa||'',
-    'Resolución':c.resolucion||'',
-    'Surtidor':c.surtidor||'',
-    'Folio DTE':c.folio_dte||'',
-    'Monto':c.monto||'',
-    'Producto':c.producto||'',
-    'Medio de pago':c.medio_pago||'',
-    'Fecha y hora venta':c.fecha_hora?new Date(c.fecha_hora).toLocaleString('es-CL'):'',
-    'Atendedor':c.atendedor||'',
-    'Nombre conductor':c.nombre_conductor||'',
-    'RUT conductor':c.rut_conductor||'',
-    'Correo conductor':c.correo_conductor||'',
-    'Celular conductor':c.celular_conductor||'',
-    '4 últimos dígitos tarjeta':c.ultimos4_tarjeta||'',
-    'Detalle':c.detalle||'',
-    'Último respaldo':c.archivo_url||'',
-    'Creado':c.created_at?new Date(c.created_at).toLocaleString('es-CL'):'',
-    'Última modificación':c.updated_at?new Date(c.updated_at).toLocaleString('es-CL'):''
-  }));
-  const ws=XLSX.utils.json_to_sheet(rows);
-  const wb=XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(wb,ws,'VTA No Abonada');
-  XLSX.writeFile(wb,'detalle_vta_no_abonada.xlsx');
-}
-
-loadCases(); selectCase(selectedCase.id)}
-
-function exportExcel(){
-  const rows=cases.map(c=>({
-    'Requerimiento Llámenos':c.requerimiento||'',
-    'Etapa':c.etapa||'',
-    'Resolución':c.resolucion||'',
-    'Surtidor':c.surtidor||'',
-    'Folio DTE':c.folio_dte||'',
-    'Monto':c.monto||'',
-    'Producto':c.producto||'',
-    'Medio de pago':c.medio_pago||'',
-    'Fecha y hora venta':c.fecha_hora?new Date(c.fecha_hora).toLocaleString('es-CL'):'',
-    'Atendedor':c.atendedor||'',
-    'Nombre conductor':c.nombre_conductor||'',
-    'RUT conductor':c.rut_conductor||'',
-    'Correo conductor':c.correo_conductor||'',
-    'Celular conductor':c.celular_conductor||'',
-    '4 últimos dígitos tarjeta':c.ultimos4_tarjeta||'',
-    'Detalle':c.detalle||'',
-    'Último respaldo':c.archivo_url||'',
-    'Creado':c.created_at?new Date(c.created_at).toLocaleString('es-CL'):'',
-    'Última modificación':c.updated_at?new Date(c.updated_at).toLocaleString('es-CL'):''
-  }));
-  const ws=XLSX.utils.json_to_sheet(rows);
-  const wb=XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(wb,ws,'VTA No Abonada');
-  XLSX.writeFile(wb,'detalle_vta_no_abonada.xlsx');
-}
-
+ const resolucion = etapa==='Aprobado'?'Aprobado': etapa==='Rechazado'?'Rechazado': selectedCase.resolucion||'Pendiente'; const update={etapa, updated_at:new Date().toISOString(), resolucion}; if(archivo_url){update.archivo_url=archivo_url; update.archivo_nombre=archivo_nombre} const {error:upderr}=await sb.from('ventas_no_abonadas').update(update).eq('id',selectedCase.id); if(upderr){alert('Error actualizando caso: '+upderr.message);return} const {error:herr}=await sb.from('historial_vta_no_abonada').insert({caso_id:selectedCase.id,accion:titulo,etapa,usuario,comentario,archivo_url,archivo_nombre}); if(herr){alert('Caso actualizado, pero error guardando historial: '+herr.message);return} closeModal('progressModal'); ['pTitulo','pUsuario','pComentario'].forEach(id=>document.getElementById(id).value=''); document.getElementById('pFile').value=''; await loadCases(); selectCase(selectedCase.id)}
 loadCases();
 </script>
 </body>
