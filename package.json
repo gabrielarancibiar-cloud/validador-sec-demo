@@ -1,1 +1,1 @@
-{"scripts":{"build":"mkdir -p dist && cp index.html dist/index.html","start":"npx serve dist"},"dependencies":{"@vercel/static-build":"latest","serve":"latest"},"devDependencies":{}}
+{"scripts":{"build":"mkdir -p dist && cp index.html dist/index.html"},"dependencies":{},"devDependencies":{}}
