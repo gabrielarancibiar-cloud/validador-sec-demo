@@ -4,9 +4,13 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>Centro de Control EDS 40098</title>
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2">setInterval(refreshTicketNotifications,60000);
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2">
+setInterval(()=>{try{if(currentUser&&document.getElementById('app')&&!document.getElementById('app').classList.contains('hidden')){loadTicketAt();}}catch(e){}},60000);
+
 </script>
-<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js">setInterval(refreshTicketNotifications,60000);
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js">
+setInterval(()=>{try{if(currentUser&&document.getElementById('app')&&!document.getElementById('app').classList.contains('hidden')){loadTicketAt();}}catch(e){}},60000);
+
 </script>
 <style>
 :root{
@@ -363,7 +367,7 @@ function isAdmin(){
   return currentUser && currentUser.rol==='admin';
 }
 
-function showModule(m){if(currentUser&&currentUser.rol==='desempeno'&&!(m==='at'||m==='ticketat')){m='at'}document.querySelectorAll('.section').forEach(s=>s.classList.remove('active'));document.getElementById(m).classList.add('active');document.querySelectorAll('.nav button').forEach(b=>b.classList.remove('active'));document.getElementById('nav-'+m).classList.add('active');if(m==='sec')loadDocuments();if(m==='bitacora')loadBitacora();if(m==='vna')loadVna();if(m==='at')loadDesempeno();if(m==='ticketat')loadTicketAt()}async function loadAll(){await loadDocuments();await loadBitacora();await loadVna();await loadDesempeno();await refreshTicketNotifications()}function fmt(d){if(!d)return '-';return new Date(d).toLocaleString('es-CL',{dateStyle:'short',timeStyle:'short'})}function money(v){return v?Number(v).toLocaleString('es-CL',{style:'currency',currency:'CLP'}):'-'}function badge(s){let c='b-pendiente';if(s==='Vigente')c='b-vigente';if(s==='Por vencer')c='b-vencer';if(s==='Vencido')c='b-vencido';if(s==='No cargado')c='b-nocargado';if(s==='En Proceso')c='b-revision';if(s==='Ingresado')c='b-ingresado';if(s==='Documentación y respaldo')c='b-doc';if(s==='Aprobado')c='b-aprobado';if(s==='Rechazado')c='b-rechazado';if(s==='Baja')c='b-baja';if(s==='Media')c='b-media';if(s==='Alta')c='b-alta';if(s==='Positiva')c='b-aprobado';if(s==='Negativa')c='b-rechazado';return `<span class="badge ${c}">${s||'Pendiente'}</span>`}function daysLeft(d){if(!d)return null;const a=new Date();a.setHours(0,0,0,0);const b=new Date(d);b.setHours(0,0,0,0);return Math.ceil((b-a)/86400000)}function calcStatus(d,alertDays,hasFile){if(!hasFile)return 'No cargado';if(!d)return 'En Proceso';const rest=daysLeft(d);if(rest<0)return 'Vencido';if(rest<=Number(alertDays||30))return 'Por vencer';return 'Vigente'}
+function showModule(m){if(currentUser&&currentUser.rol==='desempeno'&&!(m==='at'||m==='ticketat')){m='at'}document.querySelectorAll('.section').forEach(s=>s.classList.remove('active'));document.getElementById(m).classList.add('active');document.querySelectorAll('.nav button').forEach(b=>b.classList.remove('active'));document.getElementById('nav-'+m).classList.add('active');if(m==='sec')loadDocuments();if(m==='bitacora')loadBitacora();if(m==='vna')loadVna();if(m==='at')loadDesempeno();if(m==='ticketat')loadTicketAt()}async function loadAll(){await loadDocuments();await loadBitacora();await loadVna();await loadDesempeno()}function fmt(d){if(!d)return '-';return new Date(d).toLocaleString('es-CL',{dateStyle:'short',timeStyle:'short'})}function money(v){return v?Number(v).toLocaleString('es-CL',{style:'currency',currency:'CLP'}):'-'}function badge(s){let c='b-pendiente';if(s==='Vigente')c='b-vigente';if(s==='Por vencer')c='b-vencer';if(s==='Vencido')c='b-vencido';if(s==='No cargado')c='b-nocargado';if(s==='En Proceso')c='b-revision';if(s==='Ingresado')c='b-ingresado';if(s==='Documentación y respaldo')c='b-doc';if(s==='Aprobado')c='b-aprobado';if(s==='Rechazado')c='b-rechazado';if(s==='Baja')c='b-baja';if(s==='Media')c='b-media';if(s==='Alta')c='b-alta';if(s==='Positiva')c='b-aprobado';if(s==='Negativa')c='b-rechazado';return `<span class="badge ${c}">${s||'Pendiente'}</span>`}function daysLeft(d){if(!d)return null;const a=new Date();a.setHours(0,0,0,0);const b=new Date(d);b.setHours(0,0,0,0);return Math.ceil((b-a)/86400000)}function calcStatus(d,alertDays,hasFile){if(!hasFile)return 'No cargado';if(!d)return 'En Proceso';const rest=daysLeft(d);if(rest<0)return 'Vencido';if(rest<=Number(alertDays||30))return 'Por vencer';return 'Vigente'}
 async function loadDocuments(){const {data,error}=await client.from('documentos').select('*').order('numero_indice');if(error){docRows.innerHTML='<div class="notice error">Error cargando documentos: '+error.message+'</div>';return}docs=(data||[]).sort((a,b)=>{
   const parse=(v)=>String(v||'0').split('.').map(x=>parseInt(x,10)||0);
   const [a1,a2=0]=parse(a.numero_indice);
@@ -441,59 +445,6 @@ function safeFileName(name){
     .replace(/[^a-zA-Z0-9._-]/g,'_');
 }
 
-
-function getTicketSeenKey(){
-  return 'valepac_ticket_atendedor_last_seen';
-}
-
-function getTicketLastSeen(){
-  return localStorage.getItem(getTicketSeenKey()) || '1970-01-01T00:00:00.000Z';
-}
-
-function setTicketLastSeen(){
-  localStorage.setItem(getTicketSeenKey(), new Date().toISOString());
-}
-
-async function refreshTicketNotifications(){
-  if(!currentUser)return;
-  const lastSeen=getTicketLastSeen();
-  const {data,error}=await client
-    .from('tickets_atendedor')
-    .select('id,estado,updated_at,created_at,titulo')
-    .order('updated_at',{ascending:false});
-  if(error)return;
-  const rows=data||[];
-  ticketNotifCount=rows.filter(t=>{
-    const ref=t.updated_at||t.created_at;
-    return ref && new Date(ref)>new Date(lastSeen) && t.estado!=='Atendido';
-  }).length;
-  renderTicketNotificationVisual();
-}
-
-function renderTicketNotificationVisual(){
-  const badge=document.getElementById('ticketNotifBadge');
-  if(badge){
-    badge.textContent=ticketNotifCount;
-    badge.classList.toggle('hidden',ticketNotifCount<=0);
-    badge.classList.toggle('notif-pulse',ticketNotifCount>0);
-  }
-  const box=document.getElementById('ticketAlertBox');
-  const text=document.getElementById('ticketAlertText');
-  if(box&&text){
-    box.classList.toggle('show',ticketNotifCount>0);
-    text.textContent=ticketNotifCount>0
-      ? `Hay ${ticketNotifCount} ticket(s) nuevos o actualizados por revisar.`
-      : 'Sin nuevas actualizaciones.';
-  }
-}
-
-function markTicketNotificationsSeen(){
-  setTicketLastSeen();
-  ticketNotifCount=0;
-  renderTicketNotificationVisual();
-}
-
-
 function fillTicketWorkers(){
   if(!document.getElementById('ticketAtendedor'))return;
   ticketAtendedor.innerHTML='<option value="">Seleccionar atendedor</option>'+atendedores.filter(a=>(a.estado||'Activo')==='Activo').map(a=>`<option value="${a.id}">${a.nombre} · ${a.rut}</option>`).join('');
@@ -531,7 +482,7 @@ async function loadTicketAt(){
     return;
   }
   ticketsAt=data||[];
-  await refreshTicketNotifications();
+  computeTicketNotifications();
   if(!selectedTicketAt)selectedTicketAt=ticketsAt[0];
   if(selectedTicketAt) await loadTicketAtHist(selectedTicketAt.id);
   fillTicketWorkers();
@@ -554,6 +505,46 @@ function badgeTicketAt(s){
   return `<span class="badge ${c}">${s||'Ingresado'}</span>`;
 }
 
+
+function getTicketSeenKey(){
+  return 'valepac_ticket_atendedor_last_seen';
+}
+function getTicketLastSeen(){
+  return localStorage.getItem(getTicketSeenKey()) || '1970-01-01T00:00:00.000Z';
+}
+function setTicketLastSeen(){
+  localStorage.setItem(getTicketSeenKey(), new Date().toISOString());
+}
+function computeTicketNotifications(){
+  const lastSeen=new Date(getTicketLastSeen());
+  ticketNotifCount=(ticketsAt||[]).filter(t=>{
+    const ref=t.updated_at||t.created_at||t.fecha_solicitud;
+    return ref && new Date(ref)>lastSeen && t.estado!=='Atendido';
+  }).length;
+  renderTicketNotificationVisual();
+}
+function renderTicketNotificationVisual(){
+  const badge=document.getElementById('ticketNotifBadge');
+  if(badge){
+    badge.textContent=ticketNotifCount;
+    badge.classList.toggle('hidden',ticketNotifCount<=0);
+    badge.classList.toggle('notif-pulse',ticketNotifCount>0);
+  }
+  const box=document.getElementById('ticketAlertBox');
+  const text=document.getElementById('ticketAlertText');
+  if(box&&text){
+    box.classList.toggle('show',ticketNotifCount>0);
+    text.textContent=ticketNotifCount>0
+      ? `Hay ${ticketNotifCount} ticket(s) nuevos o actualizados por revisar.`
+      : 'Sin nuevas actualizaciones.';
+  }
+}
+function markTicketNotificationsSeen(){
+  setTicketLastSeen();
+  ticketNotifCount=0;
+  renderTicketNotificationVisual();
+}
+
 function renderTicketAt(){
   if(!document.getElementById('ticketRows'))return;
   const q=(ticketSearch?.value||'').toLowerCase();
@@ -561,7 +552,6 @@ function renderTicketAt(){
   const list=ticketsAt.filter(t=>(f==='Todos'||t.estado===f)&&`${t.titulo||''} ${t.tipo||''} ${t.estado||''} ${t.detalle||''} ${t.responsable||''} ${t.atendedores_nomina?.nombre||''} ${t.atendedores_nomina?.rut||''}`.toLowerCase().includes(q));
   ticketRows.innerHTML=list.map(t=>`<div class="row ${selectedTicketAt&&selectedTicketAt.id===t.id?'selected':''}" onclick="selectTicketAt(${t.id})"><div>${fmt(t.fecha_solicitud)}</div><div><div class="title">${t.atendedores_nomina?.nombre||'Atendedor no asignado'}</div><div class="sub">${t.titulo||'-'} · ${t.prioridad||'Normal'}</div></div><div>${t.tipo||'-'}</div><div>${badgeTicketAt(t.estado)}</div></div>`).join('')||'<div class="notice">Sin solicitudes registradas.</div>';
   renderTicketAtDetail();
-await refreshTicketNotifications();
 }
 
 async function selectTicketAt(id){
@@ -658,7 +648,6 @@ async function createTicketAt(){
   if(h)h.textContent='Ingresar solicitud';
   selectedTicketAt=data;
   await loadTicketAt();
-await refreshTicketNotifications();
 }
 
 async function quickTicketStatus(id,estado){
@@ -671,7 +660,6 @@ async function quickTicketStatus(id,estado){
   selectedTicketAt={...t,estado,updated_at:new Date().toISOString()};
   await loadTicketAt();
   await selectTicketAt(id);
-await refreshTicketNotifications();
 }
 
 async function addTicketComment(id){
@@ -807,6 +795,8 @@ async function exportVnaExcel(){
   XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(auditoria),'Auditoria completa');
   XLSX.writeFile(wb,'ventas_no_abonadas_con_historial.xlsx')
 }
-setInterval(refreshTicketNotifications,60000);
+
+setInterval(()=>{try{if(currentUser&&document.getElementById('app')&&!document.getElementById('app').classList.contains('hidden')){loadTicketAt();}}catch(e){}},60000);
+
 </script>
 </body></html>
