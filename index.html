@@ -4,8 +4,10 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>Centro de Control EDS 40098</title>
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2">setInterval(refreshTicketNotifications,60000);
+</script>
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js">setInterval(refreshTicketNotifications,60000);
+</script>
 <style>
 :root{
   --copec-red:#e30613;
@@ -166,6 +168,14 @@ body:before{
 .photo-modal-img{max-width:min(92vw,760px);max-height:82vh;border-radius:24px;object-fit:contain;background:white;box-shadow:0 30px 90px rgba(0,0,0,.35)}
 .photo-modal-box{background:transparent;border:0;box-shadow:none;text-align:center}
 .photo-modal-title{color:white;font-weight:950;margin:0 0 14px;text-shadow:0 2px 12px rgba(0,0,0,.4)}
+
+.notif-badge{display:inline-flex;align-items:center;justify-content:center;min-width:22px;height:22px;border-radius:999px;background:#dc2626;color:white;font-size:12px;font-weight:950;margin-left:8px;padding:0 7px;box-shadow:0 8px 18px rgba(220,38,38,.25)}
+.notif-pulse{animation:pulseNotif 1.5s infinite}
+@keyframes pulseNotif{0%{box-shadow:0 0 0 0 rgba(220,38,38,.45)}70%{box-shadow:0 0 0 9px rgba(220,38,38,0)}100%{box-shadow:0 0 0 0 rgba(220,38,38,0)}}
+.ticket-alert{display:none;margin-bottom:18px;border:1px solid #bfdbfe;background:linear-gradient(135deg,#eff6ff,#ffffff);border-radius:24px;padding:18px;box-shadow:0 18px 48px rgba(37,99,235,.10)}
+.ticket-alert.show{display:block}
+.ticket-alert h3{margin:0 0 6px;color:#0b2f5b}
+.ticket-alert p{margin:0;color:#64748b;font-weight:800}
 </style>
 </head>
 <body>
@@ -182,7 +192,7 @@ body:before{
     </div></div>
     <div class="menu-group"><button class="menu-trigger">Personas⌄</button><div class="dropdown">
       <button id="nav-at" onclick="showModule('at')">Desempeño AT</button>
-      <button id="nav-ticketat" onclick="showModule('ticketat')">Ticket Atendedor</button>
+      <button id="nav-ticketat" onclick="showModule('ticketat')">Ticket Atendedor <span id="ticketNotifBadge" class="notif-badge hidden">0</span></button>
     </div></div>
     <button type="button" onclick="exportVnaExcel()">Reportes</button>
     <button type="button">Ayuda</button>
@@ -202,6 +212,15 @@ body:before{
       <p>Solicitudes internas de atendedores: ropa, vacaciones, días de permiso, cambios de turno y otros requerimientos.</p>
     </div>
     <button class="primary" onclick="toggleTicketAtForm()">Nuevo ticket</button>
+  </div>
+
+  <div id="ticketAlertBox" class="ticket-alert">
+    <h3>🔔 Nuevas solicitudes o actualizaciones</h3>
+    <p id="ticketAlertText">Hay tickets pendientes de revisión.</p>
+    <div class="actions" style="margin-top:12px">
+      <button class="primary" onclick="markTicketNotificationsSeen()">Marcar como revisado</button>
+      <button class="secondary" onclick="loadTicketAt()">Actualizar</button>
+    </div>
   </div>
 
   <div id="ticketAtFormCard" class="card hidden">
@@ -344,7 +363,7 @@ function isAdmin(){
   return currentUser && currentUser.rol==='admin';
 }
 
-function showModule(m){if(currentUser&&currentUser.rol==='desempeno'&&!(m==='at'||m==='ticketat')){m='at'}document.querySelectorAll('.section').forEach(s=>s.classList.remove('active'));document.getElementById(m).classList.add('active');document.querySelectorAll('.nav button').forEach(b=>b.classList.remove('active'));document.getElementById('nav-'+m).classList.add('active');if(m==='sec')loadDocuments();if(m==='bitacora')loadBitacora();if(m==='vna')loadVna();if(m==='at')loadDesempeno();if(m==='ticketat')loadTicketAt()}async function loadAll(){await loadDocuments();await loadBitacora();await loadVna();await loadDesempeno()}function fmt(d){if(!d)return '-';return new Date(d).toLocaleString('es-CL',{dateStyle:'short',timeStyle:'short'})}function money(v){return v?Number(v).toLocaleString('es-CL',{style:'currency',currency:'CLP'}):'-'}function badge(s){let c='b-pendiente';if(s==='Vigente')c='b-vigente';if(s==='Por vencer')c='b-vencer';if(s==='Vencido')c='b-vencido';if(s==='No cargado')c='b-nocargado';if(s==='En Proceso')c='b-revision';if(s==='Ingresado')c='b-ingresado';if(s==='Documentación y respaldo')c='b-doc';if(s==='Aprobado')c='b-aprobado';if(s==='Rechazado')c='b-rechazado';if(s==='Baja')c='b-baja';if(s==='Media')c='b-media';if(s==='Alta')c='b-alta';if(s==='Positiva')c='b-aprobado';if(s==='Negativa')c='b-rechazado';return `<span class="badge ${c}">${s||'Pendiente'}</span>`}function daysLeft(d){if(!d)return null;const a=new Date();a.setHours(0,0,0,0);const b=new Date(d);b.setHours(0,0,0,0);return Math.ceil((b-a)/86400000)}function calcStatus(d,alertDays,hasFile){if(!hasFile)return 'No cargado';if(!d)return 'En Proceso';const rest=daysLeft(d);if(rest<0)return 'Vencido';if(rest<=Number(alertDays||30))return 'Por vencer';return 'Vigente'}
+function showModule(m){if(currentUser&&currentUser.rol==='desempeno'&&!(m==='at'||m==='ticketat')){m='at'}document.querySelectorAll('.section').forEach(s=>s.classList.remove('active'));document.getElementById(m).classList.add('active');document.querySelectorAll('.nav button').forEach(b=>b.classList.remove('active'));document.getElementById('nav-'+m).classList.add('active');if(m==='sec')loadDocuments();if(m==='bitacora')loadBitacora();if(m==='vna')loadVna();if(m==='at')loadDesempeno();if(m==='ticketat')loadTicketAt()}async function loadAll(){await loadDocuments();await loadBitacora();await loadVna();await loadDesempeno();await refreshTicketNotifications()}function fmt(d){if(!d)return '-';return new Date(d).toLocaleString('es-CL',{dateStyle:'short',timeStyle:'short'})}function money(v){return v?Number(v).toLocaleString('es-CL',{style:'currency',currency:'CLP'}):'-'}function badge(s){let c='b-pendiente';if(s==='Vigente')c='b-vigente';if(s==='Por vencer')c='b-vencer';if(s==='Vencido')c='b-vencido';if(s==='No cargado')c='b-nocargado';if(s==='En Proceso')c='b-revision';if(s==='Ingresado')c='b-ingresado';if(s==='Documentación y respaldo')c='b-doc';if(s==='Aprobado')c='b-aprobado';if(s==='Rechazado')c='b-rechazado';if(s==='Baja')c='b-baja';if(s==='Media')c='b-media';if(s==='Alta')c='b-alta';if(s==='Positiva')c='b-aprobado';if(s==='Negativa')c='b-rechazado';return `<span class="badge ${c}">${s||'Pendiente'}</span>`}function daysLeft(d){if(!d)return null;const a=new Date();a.setHours(0,0,0,0);const b=new Date(d);b.setHours(0,0,0,0);return Math.ceil((b-a)/86400000)}function calcStatus(d,alertDays,hasFile){if(!hasFile)return 'No cargado';if(!d)return 'En Proceso';const rest=daysLeft(d);if(rest<0)return 'Vencido';if(rest<=Number(alertDays||30))return 'Por vencer';return 'Vigente'}
 async function loadDocuments(){const {data,error}=await client.from('documentos').select('*').order('numero_indice');if(error){docRows.innerHTML='<div class="notice error">Error cargando documentos: '+error.message+'</div>';return}docs=(data||[]).sort((a,b)=>{
   const parse=(v)=>String(v||'0').split('.').map(x=>parseInt(x,10)||0);
   const [a1,a2=0]=parse(a.numero_indice);
@@ -422,6 +441,59 @@ function safeFileName(name){
     .replace(/[^a-zA-Z0-9._-]/g,'_');
 }
 
+
+function getTicketSeenKey(){
+  return 'valepac_ticket_atendedor_last_seen';
+}
+
+function getTicketLastSeen(){
+  return localStorage.getItem(getTicketSeenKey()) || '1970-01-01T00:00:00.000Z';
+}
+
+function setTicketLastSeen(){
+  localStorage.setItem(getTicketSeenKey(), new Date().toISOString());
+}
+
+async function refreshTicketNotifications(){
+  if(!currentUser)return;
+  const lastSeen=getTicketLastSeen();
+  const {data,error}=await client
+    .from('tickets_atendedor')
+    .select('id,estado,updated_at,created_at,titulo')
+    .order('updated_at',{ascending:false});
+  if(error)return;
+  const rows=data||[];
+  ticketNotifCount=rows.filter(t=>{
+    const ref=t.updated_at||t.created_at;
+    return ref && new Date(ref)>new Date(lastSeen) && t.estado!=='Atendido';
+  }).length;
+  renderTicketNotificationVisual();
+}
+
+function renderTicketNotificationVisual(){
+  const badge=document.getElementById('ticketNotifBadge');
+  if(badge){
+    badge.textContent=ticketNotifCount;
+    badge.classList.toggle('hidden',ticketNotifCount<=0);
+    badge.classList.toggle('notif-pulse',ticketNotifCount>0);
+  }
+  const box=document.getElementById('ticketAlertBox');
+  const text=document.getElementById('ticketAlertText');
+  if(box&&text){
+    box.classList.toggle('show',ticketNotifCount>0);
+    text.textContent=ticketNotifCount>0
+      ? `Hay ${ticketNotifCount} ticket(s) nuevos o actualizados por revisar.`
+      : 'Sin nuevas actualizaciones.';
+  }
+}
+
+function markTicketNotificationsSeen(){
+  setTicketLastSeen();
+  ticketNotifCount=0;
+  renderTicketNotificationVisual();
+}
+
+
 function fillTicketWorkers(){
   if(!document.getElementById('ticketAtendedor'))return;
   ticketAtendedor.innerHTML='<option value="">Seleccionar atendedor</option>'+atendedores.filter(a=>(a.estado||'Activo')==='Activo').map(a=>`<option value="${a.id}">${a.nombre} · ${a.rut}</option>`).join('');
@@ -459,6 +531,7 @@ async function loadTicketAt(){
     return;
   }
   ticketsAt=data||[];
+  await refreshTicketNotifications();
   if(!selectedTicketAt)selectedTicketAt=ticketsAt[0];
   if(selectedTicketAt) await loadTicketAtHist(selectedTicketAt.id);
   fillTicketWorkers();
@@ -488,6 +561,7 @@ function renderTicketAt(){
   const list=ticketsAt.filter(t=>(f==='Todos'||t.estado===f)&&`${t.titulo||''} ${t.tipo||''} ${t.estado||''} ${t.detalle||''} ${t.responsable||''} ${t.atendedores_nomina?.nombre||''} ${t.atendedores_nomina?.rut||''}`.toLowerCase().includes(q));
   ticketRows.innerHTML=list.map(t=>`<div class="row ${selectedTicketAt&&selectedTicketAt.id===t.id?'selected':''}" onclick="selectTicketAt(${t.id})"><div>${fmt(t.fecha_solicitud)}</div><div><div class="title">${t.atendedores_nomina?.nombre||'Atendedor no asignado'}</div><div class="sub">${t.titulo||'-'} · ${t.prioridad||'Normal'}</div></div><div>${t.tipo||'-'}</div><div>${badgeTicketAt(t.estado)}</div></div>`).join('')||'<div class="notice">Sin solicitudes registradas.</div>';
   renderTicketAtDetail();
+await refreshTicketNotifications();
 }
 
 async function selectTicketAt(id){
@@ -584,6 +658,7 @@ async function createTicketAt(){
   if(h)h.textContent='Ingresar solicitud';
   selectedTicketAt=data;
   await loadTicketAt();
+await refreshTicketNotifications();
 }
 
 async function quickTicketStatus(id,estado){
@@ -596,6 +671,7 @@ async function quickTicketStatus(id,estado){
   selectedTicketAt={...t,estado,updated_at:new Date().toISOString()};
   await loadTicketAt();
   await selectTicketAt(id);
+await refreshTicketNotifications();
 }
 
 async function addTicketComment(id){
@@ -654,6 +730,14 @@ function exportFichaAtPdf(id){const a=atendedores.find(x=>x.id===id);if(!a)retur
 .photo-modal-img{max-width:min(92vw,760px);max-height:82vh;border-radius:24px;object-fit:contain;background:white;box-shadow:0 30px 90px rgba(0,0,0,.35)}
 .photo-modal-box{background:transparent;border:0;box-shadow:none;text-align:center}
 .photo-modal-title{color:white;font-weight:950;margin:0 0 14px;text-shadow:0 2px 12px rgba(0,0,0,.4)}
+
+.notif-badge{display:inline-flex;align-items:center;justify-content:center;min-width:22px;height:22px;border-radius:999px;background:#dc2626;color:white;font-size:12px;font-weight:950;margin-left:8px;padding:0 7px;box-shadow:0 8px 18px rgba(220,38,38,.25)}
+.notif-pulse{animation:pulseNotif 1.5s infinite}
+@keyframes pulseNotif{0%{box-shadow:0 0 0 0 rgba(220,38,38,.45)}70%{box-shadow:0 0 0 9px rgba(220,38,38,0)}100%{box-shadow:0 0 0 0 rgba(220,38,38,0)}}
+.ticket-alert{display:none;margin-bottom:18px;border:1px solid #bfdbfe;background:linear-gradient(135deg,#eff6ff,#ffffff);border-radius:24px;padding:18px;box-shadow:0 18px 48px rgba(37,99,235,.10)}
+.ticket-alert.show{display:block}
+.ticket-alert h3{margin:0 0 6px;color:#0b2f5b}
+.ticket-alert p{margin:0;color:#64748b;font-weight:800}
 </style></head><body><div class="brand">VALEPAC · Centro de Control EDS 40098</div><h1>Ficha de trabajador</h1><div class="card grid"><div>${a.foto_url?`<img class="foto" src="${a.foto_url}">`:'<div class="foto" style="display:grid;place-items:center;background:#eef4fb">Sin foto</div>'}</div><div><h2 style="margin-top:0">${a.nombre||''}</h2><p><b>RUT:</b> ${a.rut||'-'}</p><p><b>Fecha ingreso EDS:</b> ${a.fecha_ingreso||'-'}</p><p><b>Creado en sistema:</b> ${fmt(a.created_at)}</p></div></div><div class="kpi"><div><b>Total anotaciones</b><br>${notas.length}</div><div><b>Positivas</b><br>${pos}</div><div><b>Negativas</b><br>${neg}</div></div><h2>Historial de anotaciones</h2><table><thead><tr><th>Fecha</th><th>Tipo</th><th>Responsable</th><th>Detalle / Acción</th></tr></thead><tbody>${filas}</tbody></table><div class="footer">Documento generado desde Centro de Control EDS 40098. Información sujeta a auditoría interna.</div><script>window.onload=()=>setTimeout(()=>window.print(),400)<\/script></body></html>`;const w=window.open('','','width=980,height=900');w.document.write(htmlPdf);w.document.close();}
 
 async function exportVnaExcel(){
@@ -723,5 +807,6 @@ async function exportVnaExcel(){
   XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(auditoria),'Auditoria completa');
   XLSX.writeFile(wb,'ventas_no_abonadas_con_historial.xlsx')
 }
+setInterval(refreshTicketNotifications,60000);
 </script>
 </body></html>
