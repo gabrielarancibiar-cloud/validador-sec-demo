@@ -180,6 +180,19 @@ body:before{
 .ticket-alert.show{display:block}
 .ticket-alert h3{margin:0 0 6px;color:#0b2f5b}
 .ticket-alert p{margin:0;color:#64748b;font-weight:800}
+
+/* Menu limpio: solo Operaciones y Personas */
+.portal-header .nav{
+  gap:22px;
+  justify-content:flex-start;
+}
+.portal-header .menu-group{
+  margin-right:8px;
+}
+.portal-header .dropdown{
+  min-width:340px;
+}
+
 </style>
 </head>
 <body>
@@ -198,8 +211,6 @@ body:before{
       <button id="nav-at" onclick="showModule('at')">Desempeño AT</button>
       <button id="nav-ticketat" onclick="showModule('ticketat')">Ticket Atendedor <span id="ticketNotifBadge" class="notif-badge hidden">0</span></button>
     </div></div>
-    <button type="button" onclick="exportVnaExcel()">Reportes</button>
-    <button type="button">Ayuda</button>
   </nav>
   <div class="header-icons"><div class="header-icon">⌕</div><div class="header-icon">👤</div><div class="header-icon">⚙</div></div>
 </header>
@@ -726,6 +737,19 @@ function exportFichaAtPdf(id){const a=atendedores.find(x=>x.id===id);if(!a)retur
 .ticket-alert.show{display:block}
 .ticket-alert h3{margin:0 0 6px;color:#0b2f5b}
 .ticket-alert p{margin:0;color:#64748b;font-weight:800}
+
+/* Menu limpio: solo Operaciones y Personas */
+.portal-header .nav{
+  gap:22px;
+  justify-content:flex-start;
+}
+.portal-header .menu-group{
+  margin-right:8px;
+}
+.portal-header .dropdown{
+  min-width:340px;
+}
+
 </style></head><body><div class="brand">VALEPAC · Centro de Control EDS 40098</div><h1>Ficha de trabajador</h1><div class="card grid"><div>${a.foto_url?`<img class="foto" src="${a.foto_url}">`:'<div class="foto" style="display:grid;place-items:center;background:#eef4fb">Sin foto</div>'}</div><div><h2 style="margin-top:0">${a.nombre||''}</h2><p><b>RUT:</b> ${a.rut||'-'}</p><p><b>Fecha ingreso EDS:</b> ${a.fecha_ingreso||'-'}</p><p><b>Creado en sistema:</b> ${fmt(a.created_at)}</p></div></div><div class="kpi"><div><b>Total anotaciones</b><br>${notas.length}</div><div><b>Positivas</b><br>${pos}</div><div><b>Negativas</b><br>${neg}</div></div><h2>Historial de anotaciones</h2><table><thead><tr><th>Fecha</th><th>Tipo</th><th>Responsable</th><th>Detalle / Acción</th></tr></thead><tbody>${filas}</tbody></table><div class="footer">Documento generado desde Centro de Control EDS 40098. Información sujeta a auditoría interna.</div><script>window.onload=()=>setTimeout(()=>window.print(),400)<\/script></body></html>`;const w=window.open('','','width=980,height=900');w.document.write(htmlPdf);w.document.close();}
 
 async function exportVnaExcel(){
