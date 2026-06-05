@@ -238,7 +238,7 @@ body:before{
       <textarea id="ticketDetalle" placeholder="Detalle de la solicitud"></textarea>
       <textarea id="ticketRespuesta" placeholder="Respuesta / avance / resolución"></textarea>
       <label>Archivo de respaldo</label>
-      <input id="ticketArchivo" type="file" accept=".pdf,image/*,.xlsx,.xls"/>
+      <input id="ticketArchivo" type="file" accept=".jpg,.jpeg,.png,.webp,.pdf,image/jpeg,image/png,image/webp,image/*,.xlsx,.xls"/>
     </div>
     <div class="actions">
       <button class="primary" onclick="createTicketAt()">Guardar ticket</button>
@@ -415,6 +415,13 @@ function closePhotoModal(){
 
 
 
+
+function safeFileName(name){
+  return String(name||'archivo')
+    .normalize('NFD').replace(/[\u0300-\u036f]/g,'')
+    .replace(/[^a-zA-Z0-9._-]/g,'_');
+}
+
 function fillTicketWorkers(){
   if(!document.getElementById('ticketAtendedor'))return;
   ticketAtendedor.innerHTML='<option value="">Seleccionar atendedor</option>'+atendedores.filter(a=>(a.estado||'Activo')==='Activo').map(a=>`<option value="${a.id}">${a.nombre} · ${a.rut}</option>`).join('');
@@ -511,7 +518,7 @@ function renderTicketAtDetail(){
   <div class="form">
     <input id="ticketHistAccion" placeholder="Título del avance o comentario"/>
     <textarea id="ticketHistComentario" placeholder="Comentario adicional. No borra el ticket original."></textarea>
-    <input id="ticketHistArchivo" type="file" accept=".pdf,image/*,.xlsx,.xls"/>
+    <input id="ticketHistArchivo" type="file" accept=".jpg,.jpeg,.png,.webp,.pdf,image/jpeg,image/png,image/webp,image/*,.xlsx,.xls"/>
     <button class="primary" onclick="addTicketComment(${t.id})">Agregar al historial</button>
     <div id="ticketHistMsg"></div>
   </div>
@@ -551,9 +558,9 @@ async function createTicketAt(){
   const file=ticketArchivo.files[0];
   const current=window.editandoTicketAt?ticketsAt.find(t=>t.id===window.editandoTicketAt):null;
   if(file){
-    const path=`ticket-atendedor/${trabajador_id}/${Date.now()}_${file.name}`;
+    const path=`ticket-atendedor/${trabajador_id}/${Date.now()}_${safeFileName(file.name)}`;
     const up=await client.storage.from(bucket).upload(path,file,{upsert:true});
-    if(up.error){ticketMsg.innerHTML='<div class="notice error">'+up.error.message+'</div>';return}
+    if(up.error){ticketMsg.innerHTML='<div class="notice error">No se pudo subir el archivo. Verifica que sea JPG, PNG, PDF o Excel. Detalle: '+up.error.message+'</div>';return}
     archivo_url=client.storage.from(bucket).getPublicUrl(path).data.publicUrl;
     archivo_nombre=file.name;
   }else if(current){
@@ -598,9 +605,9 @@ async function addTicketComment(id){
   let archivo_url=null,archivo_nombre=null;
   const file=ticketHistArchivo.files[0];
   if(file){
-    const path=`ticket-atendedor/historial/${id}/${Date.now()}_${file.name}`;
+    const path=`ticket-atendedor/historial/${id}/${Date.now()}_${safeFileName(file.name)}`;
     const up=await client.storage.from(bucket).upload(path,file,{upsert:true});
-    if(up.error){ticketHistMsg.innerHTML='<div class="notice error">'+up.error.message+'</div>';return}
+    if(up.error){ticketHistMsg.innerHTML='<div class="notice error">No se pudo subir el archivo. Verifica que sea JPG, PNG, PDF o Excel. Detalle: '+up.error.message+'</div>';return}
     archivo_url=client.storage.from(bucket).getPublicUrl(path).data.publicUrl;
     archivo_nombre=file.name;
   }
