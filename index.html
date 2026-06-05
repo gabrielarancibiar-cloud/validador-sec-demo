@@ -182,6 +182,7 @@ body:before{
     </div></div>
     <div class="menu-group"><button class="menu-trigger">Personas⌄</button><div class="dropdown">
       <button id="nav-at" onclick="showModule('at')">Desempeño AT</button>
+      <button id="nav-ticketat" onclick="showModule('ticketat')">Ticket Atendedor</button>
     </div></div>
     <button type="button" onclick="exportVnaExcel()">Reportes</button>
     <button type="button">Ayuda</button>
@@ -193,6 +194,84 @@ body:before{
 <section id="bitacora" class="section"><div class="topbar"><div><h1>Bitácora de la Estación</h1><p>Cronología de situaciones y eventos importantes para consulta futura.</p></div><button class="primary" onclick="toggleBitForm()">Nuevo evento</button></div><div id="bitFormCard" class="card hidden"><h2>Registrar evento</h2><div class="form two"><input id="bitFecha" type="datetime-local"/><input id="bitTitulo" placeholder="Título del evento"/><select id="bitCategoria"><option>Operación</option><option>Seguridad</option><option>Mantención</option><option>Cliente</option><option>Fiscalización</option><option>Personal</option><option>Otro</option></select><select id="bitGravedad"><option>Baja</option><option>Media</option><option>Alta</option></select><input id="bitResponsable" placeholder="Responsable"/><select id="bitEstado"><option>Abierto</option><option>En seguimiento</option><option>Cerrado</option></select></div><div class="form"><textarea id="bitDescripcion" placeholder="Descripción clara del evento"></textarea><textarea id="bitAcciones" placeholder="Acciones tomadas / decisiones / seguimiento"></textarea><input id="bitArchivo" type="file" accept=".pdf,image/*,.xlsx,.xls"/></div><div class="actions"><button class="primary" onclick="createBitacora()">Guardar evento</button><button class="secondary" onclick="toggleBitForm()">Cancelar</button></div><div id="bitMsg"></div></div><div class="grid content"><div class="card"><h2>Cronología</h2><div class="toolbar two"><input id="bitSearch" oninput="renderBitacora()" placeholder="Buscar en bitácora"/><select id="bitFilter" onchange="renderBitacora()"><option>Todos</option><option>Baja</option><option>Media</option><option>Alta</option></select></div><div class="table bit"><div class="thead"><div>Fecha</div><div>Evento</div><div>Gravedad</div><div>Estado</div></div><div id="bitRows"></div></div></div><div class="card detail" id="bitDetail"></div></div></section>
 <section id="vna" class="section"><div class="topbar"><div><h1>Ventas No Abonadas</h1><p>Control de requerimientos Llámenos, respaldos, avances y resolución VALEPAC.</p></div><div class="actions"><button class="light" onclick="exportVnaExcel()">⬇ Descargar Excel</button><button class="primary" onclick="toggleVnaForm()">Nuevo requerimiento</button></div></div><div id="vnaFormCard" class="card hidden"><h2>Ingresar ticket</h2><div class="form three"><input id="vnaReq" placeholder="N° requerimiento Llámenos"/><input id="vnaSurtidor" placeholder="Surtidor"/><input id="vnaFolioDte" placeholder="Folio DTE"/><input id="vnaMonto" type="number" placeholder="Monto"/><select id="vnaProducto"><option value="">Producto</option><option>Diesel</option><option>Gasolina 93</option><option>Gasolina 95</option><option>Gasolina 97</option><option>Bluemax</option><option>Otro</option></select><select id="vnaMedioPago"><option value="">Medio de pago</option><option>Débito</option><option>Crédito</option><option>App Copec</option><option>Transferencia</option><option>Otro</option></select><input id="vnaFechaHora" type="datetime-local"/><input id="vnaAtendedor" placeholder="Atendedor"/><input id="vnaNombreConductor" placeholder="Nombre conductor"/><input id="vnaRutConductor" placeholder="RUT conductor"/><input id="vnaCorreoConductor" placeholder="Correo conductor"/><input id="vnaCelularConductor" placeholder="Celular conductor"/><input id="vnaUltimos4" maxlength="4" placeholder="4 últimos dígitos tarjeta"/></div><div class="form"><textarea id="vnaDetalle" placeholder="Detalle inicial del caso"></textarea><label>Foto / respaldo inicial del vehículo</label><input id="vnaArchivoInicial" type="file" accept=".pdf,image/*,.xlsx,.xls"/></div><div class="actions"><button class="primary" onclick="createVna()">Guardar ticket</button><button class="secondary" onclick="toggleVnaForm()">Cancelar</button></div><div id="vnaMsg"></div></div><div class="grid content"><div class="card"><h2>Tickets</h2><div class="toolbar two"><input id="vnaSearch" oninput="renderVna()" placeholder="Buscar por requerimiento, folio, conductor, RUT, atendedor"/><select id="vnaFilter" onchange="renderVna()"><option>Todos</option><option>Ingresado</option><option>Documentación y respaldo</option><option>Aprobado</option><option>Rechazado</option></select></div><div class="table vna"><div class="thead"><div>Req.</div><div>Fecha/Hora</div><div>Conductor</div><div>Monto</div><div>Etapa</div></div><div id="vnaRows"></div></div></div><div class="card detail" id="vnaDetail"></div></div></section>
 <section id="at" class="section"><div class="topbar"><div><h1>Desempeño AT</h1><p>Historial de anotaciones positivas y negativas, gestionado por Jefe de Protocolo y Servicio.</p></div><div class="actions"><button class="secondary" onclick="openNomina()">👥 Nómina de atendedores</button><button class="primary" onclick="toggleAtNoteForm()">Nueva anotación</button></div></div><div class="mini-tabs"><button id="tabAtHist" class="active" onclick="showAtSub('historial')">Historial de desempeño</button><button id="tabAtNom" onclick="showAtSub('nomina')">Nómina de atendedores</button></div><div id="atHistorialView"><div id="atNoteFormCard" class="card hidden"><h2>Registrar anotación</h2><div class="form two"><select id="noteTrabajador"></select><select id="noteTipo"><option>Positiva</option><option>Negativa</option></select><input id="noteFecha" type="datetime-local"/><input id="noteResponsable" placeholder="Responsable: Jefe de Protocolo y Servicio"/><input id="noteTitulo" placeholder="Título de la anotación"/><select id="noteCategoria"><option>Protocolo de atención</option><option>Servicio al cliente</option><option>Presentación personal</option><option>Puntualidad</option><option>Trabajo en equipo</option><option>Seguridad</option><option>Operación</option><option>Otro</option></select></div><div class="form"><textarea id="noteDetalle" placeholder="Detalle objetivo de la situación"></textarea><textarea id="noteAccion" placeholder="Acción tomada / compromiso / seguimiento"></textarea><input id="noteArchivo" type="file" accept=".pdf,image/*,.xlsx,.xls"/></div><div class="actions"><button class="primary" onclick="createAtNote()">Guardar anotación</button><button class="secondary" onclick="toggleAtNoteForm()">Cancelar</button></div><div id="noteMsg"></div></div><div class="grid content"><div class="card"><h2>Anotaciones registradas</h2><div class="toolbar two"><input id="noteSearch" oninput="renderAtNotes()" placeholder="Buscar por trabajador, RUT, título o detalle"/><select id="noteFilter" onchange="renderAtNotes()"><option>Todos</option><option>Positiva</option><option>Negativa</option></select></div><div class="table atnote"><div class="thead"><div>Fecha</div><div>Trabajador / Anotación</div><div>Tipo</div><div>Responsable</div></div><div id="noteRows"></div></div></div><div class="card detail" id="noteDetail"><h2>Ficha de anotación</h2><p>Selecciona una anotación.</p></div></div></div><div id="atNominaView" class="hidden"><div class="topbar"><div><h2>Nómina de atendedores</h2><p>Ingreso y consulta de trabajadores: nombre, RUT, foto y fecha de ingreso a la EDS.</p></div><button class="primary" onclick="toggleAtForm()">Nuevo trabajador</button></div><div id="atFormCard" class="card hidden"><h2>Ingresar trabajador</h2><div class="form two"><input id="atNombre" placeholder="Nombre completo"/><input id="atRut" placeholder="RUT"/><input id="atFechaIngreso" type="date"/><input id="atFoto" type="file" accept="image/*"/></div><div class="actions"><button class="primary" onclick="createAtendedor()">Guardar trabajador</button><button class="secondary" onclick="resetAtForm();toggleAtForm()">Cancelar</button></div><div id="atMsg"></div></div><div class="grid content"><div class="card"><h2>Nómina</h2><div class="toolbar two"><input id="atSearch" oninput="renderAtendedores()" placeholder="Buscar por nombre o RUT"/><button class="secondary" onclick="loadAtendedores()">Actualizar</button></div><div class="table at"><div class="thead"><div>Foto</div><div>Nombre</div><div>RUT</div><div>Ingreso EDS</div><div>Acción</div></div><div id="atRows"></div></div></div><div class="card detail" id="atDetail"><h2>Ficha trabajador</h2><p>Selecciona un trabajador de la nómina.</p></div></div></div></section>
+
+<section id="ticketat" class="section">
+  <div class="topbar">
+    <div>
+      <h1>Ticket Atendedor</h1>
+      <p>Solicitudes internas de atendedores: ropa, vacaciones, días de permiso, cambios de turno y otros requerimientos.</p>
+    </div>
+    <button class="primary" onclick="toggleTicketAtForm()">Nuevo ticket</button>
+  </div>
+
+  <div id="ticketAtFormCard" class="card hidden">
+    <h2>Ingresar solicitud</h2>
+    <div class="form three">
+      <select id="ticketAtendedor"></select>
+      <select id="ticketTipo">
+        <option>Ropa / Uniforme</option>
+        <option>Vacaciones</option>
+        <option>Día de permiso</option>
+        <option>Cambio de turno</option>
+        <option>Certificado / Documento</option>
+        <option>Capacitación</option>
+        <option>Pago / remuneración</option>
+        <option>Otro</option>
+      </select>
+      <select id="ticketPrioridad">
+        <option>Normal</option>
+        <option>Alta</option>
+        <option>Urgente</option>
+      </select>
+      <input id="ticketFechaSolicitud" type="datetime-local"/>
+      <select id="ticketEstado">
+        <option>Ingresado</option>
+        <option>En revisión</option>
+        <option>Aprobado</option>
+        <option>Rechazado</option>
+        <option>Cerrado</option>
+      </select>
+      <input id="ticketResponsable" placeholder="Responsable gestión"/>
+    </div>
+    <div class="form">
+      <input id="ticketTitulo" placeholder="Título breve de la solicitud"/>
+      <textarea id="ticketDetalle" placeholder="Detalle de la solicitud"></textarea>
+      <textarea id="ticketRespuesta" placeholder="Respuesta / avance / resolución"></textarea>
+      <label>Archivo de respaldo</label>
+      <input id="ticketArchivo" type="file" accept=".pdf,image/*,.xlsx,.xls"/>
+    </div>
+    <div class="actions">
+      <button class="primary" onclick="createTicketAt()">Guardar ticket</button>
+      <button class="secondary" onclick="resetTicketAtForm();toggleTicketAtForm()">Cancelar</button>
+    </div>
+    <div id="ticketMsg"></div>
+  </div>
+
+  <div class="grid content">
+    <div class="card">
+      <h2>Solicitudes registradas</h2>
+      <div class="toolbar two">
+        <input id="ticketSearch" oninput="renderTicketAt()" placeholder="Buscar por atendedor, tipo, título o estado"/>
+        <select id="ticketFilter" onchange="renderTicketAt()">
+          <option>Todos</option>
+          <option>Ingresado</option>
+          <option>En revisión</option>
+          <option>Aprobado</option>
+          <option>Rechazado</option>
+          <option>Cerrado</option>
+        </select>
+      </div>
+      <div class="table atnote">
+        <div class="thead"><div>Fecha</div><div>Atendedor / Solicitud</div><div>Tipo</div><div>Estado</div></div>
+        <div id="ticketRows"></div>
+      </div>
+    </div>
+    <div class="card detail" id="ticketDetail">
+      <h2>Ficha de solicitud</h2>
+      <p>Selecciona un ticket.</p>
+    </div>
+  </div>
+</section>
 
 </main></div>
 
@@ -211,7 +290,7 @@ body:before{
 <script>
 const SUPABASE_URL='https://emyskqnsyspzjrguycjk.supabase.co';
 const SUPABASE_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVteXNrcW5zeXNwempyZ3V5Y2prIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzk5MDg5NDcsImV4cCI6MjA5NTQ4NDk0N30.bLCSwgLCop1Gg4rCbunFe4YCP_KHxIIFGF28vR0XD-0';
-const client=supabase.createClient(SUPABASE_URL,SUPABASE_KEY);const bucket='documentos-sec';let docs=[],bits=[],vnas=[],history=[],atendedores=[],atNotes=[],selectedDoc=null,selectedBit=null,selectedVna=null,selectedAt=null,selectedNote=null,editandoAtendedor=null,currentUser=null;
+const client=supabase.createClient(SUPABASE_URL,SUPABASE_KEY);const bucket='documentos-sec';let docs=[],bits=[],vnas=[],history=[],atendedores=[],atNotes=[],ticketsAt=[],selectedDoc=null,selectedBit=null,selectedVna=null,selectedAt=null,selectedNote=null,selectedTicketAt=null,editandoAtendedor=null,currentUser=null;
 function loginApp(){
   const u=(loginUser.value||'').trim().toLowerCase();
   const p=(loginPass.value||'').trim();
@@ -265,7 +344,7 @@ function isAdmin(){
   return currentUser && currentUser.rol==='admin';
 }
 
-function showModule(m){if(currentUser&&currentUser.rol==='desempeno'&&m!=='at'){m='at'}document.querySelectorAll('.section').forEach(s=>s.classList.remove('active'));document.getElementById(m).classList.add('active');document.querySelectorAll('.nav button').forEach(b=>b.classList.remove('active'));document.getElementById('nav-'+m).classList.add('active');if(m==='sec')loadDocuments();if(m==='bitacora')loadBitacora();if(m==='vna')loadVna();if(m==='at')loadDesempeno()}async function loadAll(){await loadDocuments();await loadBitacora();await loadVna();await loadDesempeno()}function fmt(d){if(!d)return '-';return new Date(d).toLocaleString('es-CL',{dateStyle:'short',timeStyle:'short'})}function money(v){return v?Number(v).toLocaleString('es-CL',{style:'currency',currency:'CLP'}):'-'}function badge(s){let c='b-pendiente';if(s==='Vigente')c='b-vigente';if(s==='Por vencer')c='b-vencer';if(s==='Vencido')c='b-vencido';if(s==='No cargado')c='b-nocargado';if(s==='En revisión')c='b-revision';if(s==='Ingresado')c='b-ingresado';if(s==='Documentación y respaldo')c='b-doc';if(s==='Aprobado')c='b-aprobado';if(s==='Rechazado')c='b-rechazado';if(s==='Baja')c='b-baja';if(s==='Media')c='b-media';if(s==='Alta')c='b-alta';if(s==='Positiva')c='b-aprobado';if(s==='Negativa')c='b-rechazado';return `<span class="badge ${c}">${s||'Pendiente'}</span>`}function daysLeft(d){if(!d)return null;const a=new Date();a.setHours(0,0,0,0);const b=new Date(d);b.setHours(0,0,0,0);return Math.ceil((b-a)/86400000)}function calcStatus(d,alertDays,hasFile){if(!hasFile)return 'No cargado';if(!d)return 'En revisión';const rest=daysLeft(d);if(rest<0)return 'Vencido';if(rest<=Number(alertDays||30))return 'Por vencer';return 'Vigente'}
+function showModule(m){if(currentUser&&currentUser.rol==='desempeno'&&!(m==='at'||m==='ticketat')){m='at'}document.querySelectorAll('.section').forEach(s=>s.classList.remove('active'));document.getElementById(m).classList.add('active');document.querySelectorAll('.nav button').forEach(b=>b.classList.remove('active'));document.getElementById('nav-'+m).classList.add('active');if(m==='sec')loadDocuments();if(m==='bitacora')loadBitacora();if(m==='vna')loadVna();if(m==='at')loadDesempeno();if(m==='ticketat')loadTicketAt()}async function loadAll(){await loadDocuments();await loadBitacora();await loadVna();await loadDesempeno()}function fmt(d){if(!d)return '-';return new Date(d).toLocaleString('es-CL',{dateStyle:'short',timeStyle:'short'})}function money(v){return v?Number(v).toLocaleString('es-CL',{style:'currency',currency:'CLP'}):'-'}function badge(s){let c='b-pendiente';if(s==='Vigente')c='b-vigente';if(s==='Por vencer')c='b-vencer';if(s==='Vencido')c='b-vencido';if(s==='No cargado')c='b-nocargado';if(s==='En revisión')c='b-revision';if(s==='Ingresado')c='b-ingresado';if(s==='Documentación y respaldo')c='b-doc';if(s==='Aprobado')c='b-aprobado';if(s==='Rechazado')c='b-rechazado';if(s==='Baja')c='b-baja';if(s==='Media')c='b-media';if(s==='Alta')c='b-alta';if(s==='Positiva')c='b-aprobado';if(s==='Negativa')c='b-rechazado';return `<span class="badge ${c}">${s||'Pendiente'}</span>`}function daysLeft(d){if(!d)return null;const a=new Date();a.setHours(0,0,0,0);const b=new Date(d);b.setHours(0,0,0,0);return Math.ceil((b-a)/86400000)}function calcStatus(d,alertDays,hasFile){if(!hasFile)return 'No cargado';if(!d)return 'En revisión';const rest=daysLeft(d);if(rest<0)return 'Vencido';if(rest<=Number(alertDays||30))return 'Por vencer';return 'Vigente'}
 async function loadDocuments(){const {data,error}=await client.from('documentos').select('*').order('numero_indice');if(error){docRows.innerHTML='<div class="notice error">Error cargando documentos: '+error.message+'</div>';return}docs=(data||[]).sort((a,b)=>{
   const parse=(v)=>String(v||'0').split('.').map(x=>parseInt(x,10)||0);
   const [a1,a2=0]=parse(a.numero_indice);
@@ -333,6 +412,131 @@ function closePhotoModal(){
   photoModalImg.src='';
 }
 
+
+
+function fillTicketWorkers(){
+  if(!document.getElementById('ticketAtendedor'))return;
+  ticketAtendedor.innerHTML='<option value="">Seleccionar atendedor</option>'+atendedores.filter(a=>(a.estado||'Activo')==='Activo').map(a=>`<option value="${a.id}">${a.nombre} · ${a.rut}</option>`).join('');
+}
+
+function resetTicketAtForm(){
+  fillTicketWorkers();
+  ticketAtendedor.value='';
+  ticketTipo.value='Ropa / Uniforme';
+  ticketPrioridad.value='Normal';
+  ticketFechaSolicitud.value='';
+  ticketEstado.value='Ingresado';
+  ticketResponsable.value=currentUser?.nombre||'';
+  ticketTitulo.value='';
+  ticketDetalle.value='';
+  ticketRespuesta.value='';
+  ticketArchivo.value='';
+  ticketMsg.innerHTML='';
+  window.editandoTicketAt=null;
+  const h=ticketAtFormCard.querySelector('h2');
+  if(h)h.textContent='Ingresar solicitud';
+}
+
+function toggleTicketAtForm(){
+  const opening=ticketAtFormCard.classList.contains('hidden');
+  if(opening)resetTicketAtForm();
+  ticketAtFormCard.classList.toggle('hidden');
+}
+
+async function loadTicketAt(){
+  await loadAtendedores();
+  const {data,error}=await client.from('tickets_atendedor').select('*, atendedores_nomina(nombre,rut,foto_url)').order('fecha_solicitud',{ascending:false});
+  if(error){
+    ticketRows.innerHTML='<div class="notice error">Error cargando Ticket Atendedor: '+error.message+'</div>';
+    return;
+  }
+  ticketsAt=data||[];
+  if(!selectedTicketAt)selectedTicketAt=ticketsAt[0];
+  fillTicketWorkers();
+  renderTicketAt();
+}
+
+function badgeTicketAt(s){
+  let c='b-ingresado';
+  if(s==='En revisión')c='b-revision';
+  if(s==='Aprobado')c='b-aprobado';
+  if(s==='Rechazado')c='b-rechazado';
+  if(s==='Cerrado')c='b-pendiente';
+  return `<span class="badge ${c}">${s||'Ingresado'}</span>`;
+}
+
+function renderTicketAt(){
+  if(!document.getElementById('ticketRows'))return;
+  const q=(ticketSearch?.value||'').toLowerCase();
+  const f=(ticketFilter?.value||'Todos');
+  const list=ticketsAt.filter(t=>(f==='Todos'||t.estado===f)&&`${t.titulo||''} ${t.tipo||''} ${t.estado||''} ${t.detalle||''} ${t.responsable||''} ${t.atendedores_nomina?.nombre||''} ${t.atendedores_nomina?.rut||''}`.toLowerCase().includes(q));
+  ticketRows.innerHTML=list.map(t=>`<div class="row ${selectedTicketAt&&selectedTicketAt.id===t.id?'selected':''}" onclick="selectTicketAt(${t.id})"><div>${fmt(t.fecha_solicitud)}</div><div><div class="title">${t.atendedores_nomina?.nombre||'Atendedor no asignado'}</div><div class="sub">${t.titulo||'-'} · ${t.prioridad||'Normal'}</div></div><div>${t.tipo||'-'}</div><div>${badgeTicketAt(t.estado)}</div></div>`).join('')||'<div class="notice">Sin solicitudes registradas.</div>';
+  renderTicketAtDetail();
+}
+
+function selectTicketAt(id){
+  selectedTicketAt=ticketsAt.find(t=>t.id===id);
+  renderTicketAt();
+}
+
+function renderTicketAtDetail(){
+  const t=selectedTicketAt;
+  if(!t){ticketDetail.innerHTML='<h2>Ficha de solicitud</h2><p>Selecciona un ticket.</p>';return}
+  ticketDetail.innerHTML=`<h2>${t.titulo||'Solicitud'}</h2>${badgeTicketAt(t.estado)}<div class="kv"><small>Atendedor</small>${t.atendedores_nomina?.nombre||'-'} · ${t.atendedores_nomina?.rut||'-'}</div><div class="kv"><small>Tipo / Prioridad</small>${t.tipo||'-'} · ${t.prioridad||'Normal'}</div><div class="kv"><small>Fecha solicitud</small>${fmt(t.fecha_solicitud)}</div><div class="kv"><small>Responsable gestión</small>${t.responsable||'-'}</div><div class="kv"><small>Detalle</small>${t.detalle||'-'}</div><div class="kv"><small>Respuesta / avance / resolución</small>${t.respuesta||'-'}</div><div class="kv"><small>Archivo</small>${t.archivo_url?`<a href="${t.archivo_url}" target="_blank">Ver respaldo</a>`:'Sin archivo'}</div><div class="actions"><button class="secondary" onclick="editTicketAt(${t.id})">Editar / actualizar</button></div><div class="notice">Última modificación: ${fmt(t.updated_at||t.created_at)}</div>`;
+}
+
+function editTicketAt(id){
+  const t=ticketsAt.find(x=>x.id===id);
+  if(!t)return;
+  fillTicketWorkers();
+  ticketAtendedor.value=t.trabajador_id||'';
+  ticketTipo.value=t.tipo||'Otro';
+  ticketPrioridad.value=t.prioridad||'Normal';
+  ticketFechaSolicitud.value=t.fecha_solicitud?String(t.fecha_solicitud).slice(0,16):'';
+  ticketEstado.value=t.estado||'Ingresado';
+  ticketResponsable.value=t.responsable||currentUser?.nombre||'';
+  ticketTitulo.value=t.titulo||'';
+  ticketDetalle.value=t.detalle||'';
+  ticketRespuesta.value=t.respuesta||'';
+  ticketArchivo.value='';
+  ticketAtFormCard.classList.remove('hidden');
+  window.editandoTicketAt=id;
+  const h=ticketAtFormCard.querySelector('h2');
+  if(h)h.textContent='Editar solicitud';
+  ticketAtFormCard.scrollIntoView({behavior:'smooth',block:'start'});
+}
+
+async function createTicketAt(){
+  const trabajador_id=ticketAtendedor.value||null;
+  const titulo=ticketTitulo.value.trim();
+  if(!trabajador_id||!titulo){ticketMsg.innerHTML='<div class="notice error">Falta atendedor o título.</div>';return}
+  let archivo_url=null,archivo_nombre=null;
+  const file=ticketArchivo.files[0];
+  const current=window.editandoTicketAt?ticketsAt.find(t=>t.id===window.editandoTicketAt):null;
+  if(file){
+    const path=`ticket-atendedor/${trabajador_id}/${Date.now()}_${file.name}`;
+    const up=await client.storage.from(bucket).upload(path,file,{upsert:true});
+    if(up.error){ticketMsg.innerHTML='<div class="notice error">'+up.error.message+'</div>';return}
+    archivo_url=client.storage.from(bucket).getPublicUrl(path).data.publicUrl;
+    archivo_nombre=file.name;
+  }else if(current){
+    archivo_url=current.archivo_url||null;
+    archivo_nombre=current.archivo_nombre||null;
+  }
+  const payload={trabajador_id,tipo:ticketTipo.value,prioridad:ticketPrioridad.value,fecha_solicitud:ticketFechaSolicitud.value||new Date().toISOString(),estado:ticketEstado.value,responsable:ticketResponsable.value||currentUser?.nombre||'',titulo,detalle:ticketDetalle.value,respuesta:ticketRespuesta.value,archivo_url,archivo_nombre,updated_at:new Date().toISOString()};
+  let error;
+  if(window.editandoTicketAt){
+    ({error}=await client.from('tickets_atendedor').update(payload).eq('id',window.editandoTicketAt));
+  }else{
+    ({error}=await client.from('tickets_atendedor').insert(payload));
+  }
+  if(error){ticketMsg.innerHTML='<div class="notice error">'+error.message+'</div>';return}
+  ticketMsg.innerHTML='<div class="notice ok">Ticket guardado correctamente.</div>';
+  window.editandoTicketAt=null;
+  const h=ticketAtFormCard.querySelector('h2');
+  if(h)h.textContent='Ingresar solicitud';
+  await loadTicketAt();
+}
 
 async function toggleEstadoAtendedor(id){
   if(!isAdmin()){alert('Solo el administrador puede desactivar o reactivar trabajadores.');return}
