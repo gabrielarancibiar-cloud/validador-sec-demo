@@ -5,6 +5,34 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>Centro de Control EDS 40098</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2">
+
+function roleLabel(){
+  const r=String(currentUser?.rol||'Usuario');
+  if(r.toLowerCase()==='admin')return 'Administrador';
+  return r.charAt(0).toUpperCase()+r.slice(1);
+}
+function updateSessionVisual(){
+  const name=currentUser?.nombre||currentUser?.usuario||'Usuario';
+  const rol=roleLabel();
+  ['sessionUserName','dashUserName'].forEach(id=>{const el=document.getElementById(id);if(el)el.textContent=name});
+  ['sessionUserRole','dashUserRole'].forEach(id=>{const el=document.getElementById(id);if(el)el.textContent=rol});
+}
+async function loadDashboard(){
+  try{updateSessionVisual()}catch(e){}
+  try{
+    const [d,b,v,t]=await Promise.all([
+      client.from('documentos').select('id',{count:'exact',head:true}),
+      client.from('bitacora_eventos').select('id',{count:'exact',head:true}),
+      client.from('ventas_no_abonadas').select('id',{count:'exact',head:true}),
+      client.from('tickets_atendedor').select('id',{count:'exact',head:true})
+    ]);
+    if(document.getElementById('dashDocs'))dashDocs.textContent=d.count??0;
+    if(document.getElementById('dashBits'))dashBits.textContent=b.count??0;
+    if(document.getElementById('dashVna'))dashVna.textContent=v.count??0;
+    if(document.getElementById('dashTickets'))dashTickets.textContent=t.count??0;
+  }catch(e){}
+}
+
 setInterval(()=>{try{if(currentUser&&document.getElementById('app')&&!document.getElementById('app').classList.contains('hidden')){loadTicketAt();}}catch(e){}},60000);
 
 /* RECUPERACION LOGIN ESTABLE */
@@ -22,6 +50,8 @@ function applyModulePermissions(){
     ['nav-bitacora','bitacora'],
     ['nav-vna','vna'],
     ['nav-at','desempeno'],
+    ['nav-nomina','nomina'],
+    ['nav-historial','historial_anotaciones'],
     ['nav-ticketat','ticket_atendedor'],
     ['nav-usuarios','usuarios']
   ];
@@ -69,6 +99,8 @@ function applyModulePermissions(){
     ['nav-bitacora','bitacora'],
     ['nav-vna','vna'],
     ['nav-at','desempeno'],
+    ['nav-nomina','nomina'],
+    ['nav-historial','historial_anotaciones'],
     ['nav-ticketat','ticket_atendedor'],
     ['nav-usuarios','usuarios']
   ];
@@ -272,36 +304,85 @@ body:before{
   min-width:340px;
 }
 
+
+
+/* ===============================
+   VALEPAC Dashboard limpio 2026
+   Capa visual sin cambiar backend
+================================ */
+.valepac-top{height:118px;align-items:center;justify-content:space-between;padding:24px 34px;background:rgba(255,255,255,.96);box-shadow:0 8px 28px rgba(15,23,42,.06);border-bottom:1px solid rgba(148,163,184,.18)}
+.brand-zone{display:flex;align-items:center;gap:26px}.brand-zone .portal-logo{font-size:43px;font-weight:950;color:#e30613;background:none;-webkit-text-fill-color:#e30613;letter-spacing:.5px}.brand-zone .portal-title{font-size:29px;color:#062b63;border-left:1px solid #6b8fbd;border-right:0;padding-left:24px;line-height:1.08}.brand-zone .portal-title small{font-size:16px;color:#6b7280;margin-top:10px}.session-zone{display:flex;align-items:center;gap:18px}.session-user{text-align:right;color:#062b63}.session-user strong{display:block;font-size:16px;font-weight:950}.session-user span{display:block;color:#6b7280;font-weight:800;margin-top:3px}.logout-btn{height:44px;border:1px solid #2f66d0;background:white;color:#0b3b91;border-radius:8px;padding:0 18px;font-weight:950;cursor:pointer}.logout-btn:hover{background:#eff6ff}.header-icons{display:none!important}
+.nav-modern{display:flex;gap:12px;align-items:center;padding:16px 18px;background:#fff;border-bottom:1px solid rgba(148,163,184,.2);overflow-x:auto}.nav-modern>button,.nav-modern .menu-trigger{height:54px;border:1px solid #dbe7f3;background:#fff;color:#062b63;border-radius:10px;padding:0 18px;font-weight:950;white-space:nowrap;box-shadow:0 2px 10px rgba(15,23,42,.03)}.nav-modern>button:hover,.nav-modern .menu-trigger:hover,.nav-modern button.active{background:#eff6ff;color:#0b3b91;border-color:#c7ddff}.nav-modern .menu-group{padding-bottom:0;margin-bottom:0}.nav-modern .dropdown{top:60px;border-radius:12px;min-width:250px}.main{max-width:none;padding:44px 16px 46px}.dashboard-hero{background:rgba(255,255,255,.86);border:1px solid rgba(255,255,255,.7);border-radius:24px;box-shadow:0 24px 70px rgba(15,23,42,.10);padding:46px 52px}.dashboard-hero h1{margin:0;color:#062b63;font-size:30px}.dashboard-hero>p{margin:12px 0 30px;color:#6b7280;font-weight:900;font-size:18px}.dashboard-stats{display:grid;grid-template-columns:repeat(4,1fr);gap:24px;margin-bottom:36px}.dash-card{display:flex;align-items:center;gap:24px;background:white;border:1px solid #dfe8f3;border-radius:14px;padding:28px 26px;min-height:132px;box-shadow:0 10px 30px rgba(15,23,42,.07)}.dash-card h3{margin:0;color:#2563eb;font-size:38px}.dash-card p{margin:8px 0 0;color:#6b7280;font-weight:800}.dash-icon{width:72px;height:72px;border-radius:50%;background:#edf4ff;border:1px solid #d7e5ff;display:grid;place-items:center;color:#2563eb;font-size:30px}.dashboard-hero hr{border:0;border-top:1px solid #dbe7f3;margin:8px 0 30px}.dashboard-hero h2{color:#062b63;margin:0 0 22px}.quick-grid{display:grid;grid-template-columns:repeat(8,1fr);gap:22px}.quick-grid button{min-height:160px;border:1px solid #dfe8f3;background:white;border-radius:14px;color:#062b63;font-weight:950;font-size:18px;cursor:pointer;box-shadow:0 10px 26px rgba(15,23,42,.06)}.quick-grid button:hover{transform:translateY(-2px);background:#f8fbff}.quick-grid span{display:grid;place-items:center;width:66px;height:66px;border-radius:50%;background:#edf4ff;color:#2563eb;margin:0 auto 18px;font-size:28px;border:1px solid #d7e5ff}
+@media(max-width:1200px){.dashboard-stats{grid-template-columns:repeat(2,1fr)}.quick-grid{grid-template-columns:repeat(4,1fr)}.valepac-top{height:auto;flex-wrap:wrap}.brand-zone .portal-title{font-size:24px}}
+@media(max-width:760px){.dashboard-stats,.quick-grid{grid-template-columns:1fr}.dashboard-hero{padding:26px}.brand-zone{align-items:flex-start;flex-direction:column;gap:10px}.brand-zone .portal-title{border-left:0;padding-left:0}.session-zone{width:100%;justify-content:space-between}.nav-modern{padding:12px}}
+
 </style>
 </head>
 <body>
 <div id="login" class="login"><div class="hero"><span class="pill">Centro de control operacional</span><h1>EDS 40098</h1><p>Plataforma operacional para controlar documentación SEC, bitácora, ventas no abonadas y desempeño de atendedores en línea.</p></div><div class="login-card"><h2>Ingreso privado</h2><p class="muted">Acceso privado por usuario y contraseña.</p><input id="loginUser" placeholder="Usuario"/><input id="loginPass" type="password" placeholder="Contraseña"/><button class="primary" style="width:100%" onclick="loginApp()">Ingresar</button><div id="loginMsg"></div></div></div>
 <div id="app" class="layout hidden">
-<header class="portal-header">
-  <div class="portal-logo">VALEPAC</div>
-  <div class="portal-title">Centro de Control EDS 40098<small>Operación · Documentos · Auditoría</small></div>
-  <nav class="nav">
-    <div class="menu-group"><button class="menu-trigger">Operaciones⌄</button><div class="dropdown">
-      <button id="nav-sec" class="active" onclick="showModule('sec')">Validador Documental SEC</button>
-      <button id="nav-bitacora" onclick="showModule('bitacora')">Bitácora Estación</button>
-      <button id="nav-vna" onclick="showModule('vna')">Ventas No Abonadas</button>
-    </div></div>
-    <div class="menu-group"><button class="menu-trigger">Personas⌄</button><div class="dropdown">
-      <button id="nav-at" onclick="showModule('at')">Desempeño AT</button>
-      <button id="nav-ticketat" onclick="showModule('ticketat')">Ticket Atendedor <span id="ticketNotifBadge" class="notif-badge hidden">0</span></button>
-    </div></div>
-  
-    <div class="menu-group">
-      <button type="button">Configuración⌄</button>
-      <div class="dropdown">
-        <button id="nav-usuarios" onclick="showModule('usuarios')">Usuarios y Permisos</button>
-      </div>
+<header class="portal-header valepac-top">
+  <div class="brand-zone">
+    <div class="portal-logo">VALEPAC</div>
+    <div class="portal-title">Centro de Control EDS 40098<small>Administración y Control de Operaciones</small></div>
+  </div>
+  <div class="session-zone">
+    <div class="session-user">
+      <strong id="sessionUserName">Usuario</strong>
+      <span id="sessionUserRole">Rol</span>
     </div>
-</nav>
-  <div class="header-icons"><div class="header-icon">⌕</div><div class="header-icon">👤</div><div class="header-icon">⚙</div></div>
+    <button class="logout-btn" onclick="logoutApp()">⇥ Cerrar sesión</button>
+  </div>
 </header>
+<nav class="nav nav-modern">
+  <button id="nav-inicio" class="active" onclick="showModule('inicio')">⌂ Inicio</button>
+  <div class="menu-group"><button class="menu-trigger">SEC⌄</button><div class="dropdown">
+    <button id="nav-sec" onclick="showModule('sec')">Validador Documental SEC</button>
+  </div></div>
+  <div class="menu-group"><button class="menu-trigger">Bitácora⌄</button><div class="dropdown">
+    <button id="nav-bitacora" onclick="showModule('bitacora')">Bitácora Estación</button>
+  </div></div>
+  <div class="menu-group"><button class="menu-trigger">VNA⌄</button><div class="dropdown">
+    <button id="nav-vna" onclick="showModule('vna')">Ventas No Abonadas</button>
+  </div></div>
+  <div class="menu-group"><button class="menu-trigger">Desempeño⌄</button><div class="dropdown">
+    <button id="nav-at" onclick="showModule('at')">Desempeño AT</button>
+    <button id="nav-nomina" onclick="showModule('at');setTimeout(()=>showAtSub('nomina'),100)">Nómina</button>
+    <button id="nav-historial" onclick="showModule('at');setTimeout(()=>showAtSub('historial'),100)">Historial Anotaciones</button>
+  </div></div>
+  <div class="menu-group"><button class="menu-trigger">Ticket Atendedor⌄</button><div class="dropdown">
+    <button id="nav-ticketat" onclick="showModule('ticketat')">Ticket Atendedor <span id="ticketNotifBadge" class="notif-badge hidden">0</span></button>
+  </div></div>
+  <div class="menu-group"><button class="menu-trigger">Configuración⌄</button><div class="dropdown">
+    <button id="nav-usuarios" onclick="showModule('usuarios')">Usuarios y Permisos</button>
+  </div></div>
+</nav>
 <main class="main">
-<section id="sec" class="section active"><div class="topbar"><div><h1>Validador Documental SEC</h1><p>Control de documentos, vencimientos y respaldos.</p></div><button class="primary" onclick="loadDocuments()">Actualizar</button></div><div id="secStats" class="grid stats"></div><div class="grid content"><div class="card"><h2>Índice documental</h2><div class="toolbar"><input id="docSearch" oninput="renderDocs()" placeholder="Buscar documento"/><select id="docStatus" onchange="renderDocs()"><option>Todos</option><option>Vigente</option><option>Por vencer</option><option>Vencido</option><option>No cargado</option><option>En Proceso</option></select><button class="secondary" onclick="loadDocuments()">Recargar</button></div><div class="table docs"><div class="thead"><div>N°</div><div>Documento</div><div>Categoría</div><div>Estado</div></div><div id="docRows"></div></div></div><div class="card detail" id="docDetail"></div></div></section>
+<section id="inicio" class="section active">
+  <div class="dashboard-hero">
+    <h1>Bienvenido, <span id="dashUserName">Usuario</span></h1>
+    <p id="dashUserRole">Rol</p>
+    <div class="dashboard-stats">
+      <div class="dash-card"><div class="dash-icon">▣</div><div><h3 id="dashDocs">0</h3><p>Documentos SEC</p></div></div>
+      <div class="dash-card"><div class="dash-icon">☷</div><div><h3 id="dashBits">0</h3><p>Bitácoras</p></div></div>
+      <div class="dash-card"><div class="dash-icon">⌁</div><div><h3 id="dashVna">0</h3><p>VNA</p></div></div>
+      <div class="dash-card"><div class="dash-icon">◆</div><div><h3 id="dashTickets">0</h3><p>Tickets Atendedor</p></div></div>
+    </div>
+    <hr>
+    <h2>Accesos rápidos</h2>
+    <div class="quick-grid">
+      <button data-modulo="sec" onclick="showModule('sec')"><span>🛡</span>SEC</button>
+      <button data-modulo="bitacora" onclick="showModule('bitacora')"><span>☷</span>Bitácora</button>
+      <button data-modulo="vna" onclick="showModule('vna')"><span>⌁</span>VNA</button>
+      <button data-modulo="desempeno" onclick="showModule('at')"><span>◔</span>Desempeño</button>
+      <button data-modulo="ticket_atendedor" onclick="showModule('ticketat')"><span>◆</span>Ticket<br>Atendedor</button>
+      <button data-modulo="nomina" onclick="showModule('at');setTimeout(()=>showAtSub('nomina'),100)"><span>👥</span>Nómina</button>
+      <button data-modulo="historial_anotaciones" onclick="showModule('at');setTimeout(()=>showAtSub('historial'),100)"><span>◷</span>Historial<br>Anotaciones</button>
+      <button data-modulo="usuarios" onclick="showModule('usuarios')"><span>⚙</span>Configuración</button>
+    </div>
+  </div>
+</section>
+<section id="sec" class="section"><div class="topbar"><div><h1>Validador Documental SEC</h1><p>Control de documentos, vencimientos y respaldos.</p></div><button class="primary" onclick="loadDocuments()">Actualizar</button></div><div id="secStats" class="grid stats"></div><div class="grid content"><div class="card"><h2>Índice documental</h2><div class="toolbar"><input id="docSearch" oninput="renderDocs()" placeholder="Buscar documento"/><select id="docStatus" onchange="renderDocs()"><option>Todos</option><option>Vigente</option><option>Por vencer</option><option>Vencido</option><option>No cargado</option><option>En Proceso</option></select><button class="secondary" onclick="loadDocuments()">Recargar</button></div><div class="table docs"><div class="thead"><div>N°</div><div>Documento</div><div>Categoría</div><div>Estado</div></div><div id="docRows"></div></div></div><div class="card detail" id="docDetail"></div></div></section>
 <section id="bitacora" class="section"><div class="topbar"><div><h1>Bitácora de la Estación</h1><p>Cronología de situaciones y eventos importantes para consulta futura.</p></div><button class="primary" data-action="crear" onclick="toggleBitForm()">Nuevo evento</button></div><div id="bitFormCard" class="card hidden"><h2>Registrar evento</h2><div class="form two"><input id="bitFecha" type="datetime-local"/><input id="bitTitulo" placeholder="Título del evento"/><select id="bitCategoria"><option>Operación</option><option>Seguridad</option><option>Mantención</option><option>Cliente</option><option>Fiscalización</option><option>Personal</option><option>Otro</option></select><select id="bitGravedad"><option>Baja</option><option>Media</option><option>Alta</option></select><input id="bitResponsable" placeholder="Responsable"/><select id="bitEstado"><option>Abierto</option><option>En seguimiento</option><option>Atendido</option></select></div><div class="form"><textarea id="bitDescripcion" placeholder="Descripción clara del evento"></textarea><textarea id="bitAcciones" placeholder="Acciones tomadas / decisiones / seguimiento"></textarea><input id="bitArchivo" type="file" accept=".pdf,image/*,.xlsx,.xls"/></div><div class="actions"><button class="primary" data-action="crear" onclick="createBitacora()">Guardar evento</button><button class="secondary" onclick="toggleBitForm()">Cancelar</button></div><div id="bitMsg"></div></div><div class="grid content"><div class="card"><h2>Cronología</h2><div class="toolbar two"><input id="bitSearch" oninput="renderBitacora()" placeholder="Buscar en bitácora"/><select id="bitFilter" onchange="renderBitacora()"><option>Todos</option><option>Baja</option><option>Media</option><option>Alta</option></select></div><div class="table bit"><div class="thead"><div>Fecha</div><div>Evento</div><div>Gravedad</div><div>Estado</div></div><div id="bitRows"></div></div></div><div class="card detail" id="bitDetail"></div></div></section>
 <section id="vna" class="section"><div class="topbar"><div><h1>Ventas No Abonadas</h1><p>Control de requerimientos Llámenos, respaldos, avances y resolución VALEPAC.</p></div><div class="actions"><button class="light" onclick="exportVnaExcel()">⬇ Descargar Excel</button><button class="primary" data-action="crear" onclick="toggleVnaForm()">Nuevo requerimiento</button></div></div><div id="vnaFormCard" class="card hidden"><h2>Ingresar ticket</h2><div class="form three"><input id="vnaReq" placeholder="N° requerimiento Llámenos"/><input id="vnaSurtidor" placeholder="Surtidor"/><input id="vnaFolioDte" placeholder="Folio DTE"/><input id="vnaMonto" type="number" placeholder="Monto"/><select id="vnaProducto"><option value="">Producto</option><option>Diesel</option><option>Gasolina 93</option><option>Gasolina 95</option><option>Gasolina 97</option><option>Bluemax</option><option>Otro</option></select><select id="vnaMedioPago"><option value="">Medio de pago</option><option>Débito</option><option>Crédito</option><option>App Copec</option><option>Transferencia</option><option>Otro</option></select><input id="vnaFechaHora" type="datetime-local"/><input id="vnaAtendedor" placeholder="Atendedor"/><input id="vnaNombreConductor" placeholder="Nombre conductor"/><input id="vnaRutConductor" placeholder="RUT conductor"/><input id="vnaCorreoConductor" placeholder="Correo conductor"/><input id="vnaCelularConductor" placeholder="Celular conductor"/><input id="vnaUltimos4" maxlength="4" placeholder="4 últimos dígitos tarjeta"/></div><div class="form"><textarea id="vnaDetalle" placeholder="Detalle inicial del caso"></textarea><label>Foto / respaldo inicial del vehículo</label><input id="vnaArchivoInicial" type="file" accept=".pdf,image/*,.xlsx,.xls"/></div><div class="actions"><button class="primary" data-action="crear" onclick="createVna()">Guardar ticket</button><button class="secondary" onclick="toggleVnaForm()">Cancelar</button></div><div id="vnaMsg"></div></div><div class="grid content"><div class="card"><h2>Tickets</h2><div class="toolbar two"><input id="vnaSearch" oninput="renderVna()" placeholder="Buscar por requerimiento, folio, conductor, RUT, atendedor"/><select id="vnaFilter" onchange="renderVna()"><option>Todos</option><option>Ingresado</option><option>Documentación y respaldo</option><option>Aprobado</option><option>Rechazado</option></select></div><div class="table vna"><div class="thead"><div>Req.</div><div>Fecha/Hora</div><div>Conductor</div><div>Monto</div><div>Etapa</div></div><div id="vnaRows"></div></div></div><div class="card detail" id="vnaDetail"></div></div></section>
 <section id="at" class="section"><div class="topbar"><div><h1>Desempeño AT</h1><p>Historial de anotaciones positivas y negativas, gestionado por Jefe de Protocolo y Servicio.</p></div><div class="actions"><button class="secondary" onclick="openNomina()">👥 Nómina de atendedores</button><button class="primary" data-action="crear" onclick="toggleAtNoteForm()">Nueva anotación</button></div></div><div class="mini-tabs"><button id="tabAtHist" class="active" onclick="showAtSub('historial')">Historial de desempeño</button><button id="tabAtNom" onclick="showAtSub('nomina')">Nómina de atendedores</button></div><div id="atHistorialView"><div id="atNoteFormCard" class="card hidden"><h2>Registrar anotación</h2><div class="form two"><select id="noteTrabajador"></select><select id="noteTipo"><option>Positiva</option><option>Negativa</option></select><input id="noteFecha" type="datetime-local"/><input id="noteResponsable" placeholder="Responsable: Jefe de Protocolo y Servicio"/><input id="noteTitulo" placeholder="Título de la anotación"/><select id="noteCategoria"><option>Protocolo de atención</option><option>Servicio al cliente</option><option>Presentación personal</option><option>Puntualidad</option><option>Trabajo en equipo</option><option>Seguridad</option><option>Operación</option><option>Otro</option></select></div><div class="form"><textarea id="noteDetalle" placeholder="Detalle objetivo de la situación"></textarea><textarea id="noteAccion" placeholder="Acción tomada / compromiso / seguimiento"></textarea><input id="noteArchivo" type="file" accept=".pdf,image/*,.xlsx,.xls"/></div><div class="actions"><button class="primary" data-action="crear" onclick="createAtNote()">Guardar anotación</button><button class="secondary" onclick="toggleAtNoteForm()">Cancelar</button></div><div id="noteMsg"></div></div><div class="grid content"><div class="card"><h2>Anotaciones registradas</h2><div class="toolbar two"><input id="noteSearch" oninput="renderAtNotes()" placeholder="Buscar por trabajador, RUT, título o detalle"/><select id="noteFilter" onchange="renderAtNotes()"><option>Todos</option><option>Positiva</option><option>Negativa</option></select></div><div class="table atnote"><div class="thead"><div>Fecha</div><div>Trabajador / Anotación</div><div>Tipo</div><div>Responsable</div></div><div id="noteRows"></div></div></div><div class="card detail" id="noteDetail"><h2>Ficha de anotación</h2><p>Selecciona una anotación.</p></div></div></div><div id="atNominaView" class="hidden"><div class="topbar"><div><h2>Nómina de atendedores</h2><p>Ingreso y consulta de trabajadores: nombre, RUT, foto y fecha de ingreso a la EDS.</p></div><button class="primary" data-action="crear" onclick="toggleAtForm()">Nuevo trabajador</button></div><div id="atFormCard" class="card hidden"><h2>Ingresar trabajador</h2><div class="form two"><input id="atNombre" placeholder="Nombre completo"/><input id="atRut" placeholder="RUT"/><input id="atFechaIngreso" type="date"/><input id="atFoto" type="file" accept="image/*"/></div><div class="actions"><button class="primary" data-action="crear" onclick="createAtendedor()">Guardar trabajador</button><button class="secondary" onclick="resetAtForm();toggleAtForm()">Cancelar</button></div><div id="atMsg"></div></div><div class="grid content"><div class="card"><h2>Nómina</h2><div class="toolbar two"><input id="atSearch" oninput="renderAtendedores()" placeholder="Buscar por nombre o RUT"/><button class="secondary" onclick="loadAtendedores()">Actualizar</button></div><div class="table at"><div class="thead"><div>Foto</div><div>Nombre</div><div>RUT</div><div>Ingreso EDS</div><div>Acción</div></div><div id="atRows"></div></div></div><div class="card detail" id="atDetail"><h2>Ficha trabajador</h2><p>Selecciona un trabajador de la nómina.</p></div></div></div></section>
@@ -561,20 +642,8 @@ function enterApp(){try{localStorage.setItem('valepac_web_session',JSON.stringif
   app.classList.remove('hidden');
   applyPermissions();
 
-  const firstAllowed=[
-    ['sec','sec'],
-    ['bitacora','bitacora'],
-    ['vna','vna'],
-    ['at','desempeno'],
-    ['ticketat','ticket_atendedor'],
-    ['usuarios','usuarios']
-  ].find(([section,perm])=>canModule(perm));
-
-  if(firstAllowed){
-    showModule(firstAllowed[0]);
-  }else{
-    alert('Tu usuario no tiene módulos autorizados.');
-  }
+  loadDashboard();
+  showModule('inicio');
 }
 
 function normalizePermisos(p){
@@ -646,8 +715,7 @@ function applyPermissions(){
 
   currentUser.permisos=normalizePermisos(currentUser.permisos||{});
 
-  const userIcon=document.querySelector('.header-icons .header-icon:nth-child(2)');
-  if(userIcon)userIcon.textContent=(currentUser.rol||'USR').substring(0,3).toUpperCase();
+  updateSessionVisual();
 
   applyModulePermissions();
   applyActionPermissions();
@@ -676,6 +744,14 @@ function isAdmin(){
 }
 
 function showModule(m){
+  if(m==='inicio'){
+    document.querySelectorAll('.section').forEach(s=>s.classList.remove('active'));
+    const home=document.getElementById('inicio'); if(home)home.classList.add('active');
+    document.querySelectorAll('.nav button').forEach(b=>b.classList.remove('active'));
+    const ni=document.getElementById('nav-inicio'); if(ni)ni.classList.add('active');
+    loadDashboard();
+    return;
+  }
   const mapPerm={sec:'sec',bitacora:'bitacora',vna:'vna',at:'desempeno',ticketat:'ticket_atendedor',usuarios:'usuarios'};
   const perm=mapPerm[m]||m;
 
@@ -702,7 +778,7 @@ function showModule(m){
   if(m==='at')loadDesempeno();
   if(m==='ticketat')loadTicketAt();
   if(m==='usuarios')loadUsuariosConfig();
-}async function loadAll(){await loadDocuments();await loadBitacora();await loadVna();await loadDesempeno()}function fmt(d){if(!d)return '-';return new Date(d).toLocaleString('es-CL',{dateStyle:'short',timeStyle:'short'})}function money(v){return v?Number(v).toLocaleString('es-CL',{style:'currency',currency:'CLP'}):'-'}function badge(s){let c='b-pendiente';if(s==='Vigente')c='b-vigente';if(s==='Por vencer')c='b-vencer';if(s==='Vencido')c='b-vencido';if(s==='No cargado')c='b-nocargado';if(s==='En Proceso')c='b-revision';if(s==='Ingresado')c='b-ingresado';if(s==='Documentación y respaldo')c='b-doc';if(s==='Aprobado')c='b-aprobado';if(s==='Rechazado')c='b-rechazado';if(s==='Baja')c='b-baja';if(s==='Media')c='b-media';if(s==='Alta')c='b-alta';if(s==='Positiva')c='b-aprobado';if(s==='Negativa')c='b-rechazado';return `<span class="badge ${c}">${s||'Pendiente'}</span>`}function daysLeft(d){if(!d)return null;const a=new Date();a.setHours(0,0,0,0);const b=new Date(d);b.setHours(0,0,0,0);return Math.ceil((b-a)/86400000)}function calcStatus(d,alertDays,hasFile){if(!hasFile)return 'No cargado';if(!d)return 'En Proceso';const rest=daysLeft(d);if(rest<0)return 'Vencido';if(rest<=Number(alertDays||30))return 'Por vencer';return 'Vigente'}
+}async function loadAll(){await loadDashboard();await loadDocuments();await loadBitacora();await loadVna();await loadDesempeno()}function fmt(d){if(!d)return '-';return new Date(d).toLocaleString('es-CL',{dateStyle:'short',timeStyle:'short'})}function money(v){return v?Number(v).toLocaleString('es-CL',{style:'currency',currency:'CLP'}):'-'}function badge(s){let c='b-pendiente';if(s==='Vigente')c='b-vigente';if(s==='Por vencer')c='b-vencer';if(s==='Vencido')c='b-vencido';if(s==='No cargado')c='b-nocargado';if(s==='En Proceso')c='b-revision';if(s==='Ingresado')c='b-ingresado';if(s==='Documentación y respaldo')c='b-doc';if(s==='Aprobado')c='b-aprobado';if(s==='Rechazado')c='b-rechazado';if(s==='Baja')c='b-baja';if(s==='Media')c='b-media';if(s==='Alta')c='b-alta';if(s==='Positiva')c='b-aprobado';if(s==='Negativa')c='b-rechazado';return `<span class="badge ${c}">${s||'Pendiente'}</span>`}function daysLeft(d){if(!d)return null;const a=new Date();a.setHours(0,0,0,0);const b=new Date(d);b.setHours(0,0,0,0);return Math.ceil((b-a)/86400000)}function calcStatus(d,alertDays,hasFile){if(!hasFile)return 'No cargado';if(!d)return 'En Proceso';const rest=daysLeft(d);if(rest<0)return 'Vencido';if(rest<=Number(alertDays||30))return 'Por vencer';return 'Vigente'}
 async function loadDocuments(){const {data,error}=await client.from('documentos').select('*').order('numero_indice');if(error){docRows.innerHTML='<div class="notice error">Error cargando documentos: '+error.message+'</div>';return}docs=(data||[]).sort((a,b)=>{
   const parse=(v)=>String(v||'0').split('.').map(x=>parseInt(x,10)||0);
   const [a1,a2=0]=parse(a.numero_indice);
@@ -1445,6 +1521,8 @@ function applyModulePermissions(){
     ['nav-bitacora','bitacora'],
     ['nav-vna','vna'],
     ['nav-at','desempeno'],
+    ['nav-nomina','nomina'],
+    ['nav-historial','historial_anotaciones'],
     ['nav-ticketat','ticket_atendedor'],
     ['nav-usuarios','usuarios']
   ];
