@@ -10,20 +10,16 @@ setInterval(()=>{try{if(currentUser&&document.getElementById('app')&&!document.g
 /* RECUPERACION LOGIN ESTABLE */
 
 function hasPerm(mod){
-  if(!currentUser)return false;
-  if(currentUser.usuario==='gabrielarancibia'||currentUser.rol==='admin')return true;
-  return !!(currentUser.permisos&&currentUser.permisos[mod]);
+  return canModule(mod);
 }
-function hasModule(mod){return hasPerm(mod)}
+function hasModule(mod){return canModule(mod)}
 function canAction(a){
-  if(!currentUser)return false;
-  if(currentUser.usuario==='gabrielarancibia'||currentUser.rol==='admin')return true;
-  return !!(currentUser.permisos&&currentUser.permisos[a]);
+  return canActionPerm(a);
 }
 function applyModulePermissions(){
   const map=[
     ['nav-sec','sec'],
-    ['nav-bit','bitacora'],
+    ['nav-bitacora','bitacora'],
     ['nav-vna','vna'],
     ['nav-at','desempeno'],
     ['nav-ticketat','ticket_atendedor'],
@@ -31,10 +27,20 @@ function applyModulePermissions(){
   ];
   map.forEach(([id,mod])=>{
     const el=document.getElementById(id);
-    if(el)el.style.display=hasPerm(mod)?'block':'none';
+    if(el)el.style.display=canModule(mod)?'block':'none';
+  });
+
+  document.querySelectorAll('.menu-group').forEach(group=>{
+    const visible=[...group.querySelectorAll('.dropdown button')].some(b=>b.style.display!=='none');
+    group.style.display=visible?'block':'none';
   });
 }
-function applyActionPermissions(){}
+function applyActionPermissions(){
+  document.querySelectorAll('[data-action]').forEach(el=>{
+    const action=el.getAttribute('data-action');
+    el.style.display=canActionPerm(action)?'':'none';
+  });
+}
 
 window.addEventListener('load',()=>restoreLocalSession());
 </script>
@@ -44,20 +50,16 @@ setInterval(()=>{try{if(currentUser&&document.getElementById('app')&&!document.g
 /* RECUPERACION LOGIN ESTABLE */
 
 function hasPerm(mod){
-  if(!currentUser)return false;
-  if(currentUser.usuario==='gabrielarancibia'||currentUser.rol==='admin')return true;
-  return !!(currentUser.permisos&&currentUser.permisos[mod]);
+  return canModule(mod);
 }
-function hasModule(mod){return hasPerm(mod)}
+function hasModule(mod){return canModule(mod)}
 function canAction(a){
-  if(!currentUser)return false;
-  if(currentUser.usuario==='gabrielarancibia'||currentUser.rol==='admin')return true;
-  return !!(currentUser.permisos&&currentUser.permisos[a]);
+  return canActionPerm(a);
 }
 function applyModulePermissions(){
   const map=[
     ['nav-sec','sec'],
-    ['nav-bit','bitacora'],
+    ['nav-bitacora','bitacora'],
     ['nav-vna','vna'],
     ['nav-at','desempeno'],
     ['nav-ticketat','ticket_atendedor'],
@@ -65,10 +67,20 @@ function applyModulePermissions(){
   ];
   map.forEach(([id,mod])=>{
     const el=document.getElementById(id);
-    if(el)el.style.display=hasPerm(mod)?'block':'none';
+    if(el)el.style.display=canModule(mod)?'block':'none';
+  });
+
+  document.querySelectorAll('.menu-group').forEach(group=>{
+    const visible=[...group.querySelectorAll('.dropdown button')].some(b=>b.style.display!=='none');
+    group.style.display=visible?'block':'none';
   });
 }
-function applyActionPermissions(){}
+function applyActionPermissions(){
+  document.querySelectorAll('[data-action]').forEach(el=>{
+    const action=el.getAttribute('data-action');
+    el.style.display=canActionPerm(action)?'':'none';
+  });
+}
 
 window.addEventListener('load',()=>restoreLocalSession());
 </script>
@@ -283,9 +295,9 @@ body:before{
 </header>
 <main class="main">
 <section id="sec" class="section active"><div class="topbar"><div><h1>Validador Documental SEC</h1><p>Control de documentos, vencimientos y respaldos.</p></div><button class="primary" onclick="loadDocuments()">Actualizar</button></div><div id="secStats" class="grid stats"></div><div class="grid content"><div class="card"><h2>Índice documental</h2><div class="toolbar"><input id="docSearch" oninput="renderDocs()" placeholder="Buscar documento"/><select id="docStatus" onchange="renderDocs()"><option>Todos</option><option>Vigente</option><option>Por vencer</option><option>Vencido</option><option>No cargado</option><option>En Proceso</option></select><button class="secondary" onclick="loadDocuments()">Recargar</button></div><div class="table docs"><div class="thead"><div>N°</div><div>Documento</div><div>Categoría</div><div>Estado</div></div><div id="docRows"></div></div></div><div class="card detail" id="docDetail"></div></div></section>
-<section id="bitacora" class="section"><div class="topbar"><div><h1>Bitácora de la Estación</h1><p>Cronología de situaciones y eventos importantes para consulta futura.</p></div><button class="primary" onclick="toggleBitForm()">Nuevo evento</button></div><div id="bitFormCard" class="card hidden"><h2>Registrar evento</h2><div class="form two"><input id="bitFecha" type="datetime-local"/><input id="bitTitulo" placeholder="Título del evento"/><select id="bitCategoria"><option>Operación</option><option>Seguridad</option><option>Mantención</option><option>Cliente</option><option>Fiscalización</option><option>Personal</option><option>Otro</option></select><select id="bitGravedad"><option>Baja</option><option>Media</option><option>Alta</option></select><input id="bitResponsable" placeholder="Responsable"/><select id="bitEstado"><option>Abierto</option><option>En seguimiento</option><option>Atendido</option></select></div><div class="form"><textarea id="bitDescripcion" placeholder="Descripción clara del evento"></textarea><textarea id="bitAcciones" placeholder="Acciones tomadas / decisiones / seguimiento"></textarea><input id="bitArchivo" type="file" accept=".pdf,image/*,.xlsx,.xls"/></div><div class="actions"><button class="primary" onclick="createBitacora()">Guardar evento</button><button class="secondary" onclick="toggleBitForm()">Cancelar</button></div><div id="bitMsg"></div></div><div class="grid content"><div class="card"><h2>Cronología</h2><div class="toolbar two"><input id="bitSearch" oninput="renderBitacora()" placeholder="Buscar en bitácora"/><select id="bitFilter" onchange="renderBitacora()"><option>Todos</option><option>Baja</option><option>Media</option><option>Alta</option></select></div><div class="table bit"><div class="thead"><div>Fecha</div><div>Evento</div><div>Gravedad</div><div>Estado</div></div><div id="bitRows"></div></div></div><div class="card detail" id="bitDetail"></div></div></section>
-<section id="vna" class="section"><div class="topbar"><div><h1>Ventas No Abonadas</h1><p>Control de requerimientos Llámenos, respaldos, avances y resolución VALEPAC.</p></div><div class="actions"><button class="light" onclick="exportVnaExcel()">⬇ Descargar Excel</button><button class="primary" onclick="toggleVnaForm()">Nuevo requerimiento</button></div></div><div id="vnaFormCard" class="card hidden"><h2>Ingresar ticket</h2><div class="form three"><input id="vnaReq" placeholder="N° requerimiento Llámenos"/><input id="vnaSurtidor" placeholder="Surtidor"/><input id="vnaFolioDte" placeholder="Folio DTE"/><input id="vnaMonto" type="number" placeholder="Monto"/><select id="vnaProducto"><option value="">Producto</option><option>Diesel</option><option>Gasolina 93</option><option>Gasolina 95</option><option>Gasolina 97</option><option>Bluemax</option><option>Otro</option></select><select id="vnaMedioPago"><option value="">Medio de pago</option><option>Débito</option><option>Crédito</option><option>App Copec</option><option>Transferencia</option><option>Otro</option></select><input id="vnaFechaHora" type="datetime-local"/><input id="vnaAtendedor" placeholder="Atendedor"/><input id="vnaNombreConductor" placeholder="Nombre conductor"/><input id="vnaRutConductor" placeholder="RUT conductor"/><input id="vnaCorreoConductor" placeholder="Correo conductor"/><input id="vnaCelularConductor" placeholder="Celular conductor"/><input id="vnaUltimos4" maxlength="4" placeholder="4 últimos dígitos tarjeta"/></div><div class="form"><textarea id="vnaDetalle" placeholder="Detalle inicial del caso"></textarea><label>Foto / respaldo inicial del vehículo</label><input id="vnaArchivoInicial" type="file" accept=".pdf,image/*,.xlsx,.xls"/></div><div class="actions"><button class="primary" onclick="createVna()">Guardar ticket</button><button class="secondary" onclick="toggleVnaForm()">Cancelar</button></div><div id="vnaMsg"></div></div><div class="grid content"><div class="card"><h2>Tickets</h2><div class="toolbar two"><input id="vnaSearch" oninput="renderVna()" placeholder="Buscar por requerimiento, folio, conductor, RUT, atendedor"/><select id="vnaFilter" onchange="renderVna()"><option>Todos</option><option>Ingresado</option><option>Documentación y respaldo</option><option>Aprobado</option><option>Rechazado</option></select></div><div class="table vna"><div class="thead"><div>Req.</div><div>Fecha/Hora</div><div>Conductor</div><div>Monto</div><div>Etapa</div></div><div id="vnaRows"></div></div></div><div class="card detail" id="vnaDetail"></div></div></section>
-<section id="at" class="section"><div class="topbar"><div><h1>Desempeño AT</h1><p>Historial de anotaciones positivas y negativas, gestionado por Jefe de Protocolo y Servicio.</p></div><div class="actions"><button class="secondary" onclick="openNomina()">👥 Nómina de atendedores</button><button class="primary" onclick="toggleAtNoteForm()">Nueva anotación</button></div></div><div class="mini-tabs"><button id="tabAtHist" class="active" onclick="showAtSub('historial')">Historial de desempeño</button><button id="tabAtNom" onclick="showAtSub('nomina')">Nómina de atendedores</button></div><div id="atHistorialView"><div id="atNoteFormCard" class="card hidden"><h2>Registrar anotación</h2><div class="form two"><select id="noteTrabajador"></select><select id="noteTipo"><option>Positiva</option><option>Negativa</option></select><input id="noteFecha" type="datetime-local"/><input id="noteResponsable" placeholder="Responsable: Jefe de Protocolo y Servicio"/><input id="noteTitulo" placeholder="Título de la anotación"/><select id="noteCategoria"><option>Protocolo de atención</option><option>Servicio al cliente</option><option>Presentación personal</option><option>Puntualidad</option><option>Trabajo en equipo</option><option>Seguridad</option><option>Operación</option><option>Otro</option></select></div><div class="form"><textarea id="noteDetalle" placeholder="Detalle objetivo de la situación"></textarea><textarea id="noteAccion" placeholder="Acción tomada / compromiso / seguimiento"></textarea><input id="noteArchivo" type="file" accept=".pdf,image/*,.xlsx,.xls"/></div><div class="actions"><button class="primary" onclick="createAtNote()">Guardar anotación</button><button class="secondary" onclick="toggleAtNoteForm()">Cancelar</button></div><div id="noteMsg"></div></div><div class="grid content"><div class="card"><h2>Anotaciones registradas</h2><div class="toolbar two"><input id="noteSearch" oninput="renderAtNotes()" placeholder="Buscar por trabajador, RUT, título o detalle"/><select id="noteFilter" onchange="renderAtNotes()"><option>Todos</option><option>Positiva</option><option>Negativa</option></select></div><div class="table atnote"><div class="thead"><div>Fecha</div><div>Trabajador / Anotación</div><div>Tipo</div><div>Responsable</div></div><div id="noteRows"></div></div></div><div class="card detail" id="noteDetail"><h2>Ficha de anotación</h2><p>Selecciona una anotación.</p></div></div></div><div id="atNominaView" class="hidden"><div class="topbar"><div><h2>Nómina de atendedores</h2><p>Ingreso y consulta de trabajadores: nombre, RUT, foto y fecha de ingreso a la EDS.</p></div><button class="primary" onclick="toggleAtForm()">Nuevo trabajador</button></div><div id="atFormCard" class="card hidden"><h2>Ingresar trabajador</h2><div class="form two"><input id="atNombre" placeholder="Nombre completo"/><input id="atRut" placeholder="RUT"/><input id="atFechaIngreso" type="date"/><input id="atFoto" type="file" accept="image/*"/></div><div class="actions"><button class="primary" onclick="createAtendedor()">Guardar trabajador</button><button class="secondary" onclick="resetAtForm();toggleAtForm()">Cancelar</button></div><div id="atMsg"></div></div><div class="grid content"><div class="card"><h2>Nómina</h2><div class="toolbar two"><input id="atSearch" oninput="renderAtendedores()" placeholder="Buscar por nombre o RUT"/><button class="secondary" onclick="loadAtendedores()">Actualizar</button></div><div class="table at"><div class="thead"><div>Foto</div><div>Nombre</div><div>RUT</div><div>Ingreso EDS</div><div>Acción</div></div><div id="atRows"></div></div></div><div class="card detail" id="atDetail"><h2>Ficha trabajador</h2><p>Selecciona un trabajador de la nómina.</p></div></div></div></section>
+<section id="bitacora" class="section"><div class="topbar"><div><h1>Bitácora de la Estación</h1><p>Cronología de situaciones y eventos importantes para consulta futura.</p></div><button class="primary" data-action="crear" onclick="toggleBitForm()">Nuevo evento</button></div><div id="bitFormCard" class="card hidden"><h2>Registrar evento</h2><div class="form two"><input id="bitFecha" type="datetime-local"/><input id="bitTitulo" placeholder="Título del evento"/><select id="bitCategoria"><option>Operación</option><option>Seguridad</option><option>Mantención</option><option>Cliente</option><option>Fiscalización</option><option>Personal</option><option>Otro</option></select><select id="bitGravedad"><option>Baja</option><option>Media</option><option>Alta</option></select><input id="bitResponsable" placeholder="Responsable"/><select id="bitEstado"><option>Abierto</option><option>En seguimiento</option><option>Atendido</option></select></div><div class="form"><textarea id="bitDescripcion" placeholder="Descripción clara del evento"></textarea><textarea id="bitAcciones" placeholder="Acciones tomadas / decisiones / seguimiento"></textarea><input id="bitArchivo" type="file" accept=".pdf,image/*,.xlsx,.xls"/></div><div class="actions"><button class="primary" onclick="createBitacora()">Guardar evento</button><button class="secondary" onclick="toggleBitForm()">Cancelar</button></div><div id="bitMsg"></div></div><div class="grid content"><div class="card"><h2>Cronología</h2><div class="toolbar two"><input id="bitSearch" oninput="renderBitacora()" placeholder="Buscar en bitácora"/><select id="bitFilter" onchange="renderBitacora()"><option>Todos</option><option>Baja</option><option>Media</option><option>Alta</option></select></div><div class="table bit"><div class="thead"><div>Fecha</div><div>Evento</div><div>Gravedad</div><div>Estado</div></div><div id="bitRows"></div></div></div><div class="card detail" id="bitDetail"></div></div></section>
+<section id="vna" class="section"><div class="topbar"><div><h1>Ventas No Abonadas</h1><p>Control de requerimientos Llámenos, respaldos, avances y resolución VALEPAC.</p></div><div class="actions"><button class="light" onclick="exportVnaExcel()">⬇ Descargar Excel</button><button class="primary" data-action="crear" onclick="toggleVnaForm()">Nuevo requerimiento</button></div></div><div id="vnaFormCard" class="card hidden"><h2>Ingresar ticket</h2><div class="form three"><input id="vnaReq" placeholder="N° requerimiento Llámenos"/><input id="vnaSurtidor" placeholder="Surtidor"/><input id="vnaFolioDte" placeholder="Folio DTE"/><input id="vnaMonto" type="number" placeholder="Monto"/><select id="vnaProducto"><option value="">Producto</option><option>Diesel</option><option>Gasolina 93</option><option>Gasolina 95</option><option>Gasolina 97</option><option>Bluemax</option><option>Otro</option></select><select id="vnaMedioPago"><option value="">Medio de pago</option><option>Débito</option><option>Crédito</option><option>App Copec</option><option>Transferencia</option><option>Otro</option></select><input id="vnaFechaHora" type="datetime-local"/><input id="vnaAtendedor" placeholder="Atendedor"/><input id="vnaNombreConductor" placeholder="Nombre conductor"/><input id="vnaRutConductor" placeholder="RUT conductor"/><input id="vnaCorreoConductor" placeholder="Correo conductor"/><input id="vnaCelularConductor" placeholder="Celular conductor"/><input id="vnaUltimos4" maxlength="4" placeholder="4 últimos dígitos tarjeta"/></div><div class="form"><textarea id="vnaDetalle" placeholder="Detalle inicial del caso"></textarea><label>Foto / respaldo inicial del vehículo</label><input id="vnaArchivoInicial" type="file" accept=".pdf,image/*,.xlsx,.xls"/></div><div class="actions"><button class="primary" onclick="createVna()">Guardar ticket</button><button class="secondary" onclick="toggleVnaForm()">Cancelar</button></div><div id="vnaMsg"></div></div><div class="grid content"><div class="card"><h2>Tickets</h2><div class="toolbar two"><input id="vnaSearch" oninput="renderVna()" placeholder="Buscar por requerimiento, folio, conductor, RUT, atendedor"/><select id="vnaFilter" onchange="renderVna()"><option>Todos</option><option>Ingresado</option><option>Documentación y respaldo</option><option>Aprobado</option><option>Rechazado</option></select></div><div class="table vna"><div class="thead"><div>Req.</div><div>Fecha/Hora</div><div>Conductor</div><div>Monto</div><div>Etapa</div></div><div id="vnaRows"></div></div></div><div class="card detail" id="vnaDetail"></div></div></section>
+<section id="at" class="section"><div class="topbar"><div><h1>Desempeño AT</h1><p>Historial de anotaciones positivas y negativas, gestionado por Jefe de Protocolo y Servicio.</p></div><div class="actions"><button class="secondary" onclick="openNomina()">👥 Nómina de atendedores</button><button class="primary" data-action="crear" onclick="toggleAtNoteForm()">Nueva anotación</button></div></div><div class="mini-tabs"><button id="tabAtHist" class="active" onclick="showAtSub('historial')">Historial de desempeño</button><button id="tabAtNom" onclick="showAtSub('nomina')">Nómina de atendedores</button></div><div id="atHistorialView"><div id="atNoteFormCard" class="card hidden"><h2>Registrar anotación</h2><div class="form two"><select id="noteTrabajador"></select><select id="noteTipo"><option>Positiva</option><option>Negativa</option></select><input id="noteFecha" type="datetime-local"/><input id="noteResponsable" placeholder="Responsable: Jefe de Protocolo y Servicio"/><input id="noteTitulo" placeholder="Título de la anotación"/><select id="noteCategoria"><option>Protocolo de atención</option><option>Servicio al cliente</option><option>Presentación personal</option><option>Puntualidad</option><option>Trabajo en equipo</option><option>Seguridad</option><option>Operación</option><option>Otro</option></select></div><div class="form"><textarea id="noteDetalle" placeholder="Detalle objetivo de la situación"></textarea><textarea id="noteAccion" placeholder="Acción tomada / compromiso / seguimiento"></textarea><input id="noteArchivo" type="file" accept=".pdf,image/*,.xlsx,.xls"/></div><div class="actions"><button class="primary" onclick="createAtNote()">Guardar anotación</button><button class="secondary" onclick="toggleAtNoteForm()">Cancelar</button></div><div id="noteMsg"></div></div><div class="grid content"><div class="card"><h2>Anotaciones registradas</h2><div class="toolbar two"><input id="noteSearch" oninput="renderAtNotes()" placeholder="Buscar por trabajador, RUT, título o detalle"/><select id="noteFilter" onchange="renderAtNotes()"><option>Todos</option><option>Positiva</option><option>Negativa</option></select></div><div class="table atnote"><div class="thead"><div>Fecha</div><div>Trabajador / Anotación</div><div>Tipo</div><div>Responsable</div></div><div id="noteRows"></div></div></div><div class="card detail" id="noteDetail"><h2>Ficha de anotación</h2><p>Selecciona una anotación.</p></div></div></div><div id="atNominaView" class="hidden"><div class="topbar"><div><h2>Nómina de atendedores</h2><p>Ingreso y consulta de trabajadores: nombre, RUT, foto y fecha de ingreso a la EDS.</p></div><button class="primary" data-action="crear" onclick="toggleAtForm()">Nuevo trabajador</button></div><div id="atFormCard" class="card hidden"><h2>Ingresar trabajador</h2><div class="form two"><input id="atNombre" placeholder="Nombre completo"/><input id="atRut" placeholder="RUT"/><input id="atFechaIngreso" type="date"/><input id="atFoto" type="file" accept="image/*"/></div><div class="actions"><button class="primary" onclick="createAtendedor()">Guardar trabajador</button><button class="secondary" onclick="resetAtForm();toggleAtForm()">Cancelar</button></div><div id="atMsg"></div></div><div class="grid content"><div class="card"><h2>Nómina</h2><div class="toolbar two"><input id="atSearch" oninput="renderAtendedores()" placeholder="Buscar por nombre o RUT"/><button class="secondary" onclick="loadAtendedores()">Actualizar</button></div><div class="table at"><div class="thead"><div>Foto</div><div>Nombre</div><div>RUT</div><div>Ingreso EDS</div><div>Acción</div></div><div id="atRows"></div></div></div><div class="card detail" id="atDetail"><h2>Ficha trabajador</h2><p>Selecciona un trabajador de la nómina.</p></div></div></div></section>
 
 <section id="ticketat" class="section">
   <div class="topbar">
@@ -293,7 +305,7 @@ body:before{
       <h1>Ticket Atendedor</h1>
       <p>Solicitudes internas de atendedores: ropa, vacaciones, días de permiso, cambios de turno y otros requerimientos.</p>
     </div>
-    <button class="primary" onclick="toggleTicketAtForm()">Nuevo ticket</button>
+    <button class="primary" data-action="crear" onclick="toggleTicketAtForm()">Nuevo ticket</button>
   </div>
 
   <div id="ticketAlertBox" class="ticket-alert">
@@ -380,7 +392,7 @@ body:before{
       <h1>Usuarios y Permisos</h1>
       <p>Control de accesos por 3 niveles: plataformas, módulos y acciones.</p>
     </div>
-    <button class="primary" onclick="toggleUsuarioForm()">Nuevo usuario</button>
+    <button class="primary" data-action="crear" onclick="toggleUsuarioForm()">Nuevo usuario</button>
   </div>
 
   <div id="usuarioFormCard" class="card hidden">
@@ -466,64 +478,54 @@ body:before{
   </div>
 </div>
 
-<div id="progressModal" class="modal"><div class="modal-box"><h2 id="progressTitle">Agregar avance</h2><div class="form two"><input id="pTitulo" placeholder="Título del avance"/><input id="pUsuario" placeholder="Usuario / responsable"/><select id="pEtapa"><option>Ingresado</option><option>Documentación y respaldo</option><option>Aprobado</option><option>Rechazado</option></select><select id="pResolucion"><option>Pendiente</option><option>Abono por Portal Concesionario</option><option>Cliente paga en oficina</option><option>Rechazado por VALEPAC</option></select></div><div class="form"><textarea id="pComentario" placeholder="Comentario / respaldo / progreso"></textarea><input id="pArchivo" type="file" accept=".pdf,image/*,.xlsx,.xls"/></div><div class="actions"><button class="primary" onclick="saveVnaProgress()">Guardar avance</button><button class="secondary" onclick="closeProgress()">Cancelar</button></div><div id="pMsg"></div></div></div>
+<div id="progressModal" class="modal"><div class="modal-box"><h2 id="progressTitle">Agregar avance</h2><div class="form two"><input id="pTitulo" placeholder="Título del avance"/><input id="pUsuario" placeholder="Usuario / responsable"/><select id="pEtapa"><option>Ingresado</option><option>Documentación y respaldo</option><option>Aprobado</option><option>Rechazado</option></select><select id="pResolucion"><option>Pendiente</option><option>Abono por Portal Concesionario</option><option>Cliente paga en oficina</option><option>Rechazado por VALEPAC</option></select></div><div class="form"><textarea id="pComentario" placeholder="Comentario / respaldo / progreso"></textarea><input id="pArchivo" type="file" accept=".pdf,image/*,.xlsx,.xls"/></div><div class="actions"><button class="primary" data-action="cambiar_estado" onclick="saveVnaProgress()">Guardar avance</button><button class="secondary" onclick="closeProgress()">Cancelar</button></div><div id="pMsg"></div></div></div>
 <script>
 const SUPABASE_URL='https://emyskqnsyspzjrguycjk.supabase.co';
 const SUPABASE_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVteXNrcW5zeXNwempyZ3V5Y2prIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzk5MDg5NDcsImV4cCI6MjA5NTQ4NDk0N30.bLCSwgLCop1Gg4rCbunFe4YCP_KHxIIFGF28vR0XD-0';
 const client=supabase.createClient(SUPABASE_URL,SUPABASE_KEY);const bucket='documentos-sec';let docs=[],bits=[],bitHist=[],vnas=[],history=[],atendedores=[],atNotes=[],ticketsAt=[],ticketAtHist=[],selectedDoc=null,selectedBit=null,selectedVna=null,selectedAt=null,selectedNote=null,selectedTicketAt=null,editandoAtendedor=null,currentUser=null,usuariosConfig=[],selectedUsuario=null;
 
-function loginApp(){
+async function loginApp(){
   const u=(loginUser.value||'').trim().toLowerCase();
   const p=(loginPass.value||'').trim();
 
-  if(u==='gabrielarancibia' && p==='portalvalepac'){
-    currentUser={
-      usuario:'gabrielarancibia',
-      nombre:'Gabriel Arancibia',
-      rol:'admin',
-      permisos:{
-        sec:true,
-        bitacora:true,
-        vna:true,
-        desempeno:true,
-        ticket_atendedor:true,
-        usuarios:true,
-        nomina:true,
-        historial_anotaciones:true,
-        crear:true,
-        editar:true,
-        eliminar:true,
-        desactivar:true,
-        subir_archivos:true,
-        cambiar_estado:true
-      }
-    };
-    try{localStorage.setItem('valepac_web_session',JSON.stringify(currentUser));}catch(e){}
-    enterApp();
+  loginMsg.innerHTML='<div class="notice">Validando acceso...</div>';
+
+  const { data, error } = await client
+    .from('usuarios_portal')
+    .select('*')
+    .eq('usuario', u)
+    .eq('password', p)
+    .eq('estado', 'Activo')
+    .maybeSingle();
+
+  if(error){
+    console.error(error);
+    loginMsg.innerHTML='<div class="notice error">Error consultando usuario en Supabase.</div>';
     return;
   }
 
-  if(u==='briancalderon' && p==='brian2026'){
-    currentUser={
-      usuario:'briancalderon',
-      nombre:'Brian Calderón',
-      rol:'desempeno',
-      permisos:{
-        desempeno:true,
-        ticket_atendedor:true,
-        nomina:true,
-        historial_anotaciones:true,
-        crear:true,
-        subir_archivos:true,
-        cambiar_estado:true
-      }
-    };
-    try{localStorage.setItem('valepac_web_session',JSON.stringify(currentUser));}catch(e){}
-    enterApp();
+  if(!data){
+    loginMsg.innerHTML='<div class="notice error">Usuario o contraseña incorrectos.</div>';
     return;
   }
 
-  loginMsg.innerHTML='<div class="notice error">Usuario o contraseña incorrectos.</div>';
+  const permisos = normalizePermisos(data.permisos || {});
+
+  if(!hasPermInObject(permisos,'plataformas','web')){
+    loginMsg.innerHTML='<div class="notice error">Usuario sin permiso para Web escritorio.</div>';
+    return;
+  }
+
+  currentUser={
+    id:data.id,
+    usuario:data.usuario,
+    nombre:data.nombre,
+    rol:data.rol,
+    permisos:permisos
+  };
+
+  try{localStorage.setItem('valepac_web_session',JSON.stringify(currentUser));}catch(e){}
+  enterApp();
 }
 
 function restoreLocalSession(){
@@ -551,44 +553,144 @@ function enterApp(){try{localStorage.setItem('valepac_web_session',JSON.stringif
   login.classList.add('hidden');
   app.classList.remove('hidden');
   applyPermissions();
-  if(currentUser&&currentUser.rol==='desempeno'){
-    showModule('at');
-    loadDesempeno();
+
+  const firstAllowed=[
+    ['sec','sec'],
+    ['bitacora','bitacora'],
+    ['vna','vna'],
+    ['at','desempeno'],
+    ['ticketat','ticket_atendedor'],
+    ['usuarios','usuarios']
+  ].find(([section,perm])=>canModule(perm));
+
+  if(firstAllowed){
+    showModule(firstAllowed[0]);
   }else{
-    loadAll();
+    alert('Tu usuario no tiene módulos autorizados.');
   }
+}
+
+function normalizePermisos(p){
+  p=p||{};
+  const norm={plataformas:{},modulos:{},acciones:{}};
+
+  if(Array.isArray(p.plataformas)){
+    p.plataformas.forEach(x=>norm.plataformas[x]=true);
+  }else{
+    norm.plataformas=p.plataformas||{};
+  }
+
+  if(Array.isArray(p.modulos)){
+    p.modulos.forEach(x=>norm.modulos[x]=true);
+  }else{
+    norm.modulos=p.modulos||{};
+  }
+
+  if(Array.isArray(p.acciones)){
+    p.acciones.forEach(x=>norm.acciones[x]=true);
+  }else{
+    norm.acciones=p.acciones||{};
+  }
+
+  // Compatibilidad con permisos antiguos planos
+  ['sec','bitacora','vna','desempeno','ticket_atendedor','ticket','usuarios','nomina','historial_anotaciones'].forEach(k=>{
+    if(p[k]===true)norm.modulos[k]=true;
+  });
+  ['crear','editar','eliminar','desactivar','subir_archivos','cambiar_estado'].forEach(k=>{
+    if(p[k]===true)norm.acciones[k]=true;
+  });
+
+  if(norm.modulos.ticket===true)norm.modulos.ticket_atendedor=true;
+
+  return norm;
+}
+
+function hasPermInObject(permisos,nivel,clave){
+  permisos=normalizePermisos(permisos||{});
+  return !!(permisos[nivel]&&permisos[nivel][clave]);
+}
+
+function canModule(mod){
+  if(!currentUser)return false;
+  if(currentUser.usuario==='gabrielarancibia')return true;
+  const key=mod==='ticket'?'ticket_atendedor':mod;
+  return hasPermInObject(currentUser.permisos,'modulos',key);
+}
+
+function canActionPerm(action){
+  if(!currentUser)return false;
+  if(currentUser.usuario==='gabrielarancibia')return true;
+  return hasPermInObject(currentUser.permisos,'acciones',action);
 }
 
 function applyPermissions(){
   if(!currentUser)return;
-  const userIcon=document.querySelector('.header-icons .header-icon:nth-child(2)');
-  if(userIcon)userIcon.textContent=currentUser.rol==='admin'?'ADM':'AT';
 
-  if(currentUser.rol==='desempeno'){
-    document.querySelectorAll('.menu-group')[0].style.display='none';
-    const reportBtn=[...document.querySelectorAll('.nav>button')].find(b=>b.textContent.includes('Reportes'));
-    if(reportBtn)reportBtn.style.display='none';
-    const helpBtn=[...document.querySelectorAll('.nav>button')].find(b=>b.textContent.includes('Ayuda'));
-    if(helpBtn)helpBtn.style.display='none';
+  currentUser.permisos=normalizePermisos(currentUser.permisos||{});
+
+  const userIcon=document.querySelector('.header-icons .header-icon:nth-child(2)');
+  if(userIcon)userIcon.textContent=(currentUser.rol||'USR').substring(0,3).toUpperCase();
+
+  applyModulePermissions();
+  applyActionPermissions();
+
+  const firstAllowed=[
+    ['sec','sec'],
+    ['bitacora','bitacora'],
+    ['vna','vna'],
+    ['at','desempeno'],
+    ['ticketat','ticket_atendedor'],
+    ['usuarios','usuarios']
+  ].find(([section,perm])=>canModule(perm));
+
+  if(firstAllowed && !document.querySelector('.section.active:not(.hidden)')){
+    showModule(firstAllowed[0]);
   }
 }
 
 function canEditAtendedor(){
-  return currentUser && currentUser.rol==='admin';
+  return canActionPerm('editar');
 }
 
 function isAdmin(){
-  return currentUser && currentUser.rol==='admin';
+  return currentUser && currentUser.usuario==='gabrielarancibia';
 }
 
-function showModule(m){if(currentUser&&currentUser.rol==='desempeno'&&!(m==='at'||m==='ticketat')){m='at'}document.querySelectorAll('.section').forEach(s=>s.classList.remove('active'));document.getElementById(m).classList.add('active');document.querySelectorAll('.nav button').forEach(b=>b.classList.remove('active'));document.getElementById('nav-'+m).classList.add('active');if(m==='sec')loadDocuments();if(m==='bitacora')loadBitacora();if(m==='vna')loadVna();if(m==='at')loadDesempeno();if(m==='ticketat')loadTicketAt();if(m==='usuarios')loadUsuariosConfig()}async function loadAll(){await loadDocuments();await loadBitacora();await loadVna();await loadDesempeno()}function fmt(d){if(!d)return '-';return new Date(d).toLocaleString('es-CL',{dateStyle:'short',timeStyle:'short'})}function money(v){return v?Number(v).toLocaleString('es-CL',{style:'currency',currency:'CLP'}):'-'}function badge(s){let c='b-pendiente';if(s==='Vigente')c='b-vigente';if(s==='Por vencer')c='b-vencer';if(s==='Vencido')c='b-vencido';if(s==='No cargado')c='b-nocargado';if(s==='En Proceso')c='b-revision';if(s==='Ingresado')c='b-ingresado';if(s==='Documentación y respaldo')c='b-doc';if(s==='Aprobado')c='b-aprobado';if(s==='Rechazado')c='b-rechazado';if(s==='Baja')c='b-baja';if(s==='Media')c='b-media';if(s==='Alta')c='b-alta';if(s==='Positiva')c='b-aprobado';if(s==='Negativa')c='b-rechazado';return `<span class="badge ${c}">${s||'Pendiente'}</span>`}function daysLeft(d){if(!d)return null;const a=new Date();a.setHours(0,0,0,0);const b=new Date(d);b.setHours(0,0,0,0);return Math.ceil((b-a)/86400000)}function calcStatus(d,alertDays,hasFile){if(!hasFile)return 'No cargado';if(!d)return 'En Proceso';const rest=daysLeft(d);if(rest<0)return 'Vencido';if(rest<=Number(alertDays||30))return 'Por vencer';return 'Vigente'}
+function showModule(m){
+  const mapPerm={sec:'sec',bitacora:'bitacora',vna:'vna',at:'desempeno',ticketat:'ticket_atendedor',usuarios:'usuarios'};
+  const perm=mapPerm[m]||m;
+
+  if(!canModule(perm)){
+    const firstAllowed=Object.entries(mapPerm).find(([section,p])=>canModule(p));
+    if(!firstAllowed){
+      alert('Tu usuario no tiene módulos autorizados.');
+      return;
+    }
+    m=firstAllowed[0];
+  }
+
+  document.querySelectorAll('.section').forEach(s=>s.classList.remove('active'));
+  const section=document.getElementById(m);
+  if(section)section.classList.add('active');
+
+  document.querySelectorAll('.nav button').forEach(b=>b.classList.remove('active'));
+  const nav=document.getElementById('nav-'+m);
+  if(nav)nav.classList.add('active');
+
+  if(m==='sec')loadDocuments();
+  if(m==='bitacora')loadBitacora();
+  if(m==='vna')loadVna();
+  if(m==='at')loadDesempeno();
+  if(m==='ticketat')loadTicketAt();
+  if(m==='usuarios')loadUsuariosConfig();
+}async function loadAll(){await loadDocuments();await loadBitacora();await loadVna();await loadDesempeno()}function fmt(d){if(!d)return '-';return new Date(d).toLocaleString('es-CL',{dateStyle:'short',timeStyle:'short'})}function money(v){return v?Number(v).toLocaleString('es-CL',{style:'currency',currency:'CLP'}):'-'}function badge(s){let c='b-pendiente';if(s==='Vigente')c='b-vigente';if(s==='Por vencer')c='b-vencer';if(s==='Vencido')c='b-vencido';if(s==='No cargado')c='b-nocargado';if(s==='En Proceso')c='b-revision';if(s==='Ingresado')c='b-ingresado';if(s==='Documentación y respaldo')c='b-doc';if(s==='Aprobado')c='b-aprobado';if(s==='Rechazado')c='b-rechazado';if(s==='Baja')c='b-baja';if(s==='Media')c='b-media';if(s==='Alta')c='b-alta';if(s==='Positiva')c='b-aprobado';if(s==='Negativa')c='b-rechazado';return `<span class="badge ${c}">${s||'Pendiente'}</span>`}function daysLeft(d){if(!d)return null;const a=new Date();a.setHours(0,0,0,0);const b=new Date(d);b.setHours(0,0,0,0);return Math.ceil((b-a)/86400000)}function calcStatus(d,alertDays,hasFile){if(!hasFile)return 'No cargado';if(!d)return 'En Proceso';const rest=daysLeft(d);if(rest<0)return 'Vencido';if(rest<=Number(alertDays||30))return 'Por vencer';return 'Vigente'}
 async function loadDocuments(){const {data,error}=await client.from('documentos').select('*').order('numero_indice');if(error){docRows.innerHTML='<div class="notice error">Error cargando documentos: '+error.message+'</div>';return}docs=(data||[]).sort((a,b)=>{
   const parse=(v)=>String(v||'0').split('.').map(x=>parseInt(x,10)||0);
   const [a1,a2=0]=parse(a.numero_indice);
   const [b1,b2=0]=parse(b.numero_indice);
   if(a1!==b1)return a1-b1;
   return a2-b2;
-});if(!selectedDoc)selectedDoc=docs[0];renderDocs()}function renderDocs(){const q=docSearch.value.toLowerCase(),f=docStatus.value;const list=docs.filter(d=>(f==='Todos'||d.estado===f)&&`${d.numero_indice} ${d.nombre} ${d.categoria} ${d.responsable}`.toLowerCase().includes(q));const count=s=>docs.filter(d=>d.estado===s).length;secStats.innerHTML=`<div class="card stat"><p>Total</p><h3>${docs.length}</h3></div><div class="card stat"><p>Vigentes</p><h3>${count('Vigente')}</h3></div><div class="card stat"><p>Por vencer</p><h3>${count('Por vencer')}</h3></div><div class="card stat"><p>Vencidos</p><h3>${count('Vencido')}</h3></div><div class="card stat"><p>No cargados</p><h3>${count('No cargado')}</h3></div>`;docRows.innerHTML=list.map(d=>`<div class="row ${selectedDoc&&selectedDoc.id===d.id?'selected':''}" onclick="selectDoc(${d.id})"><div>${d.numero_indice}</div><div><div class="title">${d.nombre}</div><div class="sub">${d.responsable||'-'} · Vence: ${d.fecha_vencimiento||'Sin fecha'}</div></div><div>${d.categoria}</div><div>${badge(d.estado)}</div></div>`).join('')||'<div class="notice">Sin resultados.</div>';renderDocDetail()}function selectDoc(id){selectedDoc=docs.find(d=>d.id===id);renderDocs()}function renderDocDetail(){const d=selectedDoc;if(!d){docDetail.innerHTML='<p>Selecciona un documento.</p>';return}const dl=daysLeft(d.fecha_vencimiento);docDetail.innerHTML=`<h2>${d.nombre}</h2>${badge(d.estado)}<div class="kv"><small>Categoría</small>${d.categoria}</div><div class="kv"><small>Responsable</small>${d.responsable||'-'}</div><div class="kv"><small>Vencimiento</small>${d.fecha_vencimiento||'Sin fecha'} ${dl!==null?`· ${dl} días`:''}</div><div class="kv"><small>Archivo</small>${d.archivo_url?`<a href="${d.archivo_url}" target="_blank">Ver archivo</a>`:'No cargado'}</div><div class="kv"><small>Observación</small>${d.observacion||'-'}</div><hr><h3>Cargar PDF</h3><div class="form"><input id="pdf_${d.id}" type="file" accept="application/pdf"/><label>Fecha de vencimiento</label><input id="due_${d.id}" type="date" value="${d.fecha_vencimiento||''}"/><label>Días de alerta</label><input id="alert_${d.id}" type="number" value="${d.dias_alerta||30}"/></div><div class="actions"><button class="primary" onclick="uploadDocPdf(${d.id})">Cargar PDF</button></div><div id="docMsg"></div>`}async function uploadDocPdf(id){const file=document.getElementById('pdf_'+id).files[0],due=document.getElementById('due_'+id).value,alertDays=document.getElementById('alert_'+id).value||30;if(!file){docMsg.innerHTML='<div class="notice error">Selecciona un PDF.</div>';return}if(!due){docMsg.innerHTML='<div class="notice error">Ingresa fecha de vencimiento.</div>';return}const path=`sec/${id}_${Date.now()}_${file.name}`;const up=await client.storage.from(bucket).upload(path,file,{upsert:true});if(up.error){docMsg.innerHTML='<div class="notice error">'+up.error.message+'</div>';return}const url=client.storage.from(bucket).getPublicUrl(path).data.publicUrl;const estado=calcStatus(due,alertDays,true),rest=daysLeft(due),alerta=estado==='Por vencer'||estado==='Vencido';const {error}=await client.from('documentos').update({archivo_url:url,archivo_nombre:file.name,fecha_vencimiento:due,dias_alerta:Number(alertDays),dias_restantes:rest,alerta_activa:alerta,estado,updated_at:new Date().toISOString()}).eq('id',id);if(error){docMsg.innerHTML='<div class="notice error">'+error.message+'</div>';return}docMsg.innerHTML='<div class="notice ok">PDF cargado.</div>';selectedDoc=null;await loadDocuments()}
+});if(!selectedDoc)selectedDoc=docs[0];renderDocs()}function renderDocs(){const q=docSearch.value.toLowerCase(),f=docStatus.value;const list=docs.filter(d=>(f==='Todos'||d.estado===f)&&`${d.numero_indice} ${d.nombre} ${d.categoria} ${d.responsable}`.toLowerCase().includes(q));const count=s=>docs.filter(d=>d.estado===s).length;secStats.innerHTML=`<div class="card stat"><p>Total</p><h3>${docs.length}</h3></div><div class="card stat"><p>Vigentes</p><h3>${count('Vigente')}</h3></div><div class="card stat"><p>Por vencer</p><h3>${count('Por vencer')}</h3></div><div class="card stat"><p>Vencidos</p><h3>${count('Vencido')}</h3></div><div class="card stat"><p>No cargados</p><h3>${count('No cargado')}</h3></div>`;docRows.innerHTML=list.map(d=>`<div class="row ${selectedDoc&&selectedDoc.id===d.id?'selected':''}" onclick="selectDoc(${d.id})"><div>${d.numero_indice}</div><div><div class="title">${d.nombre}</div><div class="sub">${d.responsable||'-'} · Vence: ${d.fecha_vencimiento||'Sin fecha'}</div></div><div>${d.categoria}</div><div>${badge(d.estado)}</div></div>`).join('')||'<div class="notice">Sin resultados.</div>';renderDocDetail()}function selectDoc(id){selectedDoc=docs.find(d=>d.id===id);renderDocs()}function renderDocDetail(){const d=selectedDoc;if(!d){docDetail.innerHTML='<p>Selecciona un documento.</p>';return}const dl=daysLeft(d.fecha_vencimiento);docDetail.innerHTML=`<h2>${d.nombre}</h2>${badge(d.estado)}<div class="kv"><small>Categoría</small>${d.categoria}</div><div class="kv"><small>Responsable</small>${d.responsable||'-'}</div><div class="kv"><small>Vencimiento</small>${d.fecha_vencimiento||'Sin fecha'} ${dl!==null?`· ${dl} días`:''}</div><div class="kv"><small>Archivo</small>${d.archivo_url?`<a href="${d.archivo_url}" target="_blank">Ver archivo</a>`:'No cargado'}</div><div class="kv"><small>Observación</small>${d.observacion||'-'}</div><hr><h3>Cargar PDF</h3><div class="form"><input id="pdf_${d.id}" type="file" accept="application/pdf"/><label>Fecha de vencimiento</label><input id="due_${d.id}" type="date" value="${d.fecha_vencimiento||''}"/><label>Días de alerta</label><input id="alert_${d.id}" type="number" value="${d.dias_alerta||30}"/></div><div class="actions"><button class="primary" data-action="subir_archivos" onclick="uploadDocPdf(${d.id})">Cargar PDF</button></div><div id="docMsg"></div>`}async function uploadDocPdf(id){const file=document.getElementById('pdf_'+id).files[0],due=document.getElementById('due_'+id).value,alertDays=document.getElementById('alert_'+id).value||30;if(!file){docMsg.innerHTML='<div class="notice error">Selecciona un PDF.</div>';return}if(!due){docMsg.innerHTML='<div class="notice error">Ingresa fecha de vencimiento.</div>';return}const path=`sec/${id}_${Date.now()}_${file.name}`;const up=await client.storage.from(bucket).upload(path,file,{upsert:true});if(up.error){docMsg.innerHTML='<div class="notice error">'+up.error.message+'</div>';return}const url=client.storage.from(bucket).getPublicUrl(path).data.publicUrl;const estado=calcStatus(due,alertDays,true),rest=daysLeft(due),alerta=estado==='Por vencer'||estado==='Vencido';const {error}=await client.from('documentos').update({archivo_url:url,archivo_nombre:file.name,fecha_vencimiento:due,dias_alerta:Number(alertDays),dias_restantes:rest,alerta_activa:alerta,estado,updated_at:new Date().toISOString()}).eq('id',id);if(error){docMsg.innerHTML='<div class="notice error">'+error.message+'</div>';return}docMsg.innerHTML='<div class="notice ok">PDF cargado.</div>';selectedDoc=null;await loadDocuments()}
 
 function resetBitForm(){
   bitFecha.value='';
@@ -763,60 +865,57 @@ function toggleUsuarioForm(){
 }
 
 function permisosFromForm(){
-  return {
-    plataformas:{
-      web:platWeb.checked,
-      admin_mobile:platAdminMobile.checked,
-      desempeno_mobile:platDesempenoMobile.checked,
-      ticket_mobile:platTicketMobile.checked
-    },
-    modulos:{
-      sec:permSEC.checked,
-      bitacora:permBitacora.checked,
-      vna:permVNA.checked,
-      desempeno:permDesempeno.checked,
-      ticket_atendedor:permTicket.checked,
-      usuarios:permUsuarios.checked,
-      nomina:permNomina.checked,
-      historial_anotaciones:permHistorialAnotaciones.checked
-    },
-    acciones:{
-      crear:actCrear.checked,
-      editar:actEditar.checked,
-      eliminar:actEliminar.checked,
-      desactivar:actDesactivar.checked,
-      subir_archivos:actSubirArchivos.checked,
-      cambiar_estado:actCambiarEstado.checked
-    }
-  };
+  const plataformas=[];
+  const modulos=[];
+  const acciones=[];
+
+  if(platWeb.checked)plataformas.push('web');
+  if(platAdminMobile.checked)plataformas.push('admin_mobile');
+  if(platDesempenoMobile.checked)plataformas.push('desempeno_mobile');
+  if(platTicketMobile.checked)plataformas.push('ticket_mobile');
+
+  if(permSEC.checked)modulos.push('sec');
+  if(permBitacora.checked)modulos.push('bitacora');
+  if(permVNA.checked)modulos.push('vna');
+  if(permDesempeno.checked)modulos.push('desempeno');
+  if(permTicket.checked)modulos.push('ticket_atendedor');
+  if(permUsuarios.checked)modulos.push('usuarios');
+  if(permNomina.checked)modulos.push('nomina');
+  if(permHistorialAnotaciones.checked)modulos.push('historial_anotaciones');
+
+  if(actCrear.checked)acciones.push('crear');
+  if(actEditar.checked)acciones.push('editar');
+  if(actEliminar.checked)acciones.push('eliminar');
+  if(actDesactivar.checked)acciones.push('desactivar');
+  if(actSubirArchivos.checked)acciones.push('subir_archivos');
+  if(actCambiarEstado.checked)acciones.push('cambiar_estado');
+
+  return {plataformas,modulos,acciones};
 }
 
 function setPermisosForm(p){
-  p=p||{};
-  const plataformas=p.plataformas||p;
-  const modulos=p.modulos||p;
-  const acciones=p.acciones||p;
+  p=normalizePermisos(p||{});
 
-  platWeb.checked=!!plataformas.web;
-  platAdminMobile.checked=!!plataformas.admin_mobile;
-  platDesempenoMobile.checked=!!plataformas.desempeno_mobile;
-  platTicketMobile.checked=!!plataformas.ticket_mobile;
+  platWeb.checked=!!p.plataformas.web;
+  platAdminMobile.checked=!!p.plataformas.admin_mobile;
+  platDesempenoMobile.checked=!!p.plataformas.desempeno_mobile;
+  platTicketMobile.checked=!!p.plataformas.ticket_mobile;
 
-  permSEC.checked=!!modulos.sec;
-  permBitacora.checked=!!modulos.bitacora;
-  permVNA.checked=!!modulos.vna;
-  permDesempeno.checked=!!modulos.desempeno;
-  permTicket.checked=!!modulos.ticket_atendedor;
-  permUsuarios.checked=!!modulos.usuarios;
-  permNomina.checked=!!modulos.nomina;
-  permHistorialAnotaciones.checked=!!modulos.historial_anotaciones;
+  permSEC.checked=!!p.modulos.sec;
+  permBitacora.checked=!!p.modulos.bitacora;
+  permVNA.checked=!!p.modulos.vna;
+  permDesempeno.checked=!!p.modulos.desempeno;
+  permTicket.checked=!!p.modulos.ticket_atendedor;
+  permUsuarios.checked=!!p.modulos.usuarios;
+  permNomina.checked=!!p.modulos.nomina;
+  permHistorialAnotaciones.checked=!!p.modulos.historial_anotaciones;
 
-  actCrear.checked=!!acciones.crear;
-  actEditar.checked=!!acciones.editar;
-  actEliminar.checked=!!acciones.eliminar;
-  actDesactivar.checked=!!acciones.desactivar;
-  actSubirArchivos.checked=!!acciones.subir_archivos;
-  actCambiarEstado.checked=!!acciones.cambiar_estado;
+  actCrear.checked=!!p.acciones.crear;
+  actEditar.checked=!!p.acciones.editar;
+  actEliminar.checked=!!p.acciones.eliminar;
+  actDesactivar.checked=!!p.acciones.desactivar;
+  actSubirArchivos.checked=!!p.acciones.subir_archivos;
+  actCambiarEstado.checked=!!p.acciones.cambiar_estado;
 }
 
 async function loadUsuariosConfig(){
@@ -847,10 +946,10 @@ function selectUsuarioConfig(id){
 function renderUsuarioDetail(){
   const u=selectedUsuario;
   if(!u){usrDetail.innerHTML='<h2>Ficha de usuario</h2><p>Selecciona un usuario.</p>';return}
-  const p=u.permisos||{};
-  const plataformas=p.plataformas||p;
-  const modulos=p.modulos||p;
-  const acciones=p.acciones||p;
+  const p=normalizePermisos(u.permisos||{});
+  const plataformas=p.plataformas;
+  const modulos=p.modulos;
+  const acciones=p.acciones;
 
   const block=(title,arr)=>`<h3>${title}</h3>${arr.map(x=>`<div class="kv"><small>${x[0]}</small>${x[1]?'✅ Permitido':'❌ Sin acceso'}</div>`).join('')}`;
 
@@ -1313,20 +1412,16 @@ setInterval(()=>{try{if(currentUser&&document.getElementById('app')&&!document.g
 /* RECUPERACION LOGIN ESTABLE */
 
 function hasPerm(mod){
-  if(!currentUser)return false;
-  if(currentUser.usuario==='gabrielarancibia'||currentUser.rol==='admin')return true;
-  return !!(currentUser.permisos&&currentUser.permisos[mod]);
+  return canModule(mod);
 }
-function hasModule(mod){return hasPerm(mod)}
+function hasModule(mod){return canModule(mod)}
 function canAction(a){
-  if(!currentUser)return false;
-  if(currentUser.usuario==='gabrielarancibia'||currentUser.rol==='admin')return true;
-  return !!(currentUser.permisos&&currentUser.permisos[a]);
+  return canActionPerm(a);
 }
 function applyModulePermissions(){
   const map=[
     ['nav-sec','sec'],
-    ['nav-bit','bitacora'],
+    ['nav-bitacora','bitacora'],
     ['nav-vna','vna'],
     ['nav-at','desempeno'],
     ['nav-ticketat','ticket_atendedor'],
@@ -1334,10 +1429,20 @@ function applyModulePermissions(){
   ];
   map.forEach(([id,mod])=>{
     const el=document.getElementById(id);
-    if(el)el.style.display=hasPerm(mod)?'block':'none';
+    if(el)el.style.display=canModule(mod)?'block':'none';
+  });
+
+  document.querySelectorAll('.menu-group').forEach(group=>{
+    const visible=[...group.querySelectorAll('.dropdown button')].some(b=>b.style.display!=='none');
+    group.style.display=visible?'block':'none';
   });
 }
-function applyActionPermissions(){}
+function applyActionPermissions(){
+  document.querySelectorAll('[data-action]').forEach(el=>{
+    const action=el.getAttribute('data-action');
+    el.style.display=canActionPerm(action)?'':'none';
+  });
+}
 
 window.addEventListener('load',()=>restoreLocalSession());
 </script>
