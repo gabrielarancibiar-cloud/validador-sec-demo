@@ -211,7 +211,14 @@ body:before{
       <button id="nav-at" onclick="showModule('at')">Desempeño AT</button>
       <button id="nav-ticketat" onclick="showModule('ticketat')">Ticket Atendedor <span id="ticketNotifBadge" class="notif-badge hidden">0</span></button>
     </div></div>
-  </nav>
+  
+    <div class="menu-group">
+      <button type="button">Configuración⌄</button>
+      <div class="dropdown">
+        <button id="nav-usuarios" onclick="showModule('usuarios')">Usuarios y Permisos</button>
+      </div>
+    </div>
+</nav>
   <div class="header-icons"><div class="header-icon">⌕</div><div class="header-icon">👤</div><div class="header-icon">⚙</div></div>
 </header>
 <main class="main">
@@ -307,6 +314,63 @@ body:before{
   </div>
 </section>
 
+<section id="usuarios" class="section">
+  <div class="topbar">
+    <div>
+      <h1>Usuarios y Permisos</h1>
+      <p>Administración de perfiles de acceso por módulo.</p>
+    </div>
+    <button class="primary" onclick="toggleUsuarioForm()">Nuevo usuario</button>
+  </div>
+
+  <div id="usuarioFormCard" class="card hidden">
+    <h2>Crear / editar usuario</h2>
+    <div class="form three">
+      <input id="usrUsuario" placeholder="Usuario"/>
+      <input id="usrNombre" placeholder="Nombre completo"/>
+      <input id="usrPassword" placeholder="Contraseña"/>
+      <select id="usrEstado"><option>Activo</option><option>Inactivo</option></select>
+      <select id="usrRol"><option>Administrador</option><option>Supervisor</option><option>Consulta</option><option>Atendedor</option></select>
+    </div>
+
+    <h3>Accesos por módulo</h3>
+    <div class="card" style="box-shadow:none">
+      <label><input id="permSEC" type="checkbox"> Validador Documental SEC</label><br>
+      <label><input id="permBitacora" type="checkbox"> Bitácora Estación</label><br>
+      <label><input id="permVNA" type="checkbox"> Ventas No Abonadas</label><br>
+      <label><input id="permDesempeno" type="checkbox"> Desempeño AT</label><br>
+      <label><input id="permTicket" type="checkbox"> Ticket Atendedor</label><br>
+      <label><input id="permUsuarios" type="checkbox"> Usuarios y Permisos</label>
+    </div>
+
+    <div class="actions">
+      <button class="primary" onclick="saveUsuarioConfig()">Guardar usuario</button>
+      <button class="secondary" onclick="resetUsuarioForm();toggleUsuarioForm()">Cancelar</button>
+    </div>
+    <div id="usrMsg"></div>
+  </div>
+
+  <div class="grid content">
+    <div class="card">
+      <h2>Usuarios registrados</h2>
+      <div class="toolbar two">
+        <input id="usrSearch" oninput="renderUsuariosConfig()" placeholder="Buscar usuario, nombre o rol"/>
+        <select id="usrFilter" onchange="renderUsuariosConfig()">
+          <option>Todos</option><option>Activo</option><option>Inactivo</option>
+        </select>
+      </div>
+      <div class="table atnote">
+        <div class="thead"><div>Usuario</div><div>Nombre</div><div>Rol</div><div>Estado</div></div>
+        <div id="usrRows"></div>
+      </div>
+    </div>
+    <div class="card detail" id="usrDetail">
+      <h2>Ficha de usuario</h2>
+      <p>Selecciona un usuario.</p>
+    </div>
+  </div>
+</section>
+
 </main></div>
 
 
@@ -324,13 +388,20 @@ body:before{
 <script>
 const SUPABASE_URL='https://emyskqnsyspzjrguycjk.supabase.co';
 const SUPABASE_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVteXNrcW5zeXNwempyZ3V5Y2prIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzk5MDg5NDcsImV4cCI6MjA5NTQ4NDk0N30.bLCSwgLCop1Gg4rCbunFe4YCP_KHxIIFGF28vR0XD-0';
-const client=supabase.createClient(SUPABASE_URL,SUPABASE_KEY);const bucket='documentos-sec';let docs=[],bits=[],bitHist=[],vnas=[],history=[],atendedores=[],atNotes=[],ticketsAt=[],ticketAtHist=[],selectedDoc=null,selectedBit=null,selectedVna=null,selectedAt=null,selectedNote=null,selectedTicketAt=null,editandoAtendedor=null,currentUser=null;
-function loginApp(){
+const client=supabase.createClient(SUPABASE_URL,SUPABASE_KEY);const bucket='documentos-sec';let docs=[],bits=[],bitHist=[],vnas=[],history=[],atendedores=[],atNotes=[],ticketsAt=[],ticketAtHist=[],selectedDoc=null,selectedBit=null,selectedVna=null,selectedAt=null,selectedNote=null,selectedTicketAt=null,editandoAtendedor=null,currentUser=null,usuariosConfig=[],selectedUsuario=null;
+async function loginApp(){
   const u=(loginUser.value||'').trim().toLowerCase();
   const p=(loginPass.value||'').trim();
 
+  const {data:portalUser}=await client.from('usuarios_portal').select('*').eq('usuario',u).eq('estado','Activo').maybeSingle();
+  if(portalUser && p===portalUser.password){
+    currentUser={usuario:portalUser.usuario,nombre:portalUser.nombre||portalUser.usuario,rol:portalUser.rol||'Usuario',permisos:portalUser.permisos||{}};
+    enterApp();
+    return;
+  }
+
   if(u==='gabrielarancibia' && p==='portalvalepac'){
-    currentUser={usuario:'gabrielarancibia',nombre:'Gabriel Arancibia',rol:'admin'};
+    currentUser={usuario:'gabrielarancibia',nombre:'Gabriel Arancibia',rol:'admin',permisos:{sec:true,bitacora:true,vna:true,desempeno:true,ticket_atendedor:true,usuarios:true}};
     enterApp();
     return;
   }
@@ -357,6 +428,7 @@ function enterApp(){
 }
 
 function applyPermissions(){
+  applyModulePermissions();
   if(!currentUser)return;
   const userIcon=document.querySelector('.header-icons .header-icon:nth-child(2)');
   if(userIcon)userIcon.textContent=currentUser.rol==='admin'?'ADM':'AT';
@@ -378,7 +450,7 @@ function isAdmin(){
   return currentUser && currentUser.rol==='admin';
 }
 
-function showModule(m){if(currentUser&&currentUser.rol==='desempeno'&&!(m==='at'||m==='ticketat')){m='at'}document.querySelectorAll('.section').forEach(s=>s.classList.remove('active'));document.getElementById(m).classList.add('active');document.querySelectorAll('.nav button').forEach(b=>b.classList.remove('active'));document.getElementById('nav-'+m).classList.add('active');if(m==='sec')loadDocuments();if(m==='bitacora')loadBitacora();if(m==='vna')loadVna();if(m==='at')loadDesempeno();if(m==='ticketat')loadTicketAt()}async function loadAll(){await loadDocuments();await loadBitacora();await loadVna();await loadDesempeno()}function fmt(d){if(!d)return '-';return new Date(d).toLocaleString('es-CL',{dateStyle:'short',timeStyle:'short'})}function money(v){return v?Number(v).toLocaleString('es-CL',{style:'currency',currency:'CLP'}):'-'}function badge(s){let c='b-pendiente';if(s==='Vigente')c='b-vigente';if(s==='Por vencer')c='b-vencer';if(s==='Vencido')c='b-vencido';if(s==='No cargado')c='b-nocargado';if(s==='En Proceso')c='b-revision';if(s==='Ingresado')c='b-ingresado';if(s==='Documentación y respaldo')c='b-doc';if(s==='Aprobado')c='b-aprobado';if(s==='Rechazado')c='b-rechazado';if(s==='Baja')c='b-baja';if(s==='Media')c='b-media';if(s==='Alta')c='b-alta';if(s==='Positiva')c='b-aprobado';if(s==='Negativa')c='b-rechazado';return `<span class="badge ${c}">${s||'Pendiente'}</span>`}function daysLeft(d){if(!d)return null;const a=new Date();a.setHours(0,0,0,0);const b=new Date(d);b.setHours(0,0,0,0);return Math.ceil((b-a)/86400000)}function calcStatus(d,alertDays,hasFile){if(!hasFile)return 'No cargado';if(!d)return 'En Proceso';const rest=daysLeft(d);if(rest<0)return 'Vencido';if(rest<=Number(alertDays||30))return 'Por vencer';return 'Vigente'}
+function showModule(m){const modulePerms={sec:'sec',bit:'bitacora',vna:'vna',at:'desempeno',ticketat:'ticket_atendedor',usuarios:'usuarios'};if(modulePerms[m]&&!hasPerm(modulePerms[m])){alert('Usuario sin acceso a este módulo.');return;}if(currentUser&&currentUser.rol==='desempeno'&&!(m==='at'||m==='ticketat')){m='at'}document.querySelectorAll('.section').forEach(s=>s.classList.remove('active'));document.getElementById(m).classList.add('active');document.querySelectorAll('.nav button').forEach(b=>b.classList.remove('active'));document.getElementById('nav-'+m).classList.add('active');if(m==='sec')loadDocuments();if(m==='bitacora')loadBitacora();if(m==='vna')loadVna();if(m==='at')loadDesempeno();if(m==='ticketat')loadTicketAt();if(m==='usuarios')loadUsuariosConfig()}async function loadAll(){await loadDocuments();await loadBitacora();await loadVna();await loadDesempeno()}function fmt(d){if(!d)return '-';return new Date(d).toLocaleString('es-CL',{dateStyle:'short',timeStyle:'short'})}function money(v){return v?Number(v).toLocaleString('es-CL',{style:'currency',currency:'CLP'}):'-'}function badge(s){let c='b-pendiente';if(s==='Vigente')c='b-vigente';if(s==='Por vencer')c='b-vencer';if(s==='Vencido')c='b-vencido';if(s==='No cargado')c='b-nocargado';if(s==='En Proceso')c='b-revision';if(s==='Ingresado')c='b-ingresado';if(s==='Documentación y respaldo')c='b-doc';if(s==='Aprobado')c='b-aprobado';if(s==='Rechazado')c='b-rechazado';if(s==='Baja')c='b-baja';if(s==='Media')c='b-media';if(s==='Alta')c='b-alta';if(s==='Positiva')c='b-aprobado';if(s==='Negativa')c='b-rechazado';return `<span class="badge ${c}">${s||'Pendiente'}</span>`}function daysLeft(d){if(!d)return null;const a=new Date();a.setHours(0,0,0,0);const b=new Date(d);b.setHours(0,0,0,0);return Math.ceil((b-a)/86400000)}function calcStatus(d,alertDays,hasFile){if(!hasFile)return 'No cargado';if(!d)return 'En Proceso';const rest=daysLeft(d);if(rest<0)return 'Vencido';if(rest<=Number(alertDays||30))return 'Por vencer';return 'Vigente'}
 async function loadDocuments(){const {data,error}=await client.from('documentos').select('*').order('numero_indice');if(error){docRows.innerHTML='<div class="notice error">Error cargando documentos: '+error.message+'</div>';return}docs=(data||[]).sort((a,b)=>{
   const parse=(v)=>String(v||'0').split('.').map(x=>parseInt(x,10)||0);
   const [a1,a2=0]=parse(a.numero_indice);
@@ -533,6 +605,145 @@ function safeFileName(name){
   return String(name||'archivo')
     .normalize('NFD').replace(/[\u0300-\u036f]/g,'')
     .replace(/[^a-zA-Z0-9._-]/g,'_');
+}
+
+
+function resetUsuarioForm(){
+  window.editandoUsuarioConfig=null;
+  usrUsuario.value='';
+  usrNombre.value='';
+  usrPassword.value='';
+  usrEstado.value='Activo';
+  usrRol.value='Consulta';
+  [permSEC,permBitacora,permVNA,permDesempeno,permTicket,permUsuarios].forEach(x=>x.checked=false);
+  usrMsg.innerHTML='';
+  const h=usuarioFormCard.querySelector('h2');
+  if(h)h.textContent='Crear usuario';
+}
+
+function toggleUsuarioForm(){
+  const opening=usuarioFormCard.classList.contains('hidden');
+  if(opening)resetUsuarioForm();
+  usuarioFormCard.classList.toggle('hidden');
+}
+
+function permisosFromForm(){
+  return {
+    sec:permSEC.checked,
+    bitacora:permBitacora.checked,
+    vna:permVNA.checked,
+    desempeno:permDesempeno.checked,
+    ticket_atendedor:permTicket.checked,
+    usuarios:permUsuarios.checked
+  };
+}
+
+function setPermisosForm(p){
+  p=p||{};
+  permSEC.checked=!!p.sec;
+  permBitacora.checked=!!p.bitacora;
+  permVNA.checked=!!p.vna;
+  permDesempeno.checked=!!p.desempeno;
+  permTicket.checked=!!p.ticket_atendedor;
+  permUsuarios.checked=!!p.usuarios;
+}
+
+async function loadUsuariosConfig(){
+  const {data,error}=await client.from('usuarios_portal').select('*').order('usuario',{ascending:true});
+  if(error){
+    usrRows.innerHTML='<div class="notice error">Error cargando usuarios: '+error.message+'</div>';
+    return;
+  }
+  usuariosConfig=data||[];
+  if(!selectedUsuario)selectedUsuario=usuariosConfig[0];
+  renderUsuariosConfig();
+}
+
+function renderUsuariosConfig(){
+  if(!document.getElementById('usrRows'))return;
+  const q=(usrSearch?.value||'').toLowerCase();
+  const f=usrFilter?.value||'Todos';
+  const list=usuariosConfig.filter(u=>(f==='Todos'||u.estado===f)&&`${u.usuario||''} ${u.nombre||''} ${u.rol||''}`.toLowerCase().includes(q));
+  usrRows.innerHTML=list.map(u=>`<div class="row ${selectedUsuario&&selectedUsuario.id===u.id?'selected':''}" onclick="selectUsuarioConfig(${u.id})"><div><b>${u.usuario}</b></div><div>${u.nombre||'-'}</div><div>${u.rol||'-'}</div><div>${u.estado==='Activo'?'<span class="badge b-aprobado">Activo</span>':'<span class="badge b-rechazado">Inactivo</span>'}</div></div>`).join('')||'<div class="notice">Sin usuarios registrados.</div>';
+  renderUsuarioDetail();
+}
+
+function selectUsuarioConfig(id){
+  selectedUsuario=usuariosConfig.find(u=>u.id===id);
+  renderUsuariosConfig();
+}
+
+function renderUsuarioDetail(){
+  const u=selectedUsuario;
+  if(!u){usrDetail.innerHTML='<h2>Ficha de usuario</h2><p>Selecciona un usuario.</p>';return}
+  const p=u.permisos||{};
+  const permisos=[
+    ['Validador SEC',p.sec],['Bitácora',p.bitacora],['Ventas No Abonadas',p.vna],
+    ['Desempeño AT',p.desempeno],['Ticket Atendedor',p.ticket_atendedor],['Usuarios y Permisos',p.usuarios]
+  ];
+  usrDetail.innerHTML=`<h2>${u.nombre||u.usuario}</h2><div class="kv"><small>Usuario</small>${u.usuario}</div><div class="kv"><small>Rol</small>${u.rol||'-'}</div><div class="kv"><small>Estado</small>${u.estado||'-'}</div><h3>Permisos</h3>${permisos.map(x=>`<div class="kv"><small>${x[0]}</small>${x[1]?'✅ Permitido':'❌ Sin acceso'}</div>`).join('')}<div class="actions"><button class="secondary" onclick="editUsuarioConfig(${u.id})">Editar permisos</button><button class="secondary" style="color:#991b1b;border-color:#fecaca" onclick="toggleUsuarioEstado(${u.id})">${u.estado==='Activo'?'Desactivar':'Activar'} usuario</button></div>`;
+}
+
+function editUsuarioConfig(id){
+  const u=usuariosConfig.find(x=>x.id===id);
+  if(!u)return;
+  window.editandoUsuarioConfig=id;
+  usrUsuario.value=u.usuario||'';
+  usrNombre.value=u.nombre||'';
+  usrPassword.value=u.password||'';
+  usrEstado.value=u.estado||'Activo';
+  usrRol.value=u.rol||'Consulta';
+  setPermisosForm(u.permisos);
+  usuarioFormCard.classList.remove('hidden');
+  const h=usuarioFormCard.querySelector('h2');
+  if(h)h.textContent='Editar usuario';
+  usuarioFormCard.scrollIntoView({behavior:'smooth',block:'start'});
+}
+
+async function saveUsuarioConfig(){
+  const usuario=usrUsuario.value.trim().toLowerCase();
+  const nombre=usrNombre.value.trim();
+  const password=usrPassword.value.trim();
+  if(!usuario||!password){
+    usrMsg.innerHTML='<div class="notice error">Falta usuario o contraseña.</div>';
+    return;
+  }
+  const payload={usuario,nombre,password,estado:usrEstado.value,rol:usrRol.value,permisos:permisosFromForm(),updated_at:new Date().toISOString()};
+  let error,data;
+  if(window.editandoUsuarioConfig){
+    ({data,error}=await client.from('usuarios_portal').update(payload).eq('id',window.editandoUsuarioConfig).select().single());
+  }else{
+    ({data,error}=await client.from('usuarios_portal').insert(payload).select().single());
+  }
+  if(error){usrMsg.innerHTML='<div class="notice error">'+error.message+'</div>';return}
+  usrMsg.innerHTML='<div class="notice ok">Usuario guardado correctamente.</div>';
+  selectedUsuario=data;
+  window.editandoUsuarioConfig=null;
+  await loadUsuariosConfig();
+}
+
+async function toggleUsuarioEstado(id){
+  const u=usuariosConfig.find(x=>x.id===id);
+  if(!u)return;
+  const nuevo=u.estado==='Activo'?'Inactivo':'Activo';
+  if(!confirm(`¿Cambiar estado de ${u.usuario} a ${nuevo}?`))return;
+  const {error}=await client.from('usuarios_portal').update({estado:nuevo,updated_at:new Date().toISOString()}).eq('id',id);
+  if(error){alert(error.message);return}
+  await loadUsuariosConfig();
+}
+
+function hasPerm(mod){
+  if(!currentUser)return false;
+  if(currentUser.usuario==='gabrielarancibia'||currentUser.rol==='admin'||currentUser.rol==='Administrador')return true;
+  return !!(currentUser.permisos&&currentUser.permisos[mod]);
+}
+
+function applyModulePermissions(){
+  const map=[['nav-sec','sec'],['nav-bit','bitacora'],['nav-vna','vna'],['nav-at','desempeno'],['nav-ticketat','ticket_atendedor'],['nav-usuarios','usuarios']];
+  map.forEach(([id,mod])=>{
+    const el=document.getElementById(id);
+    if(el)el.style.display=hasPerm(mod)?'block':'none';
+  });
 }
 
 function fillTicketWorkers(){
