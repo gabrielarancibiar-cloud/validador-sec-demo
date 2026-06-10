@@ -7,10 +7,44 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2">
 setInterval(()=>{try{if(currentUser&&document.getElementById('app')&&!document.getElementById('app').classList.contains('hidden')){loadTicketAt();}}catch(e){}},60000);
 
+
+function hasPerm(mod){return hasModule(mod)}
+function applyModulePermissions(){
+  const map=[
+    ['nav-sec','sec'],['nav-bit','bitacora'],['nav-vna','vna'],
+    ['nav-at','desempeno'],['nav-ticketat','ticket_atendedor'],['nav-usuarios','usuarios']
+  ];
+  map.forEach(([id,mod])=>{
+    const el=document.getElementById(id);
+    if(el)el.style.display=hasModule(mod)?'block':'none';
+  });
+}
+function applyActionPermissions(){
+  document.querySelectorAll('[data-create-action]').forEach(el=>el.style.display=canAction('crear')?'inline-flex':'none');
+  document.querySelectorAll('[data-delete-action]').forEach(el=>el.style.display=canAction('eliminar')?'inline-flex':'none');
+}
+
 window.addEventListener('load',()=>restoreSession());
 </script>
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js">
 setInterval(()=>{try{if(currentUser&&document.getElementById('app')&&!document.getElementById('app').classList.contains('hidden')){loadTicketAt();}}catch(e){}},60000);
+
+
+function hasPerm(mod){return hasModule(mod)}
+function applyModulePermissions(){
+  const map=[
+    ['nav-sec','sec'],['nav-bit','bitacora'],['nav-vna','vna'],
+    ['nav-at','desempeno'],['nav-ticketat','ticket_atendedor'],['nav-usuarios','usuarios']
+  ];
+  map.forEach(([id,mod])=>{
+    const el=document.getElementById(id);
+    if(el)el.style.display=hasModule(mod)?'block':'none';
+  });
+}
+function applyActionPermissions(){
+  document.querySelectorAll('[data-create-action]').forEach(el=>el.style.display=canAction('crear')?'inline-flex':'none');
+  document.querySelectorAll('[data-delete-action]').forEach(el=>el.style.display=canAction('eliminar')?'inline-flex':'none');
+}
 
 window.addEventListener('load',()=>restoreSession());
 </script>
@@ -335,14 +369,34 @@ body:before{
       <select id="usrRol"><option>Administrador</option><option>Supervisor</option><option>Consulta</option><option>Atendedor</option></select>
     </div>
 
-    <h3>Accesos por módulo</h3>
+    <h3>Nivel 1 · Plataformas</h3>
+    <div class="card" style="box-shadow:none">
+      <label><input id="platWeb" type="checkbox"> Web escritorio</label><br>
+      <label><input id="platAdminMobile" type="checkbox"> Admin Mobile</label><br>
+      <label><input id="platDesempenoMobile" type="checkbox"> Desempeño AT Mobile</label><br>
+      <label><input id="platTicketMobile" type="checkbox"> Ticket Atendedor Mobile</label>
+    </div>
+
+    <h3>Nivel 2 · Módulos</h3>
     <div class="card" style="box-shadow:none">
       <label><input id="permSEC" type="checkbox"> Validador Documental SEC</label><br>
       <label><input id="permBitacora" type="checkbox"> Bitácora Estación</label><br>
       <label><input id="permVNA" type="checkbox"> Ventas No Abonadas</label><br>
       <label><input id="permDesempeno" type="checkbox"> Desempeño AT</label><br>
       <label><input id="permTicket" type="checkbox"> Ticket Atendedor</label><br>
-      <label><input id="permUsuarios" type="checkbox"> Usuarios y Permisos</label>
+      <label><input id="permUsuarios" type="checkbox"> Usuarios y Permisos</label><br>
+      <label><input id="permNomina" type="checkbox"> Nómina</label><br>
+      <label><input id="permHistorialAnotaciones" type="checkbox"> Historial de Anotaciones</label>
+    </div>
+
+    <h3>Nivel 3 · Acciones</h3>
+    <div class="card" style="box-shadow:none">
+      <label><input id="actCrear" type="checkbox"> Crear registros</label><br>
+      <label><input id="actEditar" type="checkbox"> Editar registros</label><br>
+      <label><input id="actEliminar" type="checkbox"> Eliminar registros</label><br>
+      <label><input id="actDesactivar" type="checkbox"> Desactivar trabajadores/usuarios</label><br>
+      <label><input id="actSubirArchivos" type="checkbox"> Subir archivos</label><br>
+      <label><input id="actCambiarEstado" type="checkbox"> Cambiar estados</label>
     </div>
 
     <div class="actions">
@@ -392,21 +446,51 @@ const SUPABASE_URL='https://emyskqnsyspzjrguycjk.supabase.co';
 const SUPABASE_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVteXNrcW5zeXNwempyZ3V5Y2prIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzk5MDg5NDcsImV4cCI6MjA5NTQ4NDk0N30.bLCSwgLCop1Gg4rCbunFe4YCP_KHxIIFGF28vR0XD-0';
 const client=supabase.createClient(SUPABASE_URL,SUPABASE_KEY);const bucket='documentos-sec';let docs=[],bits=[],bitHist=[],vnas=[],history=[],atendedores=[],atNotes=[],ticketsAt=[],ticketAtHist=[],selectedDoc=null,selectedBit=null,selectedVna=null,selectedAt=null,selectedNote=null,selectedTicketAt=null,editandoAtendedor=null,currentUser=null,usuariosConfig=[],selectedUsuario=null;
 
+function valepacDefaultPermisos(){
+  return {
+    plataformas:{web:true,admin_mobile:true,desempeno_mobile:true,ticket_mobile:true},
+    modulos:{sec:true,bitacora:true,vna:true,desempeno:true,ticket_atendedor:true,usuarios:true,nomina:true,historial_anotaciones:true},
+    acciones:{crear:true,editar:true,eliminar:true,desactivar:true,subir_archivos:true,cambiar_estado:true}
+  };
+}
+function getPermRoot(){
+  return currentUser && currentUser.permisos ? currentUser.permisos : {};
+}
+function hasPlatform(p){
+  if(!currentUser)return false;
+  if(currentUser.usuario==='gabrielarancibia'||currentUser.rol==='admin'||currentUser.rol==='Administrador')return true;
+  const perms=getPermRoot();
+  return !!(perms.plataformas?.[p] || perms[p]);
+}
+function hasModule(m){
+  if(!currentUser)return false;
+  if(currentUser.usuario==='gabrielarancibia'||currentUser.rol==='admin'||currentUser.rol==='Administrador')return true;
+  const perms=getPermRoot();
+  return !!(perms.modulos?.[m] || perms[m]);
+}
+function canAction(a){
+  if(!currentUser)return false;
+  if(currentUser.usuario==='gabrielarancibia'||currentUser.rol==='admin'||currentUser.rol==='Administrador')return true;
+  const perms=getPermRoot();
+  return !!(perms.acciones?.[a] || perms[a]);
+}
 function saveSession(){
-  if(currentUser)localStorage.setItem('valepac_session',JSON.stringify(currentUser));
+  if(currentUser)localStorage.setItem('valepac_web_session',JSON.stringify(currentUser));
 }
 function clearSession(){
-  localStorage.removeItem('valepac_session');
+  localStorage.removeItem('valepac_web_session');
 }
 function restoreSession(){
   try{
-    const raw=localStorage.getItem('valepac_session');
+    const raw=localStorage.getItem('valepac_web_session');
     if(!raw)return false;
     currentUser=JSON.parse(raw);
-    login.classList.add('hidden');
-    app.classList.remove('hidden');
-    applyPermissions();
-    loadAll();
+    const loginEl=document.getElementById('login');
+    const appEl=document.getElementById('app');
+    if(loginEl)loginEl.classList.add('hidden');
+    if(appEl)appEl.classList.remove('hidden');
+    try{applyPermissions()}catch(e){}
+    try{loadAll()}catch(e){}
     return true;
   }catch(e){
     clearSession();
@@ -422,35 +506,64 @@ async function loginApp(){
   const u=(loginUser.value||'').trim().toLowerCase();
   const p=(loginPass.value||'').trim();
 
-  const {data:portalUser}=await client.from('usuarios_portal').select('*').eq('usuario',u).eq('estado','Activo').maybeSingle();
-  if(portalUser && p===portalUser.password){
-    currentUser={usuario:portalUser.usuario,nombre:portalUser.nombre||portalUser.usuario,rol:portalUser.rol||'Usuario',permisos:portalUser.permisos||{}};
-    saveSession();
-    enterApp();
-    return;
-  }
-
+  // Acceso de rescate garantizado para Gabriel
   if(u==='gabrielarancibia' && p==='portalvalepac'){
-    currentUser={usuario:'gabrielarancibia',nombre:'Gabriel Arancibia',rol:'admin',permisos:{sec:true,bitacora:true,vna:true,desempeno:true,ticket_atendedor:true,usuarios:true}};
+    currentUser={
+      usuario:'gabrielarancibia',
+      nombre:'Gabriel Arancibia',
+      rol:'Administrador',
+      permisos:valepacDefaultPermisos()
+    };
     saveSession();
     enterApp();
     return;
   }
 
-  if(u==='briancalderon' && p==='brian2026'){
-    currentUser={usuario:'briancalderon',nombre:'Brian Calderón',rol:'desempeno'};
-    saveSession();
-    enterApp();
+  // Login unificado desde Supabase
+  try{
+    const {data:user,error}=await client
+      .from('usuarios_portal')
+      .select('*')
+      .eq('usuario',u)
+      .eq('estado','Activo')
+      .maybeSingle();
+
+    if(error){
+      loginMsg.innerHTML='<div class="notice error">'+error.message+'</div>';
+      return;
+    }
+
+    if(user && p===user.password){
+      currentUser={
+        usuario:user.usuario,
+        nombre:user.nombre||user.usuario,
+        rol:user.rol||'Usuario',
+        permisos:user.permisos||{}
+      };
+
+      const puedeEntrarWeb = hasPlatform('web') || hasModule('sec') || hasModule('bitacora') || hasModule('vna') || hasModule('desempeno') || hasModule('ticket_atendedor') || hasModule('usuarios');
+
+      if(!puedeEntrarWeb){
+        loginMsg.innerHTML='<div class="notice error">Usuario activo, pero sin permisos para web escritorio.</div>';
+        return;
+      }
+
+      saveSession();
+      enterApp();
+      return;
+    }
+  }catch(e){
+    loginMsg.innerHTML='<div class="notice error">Error login: '+e.message+'</div>';
     return;
   }
 
-  loginMsg.innerHTML='<div class="notice error">Usuario o contraseña incorrectos.</div>';
+  loginMsg.innerHTML='<div class="notice error">Usuario o contraseña incorrecta.</div>';
 }
 
 function enterApp(){
   login.classList.add('hidden');
   app.classList.remove('hidden');
-  applyPermissions();
+  try{applyPermissions()}catch(e){console.warn(e)}
   if(currentUser&&currentUser.rol==='desempeno'){
     showModule('at');
     loadDesempeno();
@@ -461,6 +574,7 @@ function enterApp(){
 
 function applyPermissions(){
   applyModulePermissions();
+  applyActionPermissions();
   if(!currentUser)return;
   const userIcon=document.querySelector('.header-icons .header-icon:nth-child(2)');
   if(userIcon)userIcon.textContent=currentUser.rol==='admin'?'ADM':'AT';
@@ -482,7 +596,7 @@ function isAdmin(){
   return currentUser && currentUser.rol==='admin';
 }
 
-function showModule(m){const modulePerms={sec:'sec',bit:'bitacora',vna:'vna',at:'desempeno',ticketat:'ticket_atendedor',usuarios:'usuarios'};if(modulePerms[m]&&!hasPerm(modulePerms[m])){alert('Usuario sin acceso a este módulo.');return;}if(currentUser&&currentUser.rol==='desempeno'&&!(m==='at'||m==='ticketat')){m='at'}document.querySelectorAll('.section').forEach(s=>s.classList.remove('active'));document.getElementById(m).classList.add('active');document.querySelectorAll('.nav button').forEach(b=>b.classList.remove('active'));document.getElementById('nav-'+m).classList.add('active');if(m==='sec')loadDocuments();if(m==='bitacora')loadBitacora();if(m==='vna')loadVna();if(m==='at')loadDesempeno();if(m==='ticketat')loadTicketAt();if(m==='usuarios')loadUsuariosConfig()}async function loadAll(){await loadDocuments();await loadBitacora();await loadVna();await loadDesempeno()}function fmt(d){if(!d)return '-';return new Date(d).toLocaleString('es-CL',{dateStyle:'short',timeStyle:'short'})}function money(v){return v?Number(v).toLocaleString('es-CL',{style:'currency',currency:'CLP'}):'-'}function badge(s){let c='b-pendiente';if(s==='Vigente')c='b-vigente';if(s==='Por vencer')c='b-vencer';if(s==='Vencido')c='b-vencido';if(s==='No cargado')c='b-nocargado';if(s==='En Proceso')c='b-revision';if(s==='Ingresado')c='b-ingresado';if(s==='Documentación y respaldo')c='b-doc';if(s==='Aprobado')c='b-aprobado';if(s==='Rechazado')c='b-rechazado';if(s==='Baja')c='b-baja';if(s==='Media')c='b-media';if(s==='Alta')c='b-alta';if(s==='Positiva')c='b-aprobado';if(s==='Negativa')c='b-rechazado';return `<span class="badge ${c}">${s||'Pendiente'}</span>`}function daysLeft(d){if(!d)return null;const a=new Date();a.setHours(0,0,0,0);const b=new Date(d);b.setHours(0,0,0,0);return Math.ceil((b-a)/86400000)}function calcStatus(d,alertDays,hasFile){if(!hasFile)return 'No cargado';if(!d)return 'En Proceso';const rest=daysLeft(d);if(rest<0)return 'Vencido';if(rest<=Number(alertDays||30))return 'Por vencer';return 'Vigente'}
+function showModule(m){const modulePerms={sec:'sec',bit:'bitacora',vna:'vna',at:'desempeno',ticketat:'ticket_atendedor',usuarios:'usuarios'};if(modulePerms[m]&&!hasModule(modulePerms[m])){alert('Usuario sin acceso a este módulo.');return;}if(currentUser&&currentUser.rol==='desempeno'&&!(m==='at'||m==='ticketat')){m='at'}document.querySelectorAll('.section').forEach(s=>s.classList.remove('active'));document.getElementById(m).classList.add('active');document.querySelectorAll('.nav button').forEach(b=>b.classList.remove('active'));document.getElementById('nav-'+m).classList.add('active');if(m==='sec')loadDocuments();if(m==='bitacora')loadBitacora();if(m==='vna')loadVna();if(m==='at')loadDesempeno();if(m==='ticketat')loadTicketAt();if(m==='usuarios')loadUsuariosConfig()}async function loadAll(){await loadDocuments();await loadBitacora();await loadVna();await loadDesempeno()}function fmt(d){if(!d)return '-';return new Date(d).toLocaleString('es-CL',{dateStyle:'short',timeStyle:'short'})}function money(v){return v?Number(v).toLocaleString('es-CL',{style:'currency',currency:'CLP'}):'-'}function badge(s){let c='b-pendiente';if(s==='Vigente')c='b-vigente';if(s==='Por vencer')c='b-vencer';if(s==='Vencido')c='b-vencido';if(s==='No cargado')c='b-nocargado';if(s==='En Proceso')c='b-revision';if(s==='Ingresado')c='b-ingresado';if(s==='Documentación y respaldo')c='b-doc';if(s==='Aprobado')c='b-aprobado';if(s==='Rechazado')c='b-rechazado';if(s==='Baja')c='b-baja';if(s==='Media')c='b-media';if(s==='Alta')c='b-alta';if(s==='Positiva')c='b-aprobado';if(s==='Negativa')c='b-rechazado';return `<span class="badge ${c}">${s||'Pendiente'}</span>`}function daysLeft(d){if(!d)return null;const a=new Date();a.setHours(0,0,0,0);const b=new Date(d);b.setHours(0,0,0,0);return Math.ceil((b-a)/86400000)}function calcStatus(d,alertDays,hasFile){if(!hasFile)return 'No cargado';if(!d)return 'En Proceso';const rest=daysLeft(d);if(rest<0)return 'Vencido';if(rest<=Number(alertDays||30))return 'Por vencer';return 'Vigente'}
 async function loadDocuments(){const {data,error}=await client.from('documentos').select('*').order('numero_indice');if(error){docRows.innerHTML='<div class="notice error">Error cargando documentos: '+error.message+'</div>';return}docs=(data||[]).sort((a,b)=>{
   const parse=(v)=>String(v||'0').split('.').map(x=>parseInt(x,10)||0);
   const [a1,a2=0]=parse(a.numero_indice);
@@ -588,7 +702,7 @@ function renderBitDetail(){const b=selectedBit;if(!b){bitDetail.innerHTML='<h2>B
   <option>Atendido</option>
 </select>
 <input id="bitHistArchivo" type="file" accept=".jpg,.jpeg,.png,.webp,.pdf,image/*,.xlsx,.xls"/><button class="primary" onclick="addBitComment(${b.id})">Agregar al historial</button><div id="bitHistMsg"></div></div><hr><h3>Historial del evento</h3><div class="timeline">${bitHist.map(h=>`<div class="item"><h4>${h.accion}</h4><small>${fmt(h.created_at)} · ${h.usuario||'-'} ${h.estado?`· ${h.estado}`:''}</small><p>${h.comentario||''}</p>${h.archivo_url?`<a href="${h.archivo_url}" target="_blank">Ver archivo</a>`:''}</div>`).join('')||'<p class="muted">Sin información posterior registrada.</p>'}</div>`}async function createBitacora(){const file=bitArchivo.files[0];let url=null,nombre=null;if(file){const path=`bitacora/${Date.now()}_${safeFileName(file.name)}`;const up=await client.storage.from(bucket).upload(path,file,{upsert:true});if(up.error){bitMsg.innerHTML='<div class="notice error">'+up.error.message+'</div>';return}url=client.storage.from(bucket).getPublicUrl(path).data.publicUrl;nombre=file.name}const payload={fecha_evento:bitFecha.value||new Date().toISOString(),titulo:bitTitulo.value,categoria:bitCategoria.value,gravedad:bitGravedad.value,responsable:bitResponsable.value,estado:bitEstado.value,descripcion:bitDescripcion.value,acciones:bitAcciones.value,archivo_url:url,archivo_nombre:nombre};if(!payload.titulo){bitMsg.innerHTML='<div class="notice error">Falta título.</div>';return}const {error}=await client.from('bitacora_eventos').insert(payload);if(error){bitMsg.innerHTML='<div class="notice error">'+error.message+'</div>';return}bitMsg.innerHTML='<div class="notice ok">Evento guardado.</div>';await loadBitacora()}
-function toggleVnaForm(){vnaFormCard.classList.toggle('hidden')}async function loadVna(){const {data,error}=await client.from('ventas_no_abonadas').select('*').order('created_at',{ascending:false});if(error){vnaRows.innerHTML='<div class="notice error">Error cargando VNA: '+error.message+'</div>';return}vnas=data||[];if(!selectedVna)selectedVna=vnas[0];renderVna()}function renderVna(){let q=vnaSearch.value.toLowerCase(),f=vnaFilter.value;let list=vnas.filter(v=>(f==='Todos'||v.etapa===f)&&`${v.requerimiento} ${v.surtidor||''} ${v.folio_dte||''} ${v.producto||''} ${v.medio_pago||''} ${v.atendedor||''} ${v.nombre_conductor||''} ${v.rut_conductor||''} ${v.correo_conductor||''} ${v.celular_conductor||''} ${v.ultimos4_tarjeta||''} ${v.detalle||''}`.toLowerCase().includes(q));vnaRows.innerHTML=list.map(v=>`<div class="row ${selectedVna&&selectedVna.id===v.id?'selected':''}" onclick="selectVna(${v.id})"><div><b>${v.requerimiento}</b><div class="sub">Surtidor ${v.surtidor||'-'}</div></div><div>${fmt(v.fecha_hora)}</div><div><div class="title">${v.nombre_conductor||'-'}</div><div class="sub">${v.rut_conductor||''}</div></div><div>${money(v.monto)}</div><div>${badge(v.etapa)}</div></div>`).join('')||'<div class="notice">Sin tickets.</div>';renderVnaDetail()}async function selectVna(id){selectedVna=vnas.find(v=>v.id===id);const {data}=await client.from('historial_vta_no_abonada').select('*').eq('caso_id',id).order('created_at',{ascending:false});history=data||[];renderVna()}function renderVnaDetail(){const v=selectedVna;if(!v){vnaDetail.innerHTML='<h2>Ventas No Abonadas</h2><p>Selecciona o crea un ticket.</p>';return}vnaDetail.innerHTML=`<h2>Req. ${v.requerimiento}</h2>${badge(v.etapa)}<div class="kv"><small>Venta</small>Surtidor: ${v.surtidor||'-'} · Folio DTE: ${v.folio_dte||'-'} · ${money(v.monto)}</div><div class="kv"><small>Producto / Medio de pago</small>${v.producto||'-'} · ${v.medio_pago||'-'} · Tarjeta ****${v.ultimos4_tarjeta||'----'}</div><div class="kv"><small>Fecha y hora / Atendedor</small>${fmt(v.fecha_hora)} · ${v.atendedor||'-'}</div><div class="kv"><small>Conductor</small>${v.nombre_conductor||'-'} · ${v.rut_conductor||'-'}<br>${v.correo_conductor||'-'} · ${v.celular_conductor||'-'}</div><div class="kv"><small>Resolución</small>${v.resolucion||'Pendiente'}</div><div class="kv"><small>Detalle</small>${v.detalle||'-'}</div><div class="kv"><small>Respaldo inicial</small>${v.archivo_url?`<a href="${v.archivo_url}" target="_blank">Ver respaldo inicial</a>`:'Sin archivo'}</div><div class="actions"><button class="primary" onclick="openProgress()">+ Agregar respaldo / progreso</button>${isAdmin()?`<button class="secondary" style="color:#991b1b;border-color:#fecaca" onclick="deleteVnaCase(${v.id})">Eliminar caso</button>`:''} </div><hr><h3>Historial de auditoría</h3><div class="timeline">${history.map(h=>`<div class="item"><h4>${h.accion}</h4><small>${fmt(h.created_at)} · ${h.usuario||'Sin usuario'} · ${h.etapa||''}</small><p>${h.comentario||''}</p>${h.archivo_url?`<a href="${h.archivo_url}" target="_blank">Ver respaldo</a>`:''}</div>`).join('')||'<p class="muted">Sin avances registrados.</p>'}</div>`}async function createVna(){let archivo_url=null,archivo_nombre=null;const file=vnaArchivoInicial.files[0];if(file){const reqTmp=String(vnaReq.value.trim()||'sin-requerimiento').replace(/[^a-zA-Z0-9_-]/g,'_');const path=`vta-no-abonada/${reqTmp}/ingreso_${Date.now()}_${safeFileName(file.name)}`;const up=await client.storage.from(bucket).upload(path,file,{upsert:true});if(up.error){vnaMsg.innerHTML='<div class="notice error">No se pudo subir el archivo. El nombre fue limpiado automáticamente; si sigue fallando, usa JPG/PNG/PDF. Detalle: '+up.error.message+'</div>';return}archivo_url=client.storage.from(bucket).getPublicUrl(path).data.publicUrl;archivo_nombre=file.name}const payload={requerimiento:vnaReq.value.trim(),surtidor:vnaSurtidor.value,folio_dte:vnaFolioDte.value,monto:vnaMonto.value||null,producto:vnaProducto.value,medio_pago:vnaMedioPago.value,fecha_hora:vnaFechaHora.value||null,atendedor:vnaAtendedor.value,nombre_conductor:vnaNombreConductor.value,rut_conductor:vnaRutConductor.value,correo_conductor:vnaCorreoConductor.value,celular_conductor:vnaCelularConductor.value,ultimos4_tarjeta:vnaUltimos4.value,detalle:vnaDetalle.value,etapa:'Ingresado',resolucion:'Pendiente',archivo_url,archivo_nombre};if(!payload.requerimiento){vnaMsg.innerHTML='<div class="notice error">Falta N° de requerimiento.</div>';return}const {data,error}=await client.from('ventas_no_abonadas').insert(payload).select().single();if(error){vnaMsg.innerHTML='<div class="notice error">'+error.message+'</div>';return}await client.from('historial_vta_no_abonada').insert({caso_id:data.id,accion:'Caso ingresado',etapa:'Ingresado',usuario:'Sistema',comentario:payload.detalle||'Ingreso inicial del requerimiento.',archivo_url,archivo_nombre});vnaMsg.innerHTML='<div class="notice ok">Ticket guardado.</div>';vnaArchivoInicial.value='';await loadVna()}
+function toggleVnaForm(){vnaFormCard.classList.toggle('hidden')}async function loadVna(){const {data,error}=await client.from('ventas_no_abonadas').select('*').order('created_at',{ascending:false});if(error){vnaRows.innerHTML='<div class="notice error">Error cargando VNA: '+error.message+'</div>';return}vnas=data||[];if(!selectedVna)selectedVna=vnas[0];renderVna()}function renderVna(){let q=vnaSearch.value.toLowerCase(),f=vnaFilter.value;let list=vnas.filter(v=>(f==='Todos'||v.etapa===f)&&`${v.requerimiento} ${v.surtidor||''} ${v.folio_dte||''} ${v.producto||''} ${v.medio_pago||''} ${v.atendedor||''} ${v.nombre_conductor||''} ${v.rut_conductor||''} ${v.correo_conductor||''} ${v.celular_conductor||''} ${v.ultimos4_tarjeta||''} ${v.detalle||''}`.toLowerCase().includes(q));vnaRows.innerHTML=list.map(v=>`<div class="row ${selectedVna&&selectedVna.id===v.id?'selected':''}" onclick="selectVna(${v.id})"><div><b>${v.requerimiento}</b><div class="sub">Surtidor ${v.surtidor||'-'}</div></div><div>${fmt(v.fecha_hora)}</div><div><div class="title">${v.nombre_conductor||'-'}</div><div class="sub">${v.rut_conductor||''}</div></div><div>${money(v.monto)}</div><div>${badge(v.etapa)}</div></div>`).join('')||'<div class="notice">Sin tickets.</div>';renderVnaDetail()}async function selectVna(id){selectedVna=vnas.find(v=>v.id===id);const {data}=await client.from('historial_vta_no_abonada').select('*').eq('caso_id',id).order('created_at',{ascending:false});history=data||[];renderVna()}function renderVnaDetail(){const v=selectedVna;if(!v){vnaDetail.innerHTML='<h2>Ventas No Abonadas</h2><p>Selecciona o crea un ticket.</p>';return}vnaDetail.innerHTML=`<h2>Req. ${v.requerimiento}</h2>${badge(v.etapa)}<div class="kv"><small>Venta</small>Surtidor: ${v.surtidor||'-'} · Folio DTE: ${v.folio_dte||'-'} · ${money(v.monto)}</div><div class="kv"><small>Producto / Medio de pago</small>${v.producto||'-'} · ${v.medio_pago||'-'} · Tarjeta ****${v.ultimos4_tarjeta||'----'}</div><div class="kv"><small>Fecha y hora / Atendedor</small>${fmt(v.fecha_hora)} · ${v.atendedor||'-'}</div><div class="kv"><small>Conductor</small>${v.nombre_conductor||'-'} · ${v.rut_conductor||'-'}<br>${v.correo_conductor||'-'} · ${v.celular_conductor||'-'}</div><div class="kv"><small>Resolución</small>${v.resolucion||'Pendiente'}</div><div class="kv"><small>Detalle</small>${v.detalle||'-'}</div><div class="kv"><small>Respaldo inicial</small>${v.archivo_url?`<a href="${v.archivo_url}" target="_blank">Ver respaldo inicial</a>`:'Sin archivo'}</div><div class="actions"><button class="primary" onclick="openProgress()">+ Agregar respaldo / progreso</button>${isAdmin()?`<button class="secondary" style="color:#991b1b;border-color:#fecaca" onclick="deleteVnaCase(${v.id})" data-delete-action>Eliminar caso</button>`:''} </div><hr><h3>Historial de auditoría</h3><div class="timeline">${history.map(h=>`<div class="item"><h4>${h.accion}</h4><small>${fmt(h.created_at)} · ${h.usuario||'Sin usuario'} · ${h.etapa||''}</small><p>${h.comentario||''}</p>${h.archivo_url?`<a href="${h.archivo_url}" target="_blank">Ver respaldo</a>`:''}</div>`).join('')||'<p class="muted">Sin avances registrados.</p>'}</div>`}async function createVna(){let archivo_url=null,archivo_nombre=null;const file=vnaArchivoInicial.files[0];if(file){const reqTmp=String(vnaReq.value.trim()||'sin-requerimiento').replace(/[^a-zA-Z0-9_-]/g,'_');const path=`vta-no-abonada/${reqTmp}/ingreso_${Date.now()}_${safeFileName(file.name)}`;const up=await client.storage.from(bucket).upload(path,file,{upsert:true});if(up.error){vnaMsg.innerHTML='<div class="notice error">No se pudo subir el archivo. El nombre fue limpiado automáticamente; si sigue fallando, usa JPG/PNG/PDF. Detalle: '+up.error.message+'</div>';return}archivo_url=client.storage.from(bucket).getPublicUrl(path).data.publicUrl;archivo_nombre=file.name}const payload={requerimiento:vnaReq.value.trim(),surtidor:vnaSurtidor.value,folio_dte:vnaFolioDte.value,monto:vnaMonto.value||null,producto:vnaProducto.value,medio_pago:vnaMedioPago.value,fecha_hora:vnaFechaHora.value||null,atendedor:vnaAtendedor.value,nombre_conductor:vnaNombreConductor.value,rut_conductor:vnaRutConductor.value,correo_conductor:vnaCorreoConductor.value,celular_conductor:vnaCelularConductor.value,ultimos4_tarjeta:vnaUltimos4.value,detalle:vnaDetalle.value,etapa:'Ingresado',resolucion:'Pendiente',archivo_url,archivo_nombre};if(!payload.requerimiento){vnaMsg.innerHTML='<div class="notice error">Falta N° de requerimiento.</div>';return}const {data,error}=await client.from('ventas_no_abonadas').insert(payload).select().single();if(error){vnaMsg.innerHTML='<div class="notice error">'+error.message+'</div>';return}await client.from('historial_vta_no_abonada').insert({caso_id:data.id,accion:'Caso ingresado',etapa:'Ingresado',usuario:'Sistema',comentario:payload.detalle||'Ingreso inicial del requerimiento.',archivo_url,archivo_nombre});vnaMsg.innerHTML='<div class="notice ok">Ticket guardado.</div>';vnaArchivoInicial.value='';await loadVna()}
 async function deleteVnaCase(id){
   if(!isAdmin()){
     alert('Solo Gabriel administrador puede eliminar casos.');
@@ -611,7 +725,7 @@ async function deleteVnaCase(id){
 }
 
 function openProgress(){if(!selectedVna)return;progressTitle.textContent='Agregar avance · Req. '+selectedVna.requerimiento;pEtapa.value=selectedVna.etapa||'Ingresado';pResolucion.value=selectedVna.resolucion||'Pendiente';progressModal.classList.add('open')}function closeProgress(){progressModal.classList.remove('open')}async function saveVnaProgress(){if(!selectedVna)return;const titulo=pTitulo.value.trim();if(!titulo){pMsg.innerHTML='<div class="notice error">Ingresa título del avance.</div>';return}let archivo_url=null,archivo_nombre=null;const file=pArchivo.files[0];if(file){const path=`vta-no-abonada/${String(selectedVna.requerimiento).replace(/[^a-zA-Z0-9_-]/g,'_')}/${Date.now()}_${safeFileName(file.name)}`;const up=await client.storage.from(bucket).upload(path,file,{upsert:true});if(up.error){pMsg.innerHTML='<div class="notice error">No se pudo subir el archivo. El nombre fue limpiado automáticamente; si sigue fallando, usa JPG/PNG/PDF. Detalle: '+up.error.message+'</div>';return}archivo_url=client.storage.from(bucket).getPublicUrl(path).data.publicUrl;archivo_nombre=file.name}const update={etapa:pEtapa.value,resolucion:pResolucion.value,updated_at:new Date().toISOString()};const {error}=await client.from('ventas_no_abonadas').update(update).eq('id',selectedVna.id);if(error){pMsg.innerHTML='<div class="notice error">'+error.message+'</div>';return}await client.from('historial_vta_no_abonada').insert({caso_id:selectedVna.id,accion:titulo,etapa:pEtapa.value,usuario:pUsuario.value||'Usuario',comentario:pComentario.value,archivo_url,archivo_nombre});pMsg.innerHTML='<div class="notice ok">Avance guardado.</div>';closeProgress();pTitulo.value=pUsuario.value=pComentario.value='';pArchivo.value='';await loadVna();await selectVna(selectedVna.id)}
-function showAtSub(view){const hist=document.getElementById('atHistorialView'),nom=document.getElementById('atNominaView');hist.classList.toggle('hidden',view!=='historial');nom.classList.toggle('hidden',view!=='nomina');tabAtHist.classList.toggle('active',view==='historial');tabAtNom.classList.toggle('active',view==='nomina');if(view==='nomina')loadAtendedores();else loadAtNotes()}function openNomina(){showAtSub('nomina')}function toggleAtForm(){const opening=atFormCard.classList.contains('hidden');if(opening)resetAtForm();atFormCard.classList.toggle('hidden')}function toggleAtNoteForm(){const opening=atNoteFormCard.classList.contains('hidden');if(opening)resetAtNoteForm();atNoteFormCard.classList.toggle('hidden');fillNoteWorkers()}async function loadDesempeno(){await loadAtendedores();await loadAtNotes();showAtSub('historial')}function fillNoteWorkers(){if(!document.getElementById('noteTrabajador'))return;noteTrabajador.innerHTML='<option value="">Seleccionar trabajador</option>'+atendedores.filter(a=>(a.estado||'Activo')==='Activo').map(a=>`<option value="${a.id}">${a.nombre} · ${a.rut}</option>`).join('')}async function loadAtNotes(){const {data,error}=await client.from('anotaciones_desempeno_at').select('*, atendedores_nomina(nombre,rut,foto_url)').order('fecha_anotacion',{ascending:false});if(error){noteRows.innerHTML='<div class="notice error">Error cargando anotaciones: '+error.message+'</div>';return}atNotes=data||[];if(!selectedNote)selectedNote=atNotes[0];renderAtNotes()}function renderAtNotes(){let q=(noteSearch?.value||'').toLowerCase(),f=(noteFilter?.value||'Todos');let list=atNotes.filter(n=>(f==='Todos'||n.tipo===f)&&`${n.titulo||''} ${n.detalle||''} ${n.categoria||''} ${n.responsable||''} ${n.atendedores_nomina?.nombre||''} ${n.atendedores_nomina?.rut||''}`.toLowerCase().includes(q));noteRows.innerHTML=list.map(n=>`<div class="row ${selectedNote&&selectedNote.id===n.id?'selected':''}" onclick="selectAtNote(${n.id})"><div>${fmt(n.fecha_anotacion)}</div><div><div class="title">${n.atendedores_nomina?.nombre||'Trabajador no asignado'}</div><div class="sub">${n.titulo||'-'} · ${n.categoria||'-'}</div></div><div>${badge(n.tipo)}</div><div>${n.responsable||'-'}</div></div>`).join('')||'<div class="notice">Sin anotaciones registradas.</div>';renderAtNoteDetail()}function selectAtNote(id){selectedNote=atNotes.find(n=>n.id===id);renderAtNotes()}function renderAtNoteDetail(){const n=selectedNote;if(!n){noteDetail.innerHTML='<h2>Ficha de anotación</h2><p>Selecciona una anotación.</p>';return}noteDetail.innerHTML=`<h2>${n.titulo||'Anotación'}</h2>${badge(n.tipo)}<div class="kv"><small>Trabajador</small>${n.atendedores_nomina?.nombre||'-'} · ${n.atendedores_nomina?.rut||'-'}</div><div class="kv"><small>Fecha / Responsable</small>${fmt(n.fecha_anotacion)} · ${n.responsable||'-'}</div><div class="kv"><small>Categoría</small>${n.categoria||'-'}</div><div class="kv"><small>Detalle</small>${n.detalle||'-'}</div><div class="kv"><small>Acción / Seguimiento</small>${n.accion||'-'}</div><div class="kv"><small>Respaldo</small>${n.archivo_url?`<a href="${n.archivo_url}" target="_blank">Ver archivo</a>`:'Sin archivo'}</div><div class="notice">Registro creado: ${fmt(n.created_at)}. Este histórico queda disponible para auditoría futura.</div>`}async function createAtNote(){let archivo_url=null,archivo_nombre=null;const file=noteArchivo.files[0];if(file){const path=`desempeno-at/anotaciones/${Date.now()}_${file.name}`;const up=await client.storage.from(bucket).upload(path,file,{upsert:true});if(up.error){noteMsg.innerHTML='<div class="notice error">'+up.error.message+'</div>';return}archivo_url=client.storage.from(bucket).getPublicUrl(path).data.publicUrl;archivo_nombre=file.name}const payload={trabajador_id:noteTrabajador.value||null,tipo:noteTipo.value,fecha_anotacion:noteFecha.value||new Date().toISOString(),responsable:noteResponsable.value||'Jefe de Protocolo y Servicio',titulo:noteTitulo.value.trim(),categoria:noteCategoria.value,detalle:noteDetalle.value,accion:noteAccion.value,archivo_url,archivo_nombre};if(!payload.trabajador_id||!payload.titulo){noteMsg.innerHTML='<div class="notice error">Falta trabajador o título.</div>';return}const {error}=await client.from('anotaciones_desempeno_at').insert(payload);if(error){noteMsg.innerHTML='<div class="notice error">'+error.message+'</div>';return}noteMsg.innerHTML='<div class="notice ok">Anotación guardada.</div>';noteTitulo.value=noteDetalle.value=noteAccion.value=noteArchivo.value='';await loadAtNotes()}async function loadAtendedores(){const {data,error}=await client.from('atendedores_nomina').select('*').order('nombre',{ascending:true});if(error){if(document.getElementById('atRows'))atRows.innerHTML='<div class="notice error">Error cargando nómina: '+error.message+'</div>';return}atendedores=data||[];if(!selectedAt)selectedAt=atendedores[0];fillNoteWorkers();renderAtendedores()}function renderAtendedores(){if(!document.getElementById('atRows'))return;let q=(atSearch?.value||'').toLowerCase();let list=atendedores.filter(a=>`${a.nombre||''} ${a.rut||''} ${a.estado||'Activo'}`.toLowerCase().includes(q));atRows.innerHTML=list.map(a=>{const estado=a.estado||'Activo';return `<div class="row ${selectedAt&&selectedAt.id===a.id?'selected':''}" onclick="selectAtendedor(${a.id})"><div>${a.foto_url?`<img src="${a.foto_url}" class="zoomable-photo" onclick="event.stopPropagation();openPhotoModal('${a.foto_url}','${(a.nombre||'Atendedor').replace(/'/g,'')}')" style="width:46px;height:46px;border-radius:14px;object-fit:cover">`:'👤'}</div><div><div class="title">${a.nombre||'-'} ${estado==='Inactivo'?'<span class="badge b-rechazado" style="margin-left:8px">Inactivo</span>':'<span class="badge b-aprobado" style="margin-left:8px">Activo</span>'}</div><div class="sub">Ingresado al sistema: ${fmt(a.created_at)}</div></div><div>${a.rut||'-'}</div><div>${a.fecha_ingreso||'-'}</div><div>${canEditAtendedor()?`<button class="secondary" onclick="event.stopPropagation();editAtendedor(${a.id})">Editar</button>`:`<span class="badge b-revision">Sin edición</span>`}</div></div>`}).join('')||'<div class="notice">Sin trabajadores registrados.</div>';renderAtDetail()}function selectAtendedor(id){selectedAt=atendedores.find(a=>a.id===id);renderAtendedores()}function renderAtDetail(){if(!document.getElementById('atDetail'))return;const a=selectedAt;if(!a){atDetail.innerHTML='<h2>Ficha trabajador</h2><p>Selecciona un trabajador de la nómina.</p>';return}const total=atNotes.filter(n=>n.trabajador_id===a.id).length;const pos=atNotes.filter(n=>n.trabajador_id===a.id&&n.tipo==='Positiva').length;const neg=atNotes.filter(n=>n.trabajador_id===a.id&&n.tipo==='Negativa').length;const estado=a.estado||'Activo';atDetail.innerHTML=`<h2>${a.nombre||'Trabajador'}</h2><span class="badge ${estado==='Inactivo'?'b-rechazado':'b-aprobado'}">${estado}</span><div class="kv"><small>Foto</small>${a.foto_url?`<img src="${a.foto_url}" class="zoomable-photo" onclick="openPhotoModal('${a.foto_url}','${(a.nombre||'Atendedor').replace(/'/g,'')}')" style="width:180px;height:180px;border-radius:28px;object-fit:cover">`:'Sin foto cargada'}</div><div class="kv"><small>RUT</small>${a.rut||'-'}</div><div class="kv"><small>Fecha de ingreso a la EDS</small>${a.fecha_ingreso||'-'}</div><div class="kv"><small>Estado</small>${estado}</div><div class="kv"><small>Historial desempeño</small>${total} anotaciones · ${pos} positivas · ${neg} negativas</div><div class="kv"><small>Creado en sistema</small>${fmt(a.created_at)}</div><div class="actions">${canEditAtendedor()?`<button class="secondary" onclick="editAtendedor(${a.id})">Editar ingreso</button><button class="secondary" onclick="toggleEstadoAtendedor(${a.id})">${estado==='Inactivo'?'Reactivar trabajador':'Desactivar trabajador'}</button><button class="secondary" style="color:#991b1b;border-color:#fecaca" onclick="deleteAtendedor(${a.id})">Eliminar registro</button>`:''}<button class="primary" onclick="exportFichaAtPdf(${a.id})">Descargar ficha PDF</button></div>`}function editAtendedor(id){if(!canEditAtendedor()){alert('Este usuario no tiene permiso para editar trabajadores.');return;}const a=atendedores.find(x=>x.id===id);if(!a)return;selectedAt=a;editandoAtendedor=id;atNombre.value=a.nombre||'';atRut.value=a.rut||'';atFechaIngreso.value=a.fecha_ingreso||'';atFoto.value='';atFormCard.classList.remove('hidden');atFormCard.scrollIntoView({behavior:'smooth',block:'start'});const h=atFormCard.querySelector('h2');if(h)h.textContent='Editar ingreso trabajador';const saveBtn=atFormCard.querySelector('button.primary');if(saveBtn)saveBtn.textContent='Guardar cambios';}
+function showAtSub(view){const hist=document.getElementById('atHistorialView'),nom=document.getElementById('atNominaView');hist.classList.toggle('hidden',view!=='historial');nom.classList.toggle('hidden',view!=='nomina');tabAtHist.classList.toggle('active',view==='historial');tabAtNom.classList.toggle('active',view==='nomina');if(view==='nomina')loadAtendedores();else loadAtNotes()}function openNomina(){showAtSub('nomina')}function toggleAtForm(){const opening=atFormCard.classList.contains('hidden');if(opening)resetAtForm();atFormCard.classList.toggle('hidden')}function toggleAtNoteForm(){const opening=atNoteFormCard.classList.contains('hidden');if(opening)resetAtNoteForm();atNoteFormCard.classList.toggle('hidden');fillNoteWorkers()}async function loadDesempeno(){await loadAtendedores();await loadAtNotes();showAtSub('historial')}function fillNoteWorkers(){if(!document.getElementById('noteTrabajador'))return;noteTrabajador.innerHTML='<option value="">Seleccionar trabajador</option>'+atendedores.filter(a=>(a.estado||'Activo')==='Activo').map(a=>`<option value="${a.id}">${a.nombre} · ${a.rut}</option>`).join('')}async function loadAtNotes(){const {data,error}=await client.from('anotaciones_desempeno_at').select('*, atendedores_nomina(nombre,rut,foto_url)').order('fecha_anotacion',{ascending:false});if(error){noteRows.innerHTML='<div class="notice error">Error cargando anotaciones: '+error.message+'</div>';return}atNotes=data||[];if(!selectedNote)selectedNote=atNotes[0];renderAtNotes()}function renderAtNotes(){let q=(noteSearch?.value||'').toLowerCase(),f=(noteFilter?.value||'Todos');let list=atNotes.filter(n=>(f==='Todos'||n.tipo===f)&&`${n.titulo||''} ${n.detalle||''} ${n.categoria||''} ${n.responsable||''} ${n.atendedores_nomina?.nombre||''} ${n.atendedores_nomina?.rut||''}`.toLowerCase().includes(q));noteRows.innerHTML=list.map(n=>`<div class="row ${selectedNote&&selectedNote.id===n.id?'selected':''}" onclick="selectAtNote(${n.id})"><div>${fmt(n.fecha_anotacion)}</div><div><div class="title">${n.atendedores_nomina?.nombre||'Trabajador no asignado'}</div><div class="sub">${n.titulo||'-'} · ${n.categoria||'-'}</div></div><div>${badge(n.tipo)}</div><div>${n.responsable||'-'}</div></div>`).join('')||'<div class="notice">Sin anotaciones registradas.</div>';renderAtNoteDetail()}function selectAtNote(id){selectedNote=atNotes.find(n=>n.id===id);renderAtNotes()}function renderAtNoteDetail(){const n=selectedNote;if(!n){noteDetail.innerHTML='<h2>Ficha de anotación</h2><p>Selecciona una anotación.</p>';return}noteDetail.innerHTML=`<h2>${n.titulo||'Anotación'}</h2>${badge(n.tipo)}<div class="kv"><small>Trabajador</small>${n.atendedores_nomina?.nombre||'-'} · ${n.atendedores_nomina?.rut||'-'}</div><div class="kv"><small>Fecha / Responsable</small>${fmt(n.fecha_anotacion)} · ${n.responsable||'-'}</div><div class="kv"><small>Categoría</small>${n.categoria||'-'}</div><div class="kv"><small>Detalle</small>${n.detalle||'-'}</div><div class="kv"><small>Acción / Seguimiento</small>${n.accion||'-'}</div><div class="kv"><small>Respaldo</small>${n.archivo_url?`<a href="${n.archivo_url}" target="_blank">Ver archivo</a>`:'Sin archivo'}</div><div class="notice">Registro creado: ${fmt(n.created_at)}. Este histórico queda disponible para auditoría futura.</div>`}async function createAtNote(){let archivo_url=null,archivo_nombre=null;const file=noteArchivo.files[0];if(file){const path=`desempeno-at/anotaciones/${Date.now()}_${file.name}`;const up=await client.storage.from(bucket).upload(path,file,{upsert:true});if(up.error){noteMsg.innerHTML='<div class="notice error">'+up.error.message+'</div>';return}archivo_url=client.storage.from(bucket).getPublicUrl(path).data.publicUrl;archivo_nombre=file.name}const payload={trabajador_id:noteTrabajador.value||null,tipo:noteTipo.value,fecha_anotacion:noteFecha.value||new Date().toISOString(),responsable:noteResponsable.value||'Jefe de Protocolo y Servicio',titulo:noteTitulo.value.trim(),categoria:noteCategoria.value,detalle:noteDetalle.value,accion:noteAccion.value,archivo_url,archivo_nombre};if(!payload.trabajador_id||!payload.titulo){noteMsg.innerHTML='<div class="notice error">Falta trabajador o título.</div>';return}const {error}=await client.from('anotaciones_desempeno_at').insert(payload);if(error){noteMsg.innerHTML='<div class="notice error">'+error.message+'</div>';return}noteMsg.innerHTML='<div class="notice ok">Anotación guardada.</div>';noteTitulo.value=noteDetalle.value=noteAccion.value=noteArchivo.value='';await loadAtNotes()}async function loadAtendedores(){const {data,error}=await client.from('atendedores_nomina').select('*').order('nombre',{ascending:true});if(error){if(document.getElementById('atRows'))atRows.innerHTML='<div class="notice error">Error cargando nómina: '+error.message+'</div>';return}atendedores=data||[];if(!selectedAt)selectedAt=atendedores[0];fillNoteWorkers();renderAtendedores()}function renderAtendedores(){if(!document.getElementById('atRows'))return;let q=(atSearch?.value||'').toLowerCase();let list=atendedores.filter(a=>`${a.nombre||''} ${a.rut||''} ${a.estado||'Activo'}`.toLowerCase().includes(q));atRows.innerHTML=list.map(a=>{const estado=a.estado||'Activo';return `<div class="row ${selectedAt&&selectedAt.id===a.id?'selected':''}" onclick="selectAtendedor(${a.id})"><div>${a.foto_url?`<img src="${a.foto_url}" class="zoomable-photo" onclick="event.stopPropagation();openPhotoModal('${a.foto_url}','${(a.nombre||'Atendedor').replace(/'/g,'')}')" style="width:46px;height:46px;border-radius:14px;object-fit:cover">`:'👤'}</div><div><div class="title">${a.nombre||'-'} ${estado==='Inactivo'?'<span class="badge b-rechazado" style="margin-left:8px">Inactivo</span>':'<span class="badge b-aprobado" style="margin-left:8px">Activo</span>'}</div><div class="sub">Ingresado al sistema: ${fmt(a.created_at)}</div></div><div>${a.rut||'-'}</div><div>${a.fecha_ingreso||'-'}</div><div>${canEditAtendedor()?`<button class="secondary" onclick="event.stopPropagation();editAtendedor(${a.id})">Editar</button>`:`<span class="badge b-revision">Sin edición</span>`}</div></div>`}).join('')||'<div class="notice">Sin trabajadores registrados.</div>';renderAtDetail()}function selectAtendedor(id){selectedAt=atendedores.find(a=>a.id===id);renderAtendedores()}function renderAtDetail(){if(!document.getElementById('atDetail'))return;const a=selectedAt;if(!a){atDetail.innerHTML='<h2>Ficha trabajador</h2><p>Selecciona un trabajador de la nómina.</p>';return}const total=atNotes.filter(n=>n.trabajador_id===a.id).length;const pos=atNotes.filter(n=>n.trabajador_id===a.id&&n.tipo==='Positiva').length;const neg=atNotes.filter(n=>n.trabajador_id===a.id&&n.tipo==='Negativa').length;const estado=a.estado||'Activo';atDetail.innerHTML=`<h2>${a.nombre||'Trabajador'}</h2><span class="badge ${estado==='Inactivo'?'b-rechazado':'b-aprobado'}">${estado}</span><div class="kv"><small>Foto</small>${a.foto_url?`<img src="${a.foto_url}" class="zoomable-photo" onclick="openPhotoModal('${a.foto_url}','${(a.nombre||'Atendedor').replace(/'/g,'')}')" style="width:180px;height:180px;border-radius:28px;object-fit:cover">`:'Sin foto cargada'}</div><div class="kv"><small>RUT</small>${a.rut||'-'}</div><div class="kv"><small>Fecha de ingreso a la EDS</small>${a.fecha_ingreso||'-'}</div><div class="kv"><small>Estado</small>${estado}</div><div class="kv"><small>Historial desempeño</small>${total} anotaciones · ${pos} positivas · ${neg} negativas</div><div class="kv"><small>Creado en sistema</small>${fmt(a.created_at)}</div><div class="actions">${canEditAtendedor()?`<button class="secondary" onclick="editAtendedor(${a.id})">Editar ingreso</button><button class="secondary" onclick="toggleEstadoAtendedor(${a.id})">${estado==='Inactivo'?'Reactivar trabajador':'Desactivar trabajador'}</button><button class="secondary" style="color:#991b1b;border-color:#fecaca" onclick="deleteAtendedor(${a.id})" data-delete-action>Eliminar registro</button>`:''}<button class="primary" onclick="exportFichaAtPdf(${a.id})">Descargar ficha PDF</button></div>`}function editAtendedor(id){if(!canEditAtendedor()){alert('Este usuario no tiene permiso para editar trabajadores.');return;}const a=atendedores.find(x=>x.id===id);if(!a)return;selectedAt=a;editandoAtendedor=id;atNombre.value=a.nombre||'';atRut.value=a.rut||'';atFechaIngreso.value=a.fecha_ingreso||'';atFoto.value='';atFormCard.classList.remove('hidden');atFormCard.scrollIntoView({behavior:'smooth',block:'start'});const h=atFormCard.querySelector('h2');if(h)h.textContent='Editar ingreso trabajador';const saveBtn=atFormCard.querySelector('button.primary');if(saveBtn)saveBtn.textContent='Guardar cambios';}
 
 function cancelEditAtendedor(){editandoAtendedor=null;atNombre.value=atRut.value=atFechaIngreso.value='';atFoto.value='';const h=atFormCard.querySelector('h2');if(h)h.textContent='Ingresar trabajador';const saveBtn=atFormCard.querySelector('button.primary');if(saveBtn)saveBtn.textContent='Guardar trabajador';}
 
@@ -647,7 +761,7 @@ function resetUsuarioForm(){
   usrPassword.value='';
   usrEstado.value='Activo';
   usrRol.value='Consulta';
-  [permSEC,permBitacora,permVNA,permDesempeno,permTicket,permUsuarios].forEach(x=>x.checked=false);
+  [platWeb,platAdminMobile,platDesempenoMobile,platTicketMobile,permSEC,permBitacora,permVNA,permDesempeno,permTicket,permUsuarios,permNomina,permHistorialAnotaciones,actCrear,actEditar,actEliminar,actDesactivar,actSubirArchivos,actCambiarEstado].forEach(x=>x.checked=false);
   usrMsg.innerHTML='';
   const h=usuarioFormCard.querySelector('h2');
   if(h)h.textContent='Crear usuario';
@@ -659,25 +773,62 @@ function toggleUsuarioForm(){
   usuarioFormCard.classList.toggle('hidden');
 }
 
+
 function permisosFromForm(){
   return {
-    sec:permSEC.checked,
-    bitacora:permBitacora.checked,
-    vna:permVNA.checked,
-    desempeno:permDesempeno.checked,
-    ticket_atendedor:permTicket.checked,
-    usuarios:permUsuarios.checked
+    plataformas:{
+      web:platWeb.checked,
+      admin_mobile:platAdminMobile.checked,
+      desempeno_mobile:platDesempenoMobile.checked,
+      ticket_mobile:platTicketMobile.checked
+    },
+    modulos:{
+      sec:permSEC.checked,
+      bitacora:permBitacora.checked,
+      vna:permVNA.checked,
+      desempeno:permDesempeno.checked,
+      ticket_atendedor:permTicket.checked,
+      usuarios:permUsuarios.checked,
+      nomina:permNomina.checked,
+      historial_anotaciones:permHistorialAnotaciones.checked
+    },
+    acciones:{
+      crear:actCrear.checked,
+      editar:actEditar.checked,
+      eliminar:actEliminar.checked,
+      desactivar:actDesactivar.checked,
+      subir_archivos:actSubirArchivos.checked,
+      cambiar_estado:actCambiarEstado.checked
+    }
   };
 }
 
 function setPermisosForm(p){
   p=p||{};
-  permSEC.checked=!!p.sec;
-  permBitacora.checked=!!p.bitacora;
-  permVNA.checked=!!p.vna;
-  permDesempeno.checked=!!p.desempeno;
-  permTicket.checked=!!p.ticket_atendedor;
-  permUsuarios.checked=!!p.usuarios;
+  const plataformas=p.plataformas||p;
+  const modulos=p.modulos||p;
+  const acciones=p.acciones||p;
+
+  platWeb.checked=!!plataformas.web;
+  platAdminMobile.checked=!!plataformas.admin_mobile;
+  platDesempenoMobile.checked=!!plataformas.desempeno_mobile;
+  platTicketMobile.checked=!!plataformas.ticket_mobile;
+
+  permSEC.checked=!!modulos.sec;
+  permBitacora.checked=!!modulos.bitacora;
+  permVNA.checked=!!modulos.vna;
+  permDesempeno.checked=!!modulos.desempeno;
+  permTicket.checked=!!modulos.ticket_atendedor;
+  permUsuarios.checked=!!modulos.usuarios;
+  permNomina.checked=!!modulos.nomina;
+  permHistorialAnotaciones.checked=!!modulos.historial_anotaciones;
+
+  actCrear.checked=!!acciones.crear;
+  actEditar.checked=!!acciones.editar;
+  actEliminar.checked=!!acciones.eliminar;
+  actDesactivar.checked=!!acciones.desactivar;
+  actSubirArchivos.checked=!!acciones.subir_archivos;
+  actCambiarEstado.checked=!!acciones.cambiar_estado;
 }
 
 async function loadUsuariosConfig(){
@@ -709,11 +860,14 @@ function renderUsuarioDetail(){
   const u=selectedUsuario;
   if(!u){usrDetail.innerHTML='<h2>Ficha de usuario</h2><p>Selecciona un usuario.</p>';return}
   const p=u.permisos||{};
-  const permisos=[
-    ['Validador SEC',p.sec],['Bitácora',p.bitacora],['Ventas No Abonadas',p.vna],
-    ['Desempeño AT',p.desempeno],['Ticket Atendedor',p.ticket_atendedor],['Usuarios y Permisos',p.usuarios]
-  ];
-  usrDetail.innerHTML=`<h2>${u.nombre||u.usuario}</h2><div class="kv"><small>Usuario</small>${u.usuario}</div><div class="kv"><small>Rol</small>${u.rol||'-'}</div><div class="kv"><small>Estado</small>${u.estado||'-'}</div><h3>Permisos</h3>${permisos.map(x=>`<div class="kv"><small>${x[0]}</small>${x[1]?'✅ Permitido':'❌ Sin acceso'}</div>`).join('')}<div class="actions"><button class="secondary" onclick="editUsuarioConfig(${u.id})">Editar permisos</button><button class="secondary" style="color:#991b1b;border-color:#fecaca" onclick="toggleUsuarioEstado(${u.id})">${u.estado==='Activo'?'Desactivar':'Activar'} usuario</button></div>`;
+  const plataformas=p.plataformas||p;
+  const modulos=p.modulos||p;
+  const acciones=p.acciones||p;
+  const listPlat=[['Web escritorio',plataformas.web],['Admin Mobile',plataformas.admin_mobile],['Desempeño AT Mobile',plataformas.desempeno_mobile],['Ticket Atendedor Mobile',plataformas.ticket_mobile]];
+  const listMod=[['Validador SEC',modulos.sec],['Bitácora',modulos.bitacora],['Ventas No Abonadas',modulos.vna],['Desempeño AT',modulos.desempeno],['Ticket Atendedor',modulos.ticket_atendedor],['Usuarios y Permisos',modulos.usuarios],['Nómina',modulos.nomina],['Historial Anotaciones',modulos.historial_anotaciones]];
+  const listAct=[['Crear',acciones.crear],['Editar',acciones.editar],['Eliminar',acciones.eliminar],['Desactivar',acciones.desactivar],['Subir archivos',acciones.subir_archivos],['Cambiar estado',acciones.cambiar_estado]];
+  const block=(title,arr)=>`<h3>${title}</h3>${arr.map(x=>`<div class="kv"><small>${x[0]}</small>${x[1]?'✅ Permitido':'❌ Sin acceso'}</div>`).join('')}`;
+  usrDetail.innerHTML=`<h2>${u.nombre||u.usuario}</h2><div class="kv"><small>Usuario</small>${u.usuario}</div><div class="kv"><small>Rol</small>${u.rol||'-'}</div><div class="kv"><small>Estado</small>${u.estado||'-'}</div>${block('Nivel 1 · Plataformas',listPlat)}${block('Nivel 2 · Módulos',listMod)}${block('Nivel 3 · Acciones',listAct)}<div class="actions"><button class="secondary" onclick="editUsuarioConfig(${u.id})">Editar permisos</button><button class="secondary" style="color:#991b1b;border-color:#fecaca" onclick="toggleUsuarioEstado(${u.id})">${u.estado==='Activo'?'Desactivar':'Activar'} usuario</button></div>`;
 }
 
 function editUsuarioConfig(id){
@@ -764,18 +918,47 @@ async function toggleUsuarioEstado(id){
   await loadUsuariosConfig();
 }
 
-function hasPerm(mod){
+
+function hasPlatform(p){
   if(!currentUser)return false;
   if(currentUser.usuario==='gabrielarancibia'||currentUser.rol==='admin'||currentUser.rol==='Administrador')return true;
-  return !!(currentUser.permisos&&currentUser.permisos[mod]);
+  return !!(currentUser.permisos?.plataformas?.[p] || currentUser.permisos?.[p]);
+}
+function hasModule(m){
+  if(!currentUser)return false;
+  if(currentUser.usuario==='gabrielarancibia'||currentUser.rol==='admin'||currentUser.rol==='Administrador')return true;
+  return !!(currentUser.permisos?.modulos?.[m] || currentUser.permisos?.[m]);
+}
+function canAction(a){
+  if(!currentUser)return false;
+  if(currentUser.usuario==='gabrielarancibia'||currentUser.rol==='admin'||currentUser.rol==='Administrador')return true;
+  return !!(currentUser.permisos?.acciones?.[a] || currentUser.permisos?.[a]);
+}
+
+function hasPerm(mod){return hasModule(mod)}
+
+
+function applyActionPermissions(){
+  const canCreate=canAction('crear');
+  const canDelete=canAction('eliminar');
+  document.querySelectorAll('[data-create-action]').forEach(el=>el.style.display=canCreate?'inline-flex':'none');
+  document.querySelectorAll('[data-delete-action]').forEach(el=>el.style.display=canDelete?'inline-flex':'none');
 }
 
 function applyModulePermissions(){
-  const map=[['nav-sec','sec'],['nav-bit','bitacora'],['nav-vna','vna'],['nav-at','desempeno'],['nav-ticketat','ticket_atendedor'],['nav-usuarios','usuarios']];
+  const map=[
+    ['nav-sec','sec'],
+    ['nav-bit','bitacora'],
+    ['nav-vna','vna'],
+    ['nav-at','desempeno'],
+    ['nav-ticketat','ticket_atendedor'],
+    ['nav-usuarios','usuarios']
+  ];
   map.forEach(([id,mod])=>{
     const el=document.getElementById(id);
-    if(el)el.style.display=hasPerm(mod)?'block':'none';
+    if(el)el.style.display=hasModule(mod)?'block':'none';
   });
+});
 }
 
 function fillTicketWorkers(){
@@ -1143,6 +1326,23 @@ async function exportVnaExcel(){
 }
 
 setInterval(()=>{try{if(currentUser&&document.getElementById('app')&&!document.getElementById('app').classList.contains('hidden')){loadTicketAt();}}catch(e){}},60000);
+
+
+function hasPerm(mod){return hasModule(mod)}
+function applyModulePermissions(){
+  const map=[
+    ['nav-sec','sec'],['nav-bit','bitacora'],['nav-vna','vna'],
+    ['nav-at','desempeno'],['nav-ticketat','ticket_atendedor'],['nav-usuarios','usuarios']
+  ];
+  map.forEach(([id,mod])=>{
+    const el=document.getElementById(id);
+    if(el)el.style.display=hasModule(mod)?'block':'none';
+  });
+}
+function applyActionPermissions(){
+  document.querySelectorAll('[data-create-action]').forEach(el=>el.style.display=canAction('crear')?'inline-flex':'none');
+  document.querySelectorAll('[data-delete-action]').forEach(el=>el.style.display=canAction('eliminar')?'inline-flex':'none');
+}
 
 window.addEventListener('load',()=>restoreSession());
 </script>
