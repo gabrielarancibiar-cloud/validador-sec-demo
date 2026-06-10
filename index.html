@@ -45,32 +45,39 @@ function canAction(a){
   return canActionPerm(a);
 }
 function applyModulePermissions(){
-  const map=[
+  const directMap=[
     ['nav-sec','sec'],
     ['nav-bitacora','bitacora'],
     ['nav-vna','vna'],
+    ['nav-ticketat','ticket_atendedor']
+  ];
+  directMap.forEach(([id,mod])=>{
+    const el=document.getElementById(id);
+    if(el)el.style.display=canModule(mod)?'inline-flex':'none';
+  });
+
+  const subMap=[
     ['nav-at','desempeno'],
-    ['nav-nomina','nomina'],
     ['nav-historial','historial_anotaciones'],
-    ['nav-ticketat','ticket_atendedor'],
+    ['nav-nomina-sub','nomina'],
     ['nav-usuarios','usuarios']
   ];
-  map.forEach(([id,mod])=>{
+  subMap.forEach(([id,mod])=>{
     const el=document.getElementById(id);
     if(el)el.style.display=canModule(mod)?'block':'none';
   });
 
-  document.querySelectorAll('.menu-group').forEach(group=>{
-    const visible=[...group.querySelectorAll('.dropdown button')].some(b=>b.style.display!=='none');
-    group.style.display=visible?'block':'none';
-  });
-}
-let permissionObserverStarted=false;
-function startPermissionObserver(){
-  if(permissionObserverStarted || !document.getElementById('app'))return;
-  permissionObserverStarted=true;
-  const obs=new MutationObserver(()=>applyActionPermissions());
-  obs.observe(document.getElementById('app'),{childList:true,subtree:true});
+  const nominaGroup=document.getElementById('nav-nomina-group');
+  if(nominaGroup){
+    const visible=[...nominaGroup.querySelectorAll('.dropdown button')].some(b=>b.style.display!=='none');
+    nominaGroup.style.display=visible?'block':'none';
+  }
+
+  const configGroup=document.getElementById('nav-config-group');
+  if(configGroup){
+    const visible=[...configGroup.querySelectorAll('.dropdown button')].some(b=>b.style.display!=='none');
+    configGroup.style.display=visible?'block':'none';
+  }
 }
 function applyActionPermissions(){
   document.querySelectorAll('[data-action]').forEach(el=>{
@@ -316,6 +323,20 @@ body:before{
 @media(max-width:1200px){.dashboard-stats{grid-template-columns:repeat(2,1fr)}.quick-grid{grid-template-columns:repeat(4,1fr)}.valepac-top{height:auto;flex-wrap:wrap}.brand-zone .portal-title{font-size:24px}}
 @media(max-width:760px){.dashboard-stats,.quick-grid{grid-template-columns:1fr}.dashboard-hero{padding:26px}.brand-zone{align-items:flex-start;flex-direction:column;gap:10px}.brand-zone .portal-title{border-left:0;padding-left:0}.session-zone{width:100%;justify-content:space-between}.nav-modern{padding:12px}}
 
+
+
+/* Ajuste menú VALEPAC: botones directos y dropdown estable */
+.nav-modern{overflow:visible!important;align-items:flex-start!important;gap:12px!important;position:relative!important;z-index:2000!important;flex-wrap:wrap!important;}
+.nav-modern>button,.nav-modern .menu-trigger{height:54px!important;border:1px solid #dbe7f3!important;background:#fff!important;color:#062b63!important;border-radius:10px!important;padding:0 18px!important;font-weight:950!important;white-space:nowrap!important;box-shadow:0 2px 10px rgba(15,23,42,.03)!important;cursor:pointer!important;}
+.nav-modern>button:hover,.nav-modern .menu-trigger:hover,.nav-modern button.active{background:#eff6ff!important;color:#0b3b91!important;border-color:#c7ddff!important;}
+.nav-modern .menu-group{position:relative!important;margin:0!important;padding:0 0 14px 0!important;display:block;}
+.nav-modern .dropdown{display:none!important;position:absolute!important;top:54px!important;left:0!important;min-width:290px!important;background:#fff!important;border:1px solid #dbe7f3!important;border-radius:14px!important;padding:12px!important;box-shadow:0 18px 45px rgba(15,23,42,.14)!important;z-index:99999!important;}
+.nav-modern .dropdown:before{content:""!important;position:absolute!important;left:0!important;right:0!important;top:-16px!important;height:16px!important;border:0!important;background:transparent!important;}
+.nav-modern .menu-group:hover .dropdown,.nav-modern .menu-group:focus-within .dropdown{display:block!important;}
+.nav-modern .dropdown button{display:block!important;width:100%!important;text-align:left!important;border:0!important;background:transparent!important;border-radius:10px!important;padding:14px 16px!important;color:#062b63!important;font-weight:950!important;cursor:pointer!important;}
+.nav-modern .dropdown button:hover,.nav-modern .dropdown button.active{background:#eff6ff!important;color:#0b3b91!important;}
+.portal-header,.layout,.main{overflow:visible!important;}
+
 </style>
 </head>
 <body>
@@ -336,43 +357,26 @@ body:before{
 </header>
 <nav class="nav nav-modern">
   <button id="nav-inicio" class="active" onclick="showModule('inicio')">⌂ Inicio</button>
+  <button id="nav-sec" data-modulo="sec" onclick="showModule('sec')">SEC</button>
+  <button id="nav-bitacora" data-modulo="bitacora" onclick="showModule('bitacora')">Bitácora</button>
+  <button id="nav-vna" data-modulo="vna" onclick="showModule('vna')">VNA</button>
+  <button id="nav-ticketat" data-modulo="ticket_atendedor" onclick="showModule('ticketat')">Ticket Atendedor <span id="ticketNotifBadge" class="notif-badge hidden">0</span></button>
 
-  <div class="menu-group"><button class="menu-trigger">SEC⌄</button><div class="dropdown">
-    <button id="nav-sec" onclick="showModule('sec')">Validador Documental SEC</button>
-  </div></div>
+  <div id="nav-nomina-group" class="menu-group">
+    <button id="nav-nomina" class="menu-trigger" type="button">Nómina⌄</button>
+    <div class="dropdown">
+      <button id="nav-at" data-modulo="desempeno" onclick="showModule('at');setTimeout(()=>showAtSub('historial'),100)">Desempeño AT</button>
+      <button id="nav-historial" data-modulo="historial_anotaciones" onclick="showModule('at');setTimeout(()=>showAtSub('historial'),100)">Historial de Anotaciones</button>
+      <button id="nav-nomina-sub" data-modulo="nomina" onclick="showModule('at');setTimeout(()=>showAtSub('nomina'),100)">Nómina de Atendedores</button>
+    </div>
+  </div>
 
-  <div class="menu-group"><button class="menu-trigger">Bitácora⌄</button><div class="dropdown">
-    <button id="nav-bitacora" onclick="showModule('bitacora')">Bitácora Estación</button>
-  </div></div>
-
-  <div class="menu-group"><button class="menu-trigger">VNA⌄</button><div class="dropdown">
-    <button id="nav-vna" onclick="showModule('vna')">Ventas No Abonadas</button>
-  </div></div>
-
-  <div class="menu-group"><button class="menu-trigger">Desempeño⌄</button><div class="dropdown">
-    <button id="nav-at" onclick="showModule('at')">Desempeño AT</button>
-  </div></div>
-
-  <div class="menu-group"><button class="menu-trigger">Ticket Atendedor⌄</button><div class="dropdown">
-    <button id="nav-ticketat" onclick="showModule('ticketat')">Ticket Atendedor <span id="ticketNotifBadge" class="notif-badge hidden">0</span></button>
-  </div></div>
-
-  <div class="menu-group"><button class="menu-trigger">Usuarios⌄</button><div class="dropdown">
-    <button id="nav-usuarios" onclick="showModule('usuarios')">Usuarios y Permisos</button>
-  </div></div>
-
-  <div class="menu-group"><button class="menu-trigger">Nómina⌄</button><div class="dropdown">
-    <button id="nav-nomina" onclick="showModule('at');setTimeout(()=>showAtSub('nomina'),100)">Nómina de atendedores</button>
-  </div></div>
-
-  <div class="menu-group"><button class="menu-trigger">Historial Anotaciones⌄</button><div class="dropdown">
-    <button id="nav-historial" onclick="showModule('at');setTimeout(()=>showAtSub('historial'),100)">Historial de Anotaciones</button>
-  </div></div>
-
-  <div class="menu-group"><button class="menu-trigger">Configuración⌄</button><div class="dropdown">
-    <button onclick="showModule('inicio')">Panel principal</button>
-    <button data-modulo="usuarios" onclick="showModule('usuarios')">Usuarios y Permisos</button>
-  </div></div>
+  <div id="nav-config-group" class="menu-group">
+    <button class="menu-trigger" type="button">Configuración⌄</button>
+    <div class="dropdown">
+      <button id="nav-usuarios" data-modulo="usuarios" onclick="showModule('usuarios')">Usuarios y Permisos</button>
+    </div>
+  </div>
 </nav>
 <main class="main">
 <section id="inicio" class="section active">
@@ -834,6 +838,8 @@ function showModule(m){
   document.querySelectorAll('.nav button').forEach(b=>b.classList.remove('active'));
   const nav=document.getElementById('nav-'+m);
   if(nav)nav.classList.add('active');
+  if(m==='at'){const ng=document.getElementById('nav-nomina'); if(ng)ng.classList.add('active');}
+  if(m==='usuarios'){const cg=document.querySelector('#nav-config-group .menu-trigger'); if(cg)cg.classList.add('active');}
 
   if(m==='sec')loadDocuments();
   if(m==='bitacora')loadBitacora();
