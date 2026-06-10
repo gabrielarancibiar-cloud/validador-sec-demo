@@ -7,10 +7,12 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2">
 setInterval(()=>{try{if(currentUser&&document.getElementById('app')&&!document.getElementById('app').classList.contains('hidden')){loadTicketAt();}}catch(e){}},60000);
 
+window.addEventListener('load',()=>restoreSession());
 </script>
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js">
 setInterval(()=>{try{if(currentUser&&document.getElementById('app')&&!document.getElementById('app').classList.contains('hidden')){loadTicketAt();}}catch(e){}},60000);
 
+window.addEventListener('load',()=>restoreSession());
 </script>
 <style>
 :root{
@@ -389,6 +391,33 @@ body:before{
 const SUPABASE_URL='https://emyskqnsyspzjrguycjk.supabase.co';
 const SUPABASE_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVteXNrcW5zeXNwempyZ3V5Y2prIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzk5MDg5NDcsImV4cCI6MjA5NTQ4NDk0N30.bLCSwgLCop1Gg4rCbunFe4YCP_KHxIIFGF28vR0XD-0';
 const client=supabase.createClient(SUPABASE_URL,SUPABASE_KEY);const bucket='documentos-sec';let docs=[],bits=[],bitHist=[],vnas=[],history=[],atendedores=[],atNotes=[],ticketsAt=[],ticketAtHist=[],selectedDoc=null,selectedBit=null,selectedVna=null,selectedAt=null,selectedNote=null,selectedTicketAt=null,editandoAtendedor=null,currentUser=null,usuariosConfig=[],selectedUsuario=null;
+
+function saveSession(){
+  if(currentUser)localStorage.setItem('valepac_session',JSON.stringify(currentUser));
+}
+function clearSession(){
+  localStorage.removeItem('valepac_session');
+}
+function restoreSession(){
+  try{
+    const raw=localStorage.getItem('valepac_session');
+    if(!raw)return false;
+    currentUser=JSON.parse(raw);
+    login.classList.add('hidden');
+    app.classList.remove('hidden');
+    applyPermissions();
+    loadAll();
+    return true;
+  }catch(e){
+    clearSession();
+    return false;
+  }
+}
+function logoutApp(){
+  clearSession();
+  location.reload();
+}
+
 async function loginApp(){
   const u=(loginUser.value||'').trim().toLowerCase();
   const p=(loginPass.value||'').trim();
@@ -396,18 +425,21 @@ async function loginApp(){
   const {data:portalUser}=await client.from('usuarios_portal').select('*').eq('usuario',u).eq('estado','Activo').maybeSingle();
   if(portalUser && p===portalUser.password){
     currentUser={usuario:portalUser.usuario,nombre:portalUser.nombre||portalUser.usuario,rol:portalUser.rol||'Usuario',permisos:portalUser.permisos||{}};
+    saveSession();
     enterApp();
     return;
   }
 
   if(u==='gabrielarancibia' && p==='portalvalepac'){
     currentUser={usuario:'gabrielarancibia',nombre:'Gabriel Arancibia',rol:'admin',permisos:{sec:true,bitacora:true,vna:true,desempeno:true,ticket_atendedor:true,usuarios:true}};
+    saveSession();
     enterApp();
     return;
   }
 
   if(u==='briancalderon' && p==='brian2026'){
     currentUser={usuario:'briancalderon',nombre:'Brian Calderón',rol:'desempeno'};
+    saveSession();
     enterApp();
     return;
   }
@@ -1112,5 +1144,6 @@ async function exportVnaExcel(){
 
 setInterval(()=>{try{if(currentUser&&document.getElementById('app')&&!document.getElementById('app').classList.contains('hidden')){loadTicketAt();}}catch(e){}},60000);
 
+window.addEventListener('load',()=>restoreSession());
 </script>
 </body></html>
