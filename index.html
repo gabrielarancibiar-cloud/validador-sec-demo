@@ -49,7 +49,8 @@ function applyModulePermissions(){
     ['nav-sec','sec'],
     ['nav-bitacora','bitacora'],
     ['nav-vna','vna'],
-    ['nav-ticketat','ticket_atendedor']
+    ['nav-ticketat','ticket_atendedor'],
+    ['nav-estafas','estafas']
   ];
   directMap.forEach(([id,mod])=>{
     const el=document.getElementById(id);
@@ -106,6 +107,7 @@ function applyModulePermissions(){
     ['nav-bitacora','bitacora'],
     ['nav-vna','vna'],
     ['nav-ticketat','ticket_atendedor'],
+    ['nav-estafas','estafas'],
     ['nav-usuarios','usuarios']
   ];
   map.forEach(([id,mod])=>{
@@ -340,6 +342,11 @@ body:before{
 .nav-modern .dropdown button:hover,.nav-modern .dropdown button.active{background:#eff6ff!important;color:#0b3b91!important;}
 .portal-header,.layout,.main{overflow:visible!important;}
 
+/* Módulo Estafas / Perros Muertos */
+.estafas .thead,.estafas .row{grid-template-columns:150px 130px 130px 1fr 130px 140px}
+.estafa-detail-photo{max-width:100%;border-radius:18px;border:1px solid rgba(148,163,184,.28);box-shadow:0 12px 30px rgba(15,23,42,.08)}
+@media(max-width:1050px){.estafas .row{grid-template-columns:1fr}}
+
 </style>
 </head>
 <body>
@@ -364,6 +371,8 @@ body:before{
   <button id="nav-bitacora" data-modulo="bitacora" onclick="showModule('bitacora')">Bitácora</button>
   <button id="nav-vna" data-modulo="vna" onclick="showModule('vna')">VNA</button>
   <button id="nav-ticketat" data-modulo="ticket_atendedor" onclick="showModule('ticketat')">Ticket Atendedor <span id="ticketNotifBadge" class="notif-badge hidden">0</span></button>
+
+  <button id="nav-estafas" data-modulo="estafas" onclick="showModule('estafas')">Estafas</button>
 
   <button id="nav-nomina" data-modulo="nomina" onclick="showModule('at')">Nómina</button>
 
@@ -393,6 +402,7 @@ body:before{
       <button data-modulo="vna" onclick="showModule('vna')"><span>⌁</span>VNA</button>
       <button data-modulo="desempeno" onclick="showModule('at')"><span>◔</span>Desempeño</button>
       <button data-modulo="ticket_atendedor" onclick="showModule('ticketat')"><span>◆</span>Ticket<br>Atendedor</button>
+      <button data-modulo="estafas" onclick="showModule('estafas')"><span>⚠</span>Estafas<br>Perros muertos</button>
       <button data-modulo="nomina" onclick="showModule('at');setTimeout(()=>showAtSub('nomina'),100)"><span>👥</span>Nómina</button>
       <button data-modulo="historial_anotaciones" onclick="showModule('at');setTimeout(()=>showAtSub('historial'),100)"><span>◷</span>Historial<br>Anotaciones</button>
       <button data-modulo="usuarios" onclick="showModule('usuarios')"><span>⚙</span>Configuración</button>
@@ -491,6 +501,43 @@ body:before{
   </div>
 </section>
 
+
+<section id="estafas" class="section">
+  <div class="topbar">
+    <div>
+      <h1>Estafas · Perros muertos</h1>
+      <p>Registro de clientes que se retiran sin pagar deliberadamente.</p>
+    </div>
+    <button class="primary" data-action="crear" onclick="openEstafaModal()">Agregar caso</button>
+  </div>
+
+  <div class="grid content">
+    <div class="card">
+      <h2>Casos registrados</h2>
+      <div class="toolbar two">
+        <input id="estafaSearch" oninput="renderEstafas()" placeholder="Buscar por patente, atendedor, combustible, Llámanos o parte policial"/>
+        <select id="estafaFilter" onchange="renderEstafas()">
+          <option>Todos</option>
+          <option>Diesel</option>
+          <option>Gasolina 93</option>
+          <option>Gasolina 95</option>
+          <option>Gasolina 97</option>
+          <option>Bluemax</option>
+          <option>Otro</option>
+        </select>
+      </div>
+      <div class="table estafas">
+        <div class="thead"><div>Fecha/Hora</div><div>Monto</div><div>Combustible</div><div>Atendedor</div><div>Patente</div><div>Llámanos</div></div>
+        <div id="estafaRows"></div>
+      </div>
+    </div>
+    <div class="card detail" id="estafaDetail">
+      <h2>Ficha de caso</h2>
+      <p>Selecciona un caso.</p>
+    </div>
+  </div>
+</section>
+
 <section id="usuarios" class="section">
   <div class="topbar">
     <div>
@@ -523,6 +570,7 @@ body:before{
       <label><input id="permSEC" type="checkbox"> Validador Documental SEC</label><br>
       <label><input id="permBitacora" type="checkbox"> Bitácora Estación</label><br>
       <label><input id="permVNA" type="checkbox"> Ventas No Abonadas</label><br>
+      <label><input id="permEstafas" type="checkbox"> Estafas / Perros muertos</label><br>
       <label><input id="permDesempeno" type="checkbox"> Desempeño AT</label><br>
       <label><input id="permTicket" type="checkbox"> Ticket Atendedor</label><br>
       <label><input id="permUsuarios" type="checkbox"> Usuarios y Permisos</label><br>
@@ -583,11 +631,41 @@ body:before{
   </div>
 </div>
 
+
+<div id="estafaModal" class="modal">
+  <div class="modal-box">
+    <h2>Agregar caso · Estafa / Perro muerto</h2>
+    <div class="form two">
+      <input id="estFechaHora" type="datetime-local"/>
+      <input id="estMonto" type="number" placeholder="Monto"/>
+      <select id="estTipoCombustible">
+        <option value="">Tipo combustible</option>
+        <option>Diesel</option>
+        <option>Gasolina 93</option>
+        <option>Gasolina 95</option>
+        <option>Gasolina 97</option>
+        <option>Bluemax</option>
+        <option>Otro</option>
+      </select>
+      <select id="estAtendedor"></select>
+      <input id="estPatente" placeholder="Patente vehículo"/>
+      <input id="estLlamanos" placeholder="N° Llámanos ingresado"/>
+      <input id="estPartePolicial" placeholder="N° parte policial"/>
+      <input id="estArchivo" type="file" accept="image/*,.jpg,.jpeg,.png,.webp,.pdf"/>
+    </div>
+    <div class="actions">
+      <button class="primary" data-action="crear" onclick="createEstafa()">Guardar caso</button>
+      <button class="secondary" onclick="closeEstafaModal()">Cancelar</button>
+    </div>
+    <div id="estMsg"></div>
+  </div>
+</div>
+
 <div id="progressModal" class="modal"><div class="modal-box"><h2 id="progressTitle">Agregar avance</h2><div class="form two"><input id="pTitulo" placeholder="Título del avance"/><input id="pUsuario" placeholder="Usuario / responsable"/><select id="pEtapa"><option>Ingresado</option><option>Documentación y respaldo</option><option>Aprobado</option><option>Rechazado</option></select><select id="pResolucion"><option>Pendiente</option><option>Abono por Portal Concesionario</option><option>Cliente paga en oficina</option><option>Rechazado por VALEPAC</option></select></div><div class="form"><textarea id="pComentario" placeholder="Comentario / respaldo / progreso"></textarea><input id="pArchivo" type="file" accept=".pdf,image/*,.xlsx,.xls"/></div><div class="actions"><button class="primary" data-action="cambiar_estado" onclick="saveVnaProgress()">Guardar avance</button><button class="secondary" onclick="closeProgress()">Cancelar</button></div><div id="pMsg"></div></div></div>
 <script>
 const SUPABASE_URL='https://emyskqnsyspzjrguycjk.supabase.co';
 const SUPABASE_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVteXNrcW5zeXNwempyZ3V5Y2prIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzk5MDg5NDcsImV4cCI6MjA5NTQ4NDk0N30.bLCSwgLCop1Gg4rCbunFe4YCP_KHxIIFGF28vR0XD-0';
-const client=supabase.createClient(SUPABASE_URL,SUPABASE_KEY);const bucket='documentos-sec';let docs=[],bits=[],bitHist=[],vnas=[],history=[],atendedores=[],atNotes=[],atNoteHist=[],ticketsAt=[],ticketAtHist=[],selectedDoc=null,selectedBit=null,selectedVna=null,selectedAt=null,selectedNote=null,selectedTicketAt=null,editandoAtendedor=null,currentUser=null,usuariosConfig=[],selectedUsuario=null;
+const client=supabase.createClient(SUPABASE_URL,SUPABASE_KEY);const bucket='documentos-sec';let docs=[],bits=[],bitHist=[],vnas=[],history=[],estafas=[],selectedEstafa=null,atendedores=[],atNotes=[],atNoteHist=[],ticketsAt=[],ticketAtHist=[],selectedDoc=null,selectedBit=null,selectedVna=null,selectedAt=null,selectedNote=null,selectedTicketAt=null,editandoAtendedor=null,currentUser=null,usuariosConfig=[],selectedUsuario=null;
 
 function roleLabel(){
   const r=String(currentUser?.rol||'Usuario').trim();
@@ -732,7 +810,7 @@ function normalizePermisos(p){
   }
 
   // Compatibilidad con permisos antiguos planos
-  ['sec','bitacora','vna','desempeno','ticket_atendedor','ticket','usuarios','nomina','historial_anotaciones'].forEach(k=>{
+  ['sec','bitacora','vna','estafas','desempeno','ticket_atendedor','ticket','usuarios','nomina','historial_anotaciones'].forEach(k=>{
     if(p[k]===true)norm.modulos[k]=true;
   });
   ['crear','editar','eliminar','desactivar','subir_archivos','cambiar_estado'].forEach(k=>{
@@ -773,6 +851,13 @@ function requireFileAction(file,msg){
   return requireAction('subir_archivos',msg||'No tienes permiso para subir archivos.');
 }
 
+
+function startPermissionObserver(){
+  if(window.__valepacPermObserver)return;
+  window.__valepacPermObserver=new MutationObserver(()=>{try{applyActionPermissions()}catch(e){}});
+  try{window.__valepacPermObserver.observe(document.body,{childList:true,subtree:true});}catch(e){}
+}
+
 function applyPermissions(){
   if(!currentUser)return;
 
@@ -790,6 +875,7 @@ function applyPermissions(){
     ['vna','vna'],
     ['at','desempeno'],
     ['ticketat','ticket_atendedor'],
+    ['estafas','estafas'],
     ['usuarios','usuarios']
   ].find(([section,perm])=>canModule(perm));
 
@@ -815,7 +901,7 @@ function showModule(m){
     loadDashboard();
     return;
   }
-  const mapPerm={sec:'sec',bitacora:'bitacora',vna:'vna',at:'desempeno',ticketat:'ticket_atendedor',usuarios:'usuarios'};
+  const mapPerm={sec:'sec',bitacora:'bitacora',vna:'vna',estafas:'estafas',at:'desempeno',ticketat:'ticket_atendedor',usuarios:'usuarios'};
   const perm=mapPerm[m]||m;
 
   if(!canModule(perm)){
@@ -840,10 +926,11 @@ function showModule(m){
   if(m==='sec')loadDocuments();
   if(m==='bitacora')loadBitacora();
   if(m==='vna')loadVna();
+  if(m==='estafas')loadEstafas();
   if(m==='at')loadDesempeno();
   if(m==='ticketat')loadTicketAt();
   if(m==='usuarios')loadUsuariosConfig();
-}async function loadAll(){await loadDashboard();await loadDocuments();await loadBitacora();await loadVna();await loadDesempeno()}function fmt(d){if(!d)return '-';return new Date(d).toLocaleString('es-CL',{dateStyle:'short',timeStyle:'short'})}function money(v){return v?Number(v).toLocaleString('es-CL',{style:'currency',currency:'CLP'}):'-'}function badge(s){let c='b-pendiente';if(s==='Vigente')c='b-vigente';if(s==='Por vencer')c='b-vencer';if(s==='Vencido')c='b-vencido';if(s==='No cargado')c='b-nocargado';if(s==='En Proceso')c='b-revision';if(s==='Ingresado')c='b-ingresado';if(s==='Documentación y respaldo')c='b-doc';if(s==='Aprobado')c='b-aprobado';if(s==='Rechazado')c='b-rechazado';if(s==='Baja')c='b-baja';if(s==='Media')c='b-media';if(s==='Alta')c='b-alta';if(s==='Positiva')c='b-aprobado';if(s==='Negativa')c='b-rechazado';return `<span class="badge ${c}">${s||'Pendiente'}</span>`}function daysLeft(d){if(!d)return null;const a=new Date();a.setHours(0,0,0,0);const b=new Date(d);b.setHours(0,0,0,0);return Math.ceil((b-a)/86400000)}function calcStatus(d,alertDays,hasFile){if(!hasFile)return 'No cargado';if(!d)return 'En Proceso';const rest=daysLeft(d);if(rest<0)return 'Vencido';if(rest<=Number(alertDays||30))return 'Por vencer';return 'Vigente'}
+}async function loadAll(){await loadDashboard();await loadDocuments();await loadBitacora();await loadVna();await loadEstafas();await loadDesempeno()}function fmt(d){if(!d)return '-';return new Date(d).toLocaleString('es-CL',{dateStyle:'short',timeStyle:'short'})}function money(v){return v?Number(v).toLocaleString('es-CL',{style:'currency',currency:'CLP'}):'-'}function badge(s){let c='b-pendiente';if(s==='Vigente')c='b-vigente';if(s==='Por vencer')c='b-vencer';if(s==='Vencido')c='b-vencido';if(s==='No cargado')c='b-nocargado';if(s==='En Proceso')c='b-revision';if(s==='Ingresado')c='b-ingresado';if(s==='Documentación y respaldo')c='b-doc';if(s==='Aprobado')c='b-aprobado';if(s==='Rechazado')c='b-rechazado';if(s==='Baja')c='b-baja';if(s==='Media')c='b-media';if(s==='Alta')c='b-alta';if(s==='Positiva')c='b-aprobado';if(s==='Negativa')c='b-rechazado';return `<span class="badge ${c}">${s||'Pendiente'}</span>`}function daysLeft(d){if(!d)return null;const a=new Date();a.setHours(0,0,0,0);const b=new Date(d);b.setHours(0,0,0,0);return Math.ceil((b-a)/86400000)}function calcStatus(d,alertDays,hasFile){if(!hasFile)return 'No cargado';if(!d)return 'En Proceso';const rest=daysLeft(d);if(rest<0)return 'Vencido';if(rest<=Number(alertDays||30))return 'Por vencer';return 'Vigente'}
 async function loadDocuments(){const {data,error}=await client.from('documentos').select('*').order('numero_indice');if(error){docRows.innerHTML='<div class="notice error">Error cargando documentos: '+error.message+'</div>';return}docs=(data||[]).sort((a,b)=>{
   const parse=(v)=>String(v||'0').split('.').map(x=>parseInt(x,10)||0);
   const [a1,a2=0]=parse(a.numero_indice);
@@ -973,6 +1060,115 @@ async function deleteVnaCase(id){if(!requireAction('eliminar','No tienes permiso
 }
 
 function openProgress(){if(!selectedVna)return;progressTitle.textContent='Agregar avance · Req. '+selectedVna.requerimiento;pEtapa.value=selectedVna.etapa||'Ingresado';pResolucion.value=selectedVna.resolucion||'Pendiente';progressModal.classList.add('open')}function closeProgress(){progressModal.classList.remove('open')}async function saveVnaProgress(){if(!requireAction('cambiar_estado','No tienes permiso para cambiar estados.'))return;if(!selectedVna)return;const titulo=pTitulo.value.trim();if(!titulo){pMsg.innerHTML='<div class="notice error">Ingresa título del avance.</div>';return}let archivo_url=null,archivo_nombre=null;const file=pArchivo.files[0];if(!requireFileAction(file))return;if(file){const path=`vta-no-abonada/${String(selectedVna.requerimiento).replace(/[^a-zA-Z0-9_-]/g,'_')}/${Date.now()}_${safeFileName(file.name)}`;const up=await client.storage.from(bucket).upload(path,file,{upsert:true});if(up.error){pMsg.innerHTML='<div class="notice error">No se pudo subir el archivo. El nombre fue limpiado automáticamente; si sigue fallando, usa JPG/PNG/PDF. Detalle: '+up.error.message+'</div>';return}archivo_url=client.storage.from(bucket).getPublicUrl(path).data.publicUrl;archivo_nombre=file.name}const update={etapa:pEtapa.value,resolucion:pResolucion.value,updated_at:new Date().toISOString()};const {error}=await client.from('ventas_no_abonadas').update(update).eq('id',selectedVna.id);if(error){pMsg.innerHTML='<div class="notice error">'+error.message+'</div>';return}await client.from('historial_vta_no_abonada').insert({caso_id:selectedVna.id,accion:titulo,etapa:pEtapa.value,usuario:pUsuario.value||'Usuario',comentario:pComentario.value,archivo_url,archivo_nombre});pMsg.innerHTML='<div class="notice ok">Avance guardado.</div>';closeProgress();pTitulo.value=pUsuario.value=pComentario.value='';pArchivo.value='';await loadVna();await selectVna(selectedVna.id)}
+
+async function loadEstafas(){
+  const {data,error}=await client.from('estafas_perros_muertos').select('*').order('fecha_hora',{ascending:false});
+  if(error){
+    if(document.getElementById('estafaRows'))estafaRows.innerHTML='<div class="notice error">Error cargando Estafas: '+error.message+'</div>';
+    return;
+  }
+  estafas=data||[];
+  if(!selectedEstafa)selectedEstafa=estafas[0];
+  renderEstafas();
+}
+
+function renderEstafas(){
+  if(!document.getElementById('estafaRows'))return;
+  const q=(estafaSearch?.value||'').toLowerCase();
+  const f=estafaFilter?.value||'Todos';
+  const list=estafas.filter(e=>(f==='Todos'||e.tipo_combustible===f)&&`${e.patente_vehiculo||''} ${e.atendedor||''} ${e.tipo_combustible||''} ${e.numero_llamanos||''} ${e.numero_parte_policial||''}`.toLowerCase().includes(q));
+  estafaRows.innerHTML=list.map(e=>`<div class="row ${selectedEstafa&&selectedEstafa.id===e.id?'selected':''}" onclick="selectEstafa(${e.id})"><div>${fmt(e.fecha_hora)}</div><div>${money(e.monto)}</div><div>${e.tipo_combustible||'-'}</div><div><div class="title">${e.atendedor||'-'}</div><div class="sub">Parte: ${e.numero_parte_policial||'-'}</div></div><div>${(e.patente_vehiculo||'-').toUpperCase()}</div><div>${e.numero_llamanos||'-'}</div></div>`).join('')||'<div class="notice">Sin casos registrados.</div>';
+  renderEstafaDetail();
+}
+
+function selectEstafa(id){
+  selectedEstafa=estafas.find(e=>e.id===id);
+  renderEstafas();
+}
+
+function renderEstafaDetail(){
+  const e=selectedEstafa;
+  if(!document.getElementById('estafaDetail'))return;
+  if(!e){estafaDetail.innerHTML='<h2>Ficha de caso</h2><p>Selecciona un caso.</p>';return}
+  estafaDetail.innerHTML=`<h2>Patente ${(e.patente_vehiculo||'-').toUpperCase()}</h2>
+  <div class="kv"><small>Fecha / Hora</small>${fmt(e.fecha_hora)}</div>
+  <div class="kv"><small>Monto / Combustible</small>${money(e.monto)} · ${e.tipo_combustible||'-'}</div>
+  <div class="kv"><small>Atendedor</small>${e.atendedor||'-'}</div>
+  <div class="kv"><small>N° Llámanos</small>${e.numero_llamanos||'-'}</div>
+  <div class="kv"><small>N° Parte policial</small>${e.numero_parte_policial||'-'}</div>
+  <div class="kv"><small>Archivo / fotografía</small>${e.archivo_url?`<a href="${e.archivo_url}" target="_blank">Ver respaldo</a>`:'Sin archivo'}</div>
+  ${e.archivo_url?`<img class="estafa-detail-photo" src="${e.archivo_url}" onerror="this.style.display='none'">`:''}
+  <div class="notice">Registro creado: ${fmt(e.created_at)}.</div>`;
+}
+
+async function fillEstafaWorkers(){
+  if(!document.getElementById('estAtendedor'))return;
+  if(!atendedores||!atendedores.length){
+    const {data}=await client.from('atendedores_nomina').select('*').order('nombre',{ascending:true});
+    atendedores=data||[];
+  }
+  estAtendedor.innerHTML='<option value="">Seleccionar atendedor</option>'+atendedores.filter(a=>(a.estado||'Activo')==='Activo').map(a=>`<option value="${a.id}" data-nombre="${(a.nombre||'').replace(/"/g,'&quot;')}">${a.nombre} · ${a.rut||''}</option>`).join('');
+}
+
+async function openEstafaModal(){
+  if(!requireAction('crear','No tienes permiso para crear casos.'))return;
+  estMsg.innerHTML='';
+  estFechaHora.value='';
+  estMonto.value='';
+  estTipoCombustible.value='';
+  estPatente.value='';
+  estLlamanos.value='';
+  estPartePolicial.value='';
+  estArchivo.value='';
+  await fillEstafaWorkers();
+  estAtendedor.value='';
+  estafaModal.classList.add('open');
+}
+
+function closeEstafaModal(){
+  estafaModal.classList.remove('open');
+}
+
+async function createEstafa(){
+  if(!requireAction('crear','No tienes permiso para crear casos.'))return;
+  const file=estArchivo.files[0];
+  if(!requireFileAction(file))return;
+  const opt=estAtendedor.options[estAtendedor.selectedIndex];
+  const trabajador_id=estAtendedor.value||null;
+  const atendedor=opt?opt.getAttribute('data-nombre')||opt.textContent.split(' · ')[0]:'';
+  const payload={
+    fecha_hora:estFechaHora.value||new Date().toISOString(),
+    monto:estMonto.value||null,
+    tipo_combustible:estTipoCombustible.value,
+    trabajador_id:trabajador_id||null,
+    atendedor,
+    patente_vehiculo:(estPatente.value||'').trim().toUpperCase(),
+    numero_llamanos:(estLlamanos.value||'').trim(),
+    numero_parte_policial:(estPartePolicial.value||'').trim(),
+    archivo_url:null,
+    archivo_nombre:null,
+    updated_at:new Date().toISOString()
+  };
+  if(!payload.monto||!payload.tipo_combustible||!payload.trabajador_id||!payload.patente_vehiculo){
+    estMsg.innerHTML='<div class="notice error">Falta monto, combustible, atendedor o patente.</div>';
+    return;
+  }
+  if(file){
+    const path=`estafas/${payload.patente_vehiculo||'sin_patente'}/${Date.now()}_${safeFileName(file.name)}`;
+    const up=await client.storage.from(bucket).upload(path,file,{upsert:true});
+    if(up.error){estMsg.innerHTML='<div class="notice error">No se pudo subir archivo: '+up.error.message+'</div>';return}
+    payload.archivo_url=client.storage.from(bucket).getPublicUrl(path).data.publicUrl;
+    payload.archivo_nombre=file.name;
+  }
+  const {data,error}=await client.from('estafas_perros_muertos').insert(payload).select().single();
+  if(error){estMsg.innerHTML='<div class="notice error">'+error.message+'</div>';return}
+  estMsg.innerHTML='<div class="notice ok">Caso guardado correctamente.</div>';
+  selectedEstafa=data;
+  closeEstafaModal();
+  await loadEstafas();
+}
+
+
 function showAtSub(view){const hist=document.getElementById('atHistorialView'),nom=document.getElementById('atNominaView');hist.classList.toggle('hidden',view!=='historial');nom.classList.toggle('hidden',view!=='nomina');tabAtHist.classList.toggle('active',view==='historial');tabAtNom.classList.toggle('active',view==='nomina');if(view==='nomina')loadAtendedores();else loadAtNotes()}function openNomina(){showAtSub('nomina')}function toggleAtForm(){const opening=atFormCard.classList.contains('hidden');if(opening)resetAtForm();atFormCard.classList.toggle('hidden')}function toggleAtNoteForm(){const opening=atNoteFormCard.classList.contains('hidden');if(opening)resetAtNoteForm();atNoteFormCard.classList.toggle('hidden');fillNoteWorkers()}async function loadDesempeno(){await loadAtendedores();await loadAtNotes();showAtSub('historial')}function fillNoteWorkers(){if(!document.getElementById('noteTrabajador'))return;noteTrabajador.innerHTML='<option value="">Seleccionar trabajador</option>'+atendedores.filter(a=>(a.estado||'Activo')==='Activo').map(a=>`<option value="${a.id}">${a.nombre} · ${a.rut}</option>`).join('')}async function loadAtNotes(){const {data,error}=await client.from('anotaciones_desempeno_at').select('*, atendedores_nomina(nombre,rut,foto_url)').order('fecha_anotacion',{ascending:false});if(error){noteRows.innerHTML='<div class="notice error">Error cargando anotaciones: '+error.message+'</div>';return}atNotes=data||[];if(!selectedNote)selectedNote=atNotes[0];if(selectedNote)await loadAtNoteHist(selectedNote.id);renderAtNotes()}async function loadAtNoteHist(id){if(!id){atNoteHist=[];return}const {data,error}=await client.from('historial_anotaciones_desempeno_at').select('*').eq('anotacion_id',id).order('created_at',{ascending:false});atNoteHist=error?[]:(data||[])}function renderAtNotes(){let q=(noteSearch?.value||'').toLowerCase(),f=(noteFilter?.value||'Todos');let list=atNotes.filter(n=>(f==='Todos'||n.tipo===f)&&`${n.titulo||''} ${n.detalle||''} ${n.categoria||''} ${n.responsable||''} ${n.atendedores_nomina?.nombre||''} ${n.atendedores_nomina?.rut||''}`.toLowerCase().includes(q));noteRows.innerHTML=list.map(n=>`<div class="row ${selectedNote&&selectedNote.id===n.id?'selected':''}" onclick="selectAtNote(${n.id})"><div>${fmt(n.fecha_anotacion)}</div><div><div class="title">${n.atendedores_nomina?.nombre||'Trabajador no asignado'}</div><div class="sub">${n.titulo||'-'} · ${n.categoria||'-'}</div></div><div>${badge(n.tipo)}</div><div>${n.responsable||'-'}</div></div>`).join('')||'<div class="notice">Sin anotaciones registradas.</div>';renderAtNoteDetail()}async function selectAtNote(id){selectedNote=atNotes.find(n=>n.id===id);await loadAtNoteHist(id);renderAtNotes()}function renderAtNoteDetail(){const n=selectedNote;if(!n){noteDetail.innerHTML='<h2>Ficha de anotación</h2><p>Selecciona una anotación.</p>';return}noteDetail.innerHTML=`<h2>${n.titulo||'Anotación'}</h2>${badge(n.tipo)}<div class="kv"><small>Trabajador</small>${n.atendedores_nomina?.nombre||'-'} · ${n.atendedores_nomina?.rut||'-'}</div><div class="kv"><small>Fecha / Responsable</small>${fmt(n.fecha_anotacion)} · ${n.responsable||'-'}</div><div class="kv"><small>Categoría</small>${n.categoria||'-'}</div><div class="kv"><small>Detalle</small>${n.detalle||'-'}</div><div class="kv"><small>Acción / Seguimiento</small>${n.accion||'-'}</div><div class="kv"><small>Respaldo inicial</small>${n.archivo_url?`<a href="${n.archivo_url}" target="_blank">Ver archivo</a>`:'Sin archivo'}</div><div class="notice">Registro creado: ${fmt(n.created_at)}. Este histórico queda disponible para auditoría futura.</div><hr><h3>Agregar respaldo adicional</h3><div class="form"><input id="noteHistAccion" placeholder="Título del respaldo / avance"/><textarea id="noteHistComentario" placeholder="Comentario adicional para respaldar esta anotación"></textarea><input id="noteHistArchivo" type="file" accept=".jpg,.jpeg,.png,.webp,.pdf,image/*,.xlsx,.xls"/><button class="primary" data-action="crear" onclick="addAtNoteSupport(${n.id})">Agregar respaldo</button><div id="noteHistMsg"></div></div><hr><h3>Historial de respaldos</h3><div class="timeline">${atNoteHist.map(h=>`<div class="item"><h4>${h.accion||'Respaldo adicional'}</h4><small>${fmt(h.created_at)} · ${h.usuario||'-'}</small><p>${h.comentario||''}</p>${h.archivo_url?`<a href="${h.archivo_url}" target="_blank">Ver archivo</a>`:''}</div>`).join('')||'<p class="muted">Sin respaldos adicionales.</p>'}</div>`}async function addAtNoteSupport(id){if(!requireAction('crear','No tienes permiso para agregar respaldos.'))return;const accion=(noteHistAccion.value||'Respaldo adicional').trim();const comentario=(noteHistComentario.value||'').trim();const file=noteHistArchivo.files[0];if(file&&!requireAction('subir_archivos','No tienes permiso para subir archivos.'))return;if(!comentario&&!file){noteHistMsg.innerHTML='<div class="notice error">Ingresa comentario o archivo.</div>';return}let archivo_url=null,archivo_nombre=null;if(file){const path=`desempeno-at/anotaciones/respaldo/${id}/${Date.now()}_${safeFileName(file.name)}`;const up=await client.storage.from(bucket).upload(path,file,{upsert:true});if(up.error){noteHistMsg.innerHTML='<div class="notice error">No se pudo subir archivo: '+up.error.message+'</div>';return}archivo_url=client.storage.from(bucket).getPublicUrl(path).data.publicUrl;archivo_nombre=file.name}const {error}=await client.from('historial_anotaciones_desempeno_at').insert({anotacion_id:id,accion,usuario:currentUser?.nombre||'Usuario',comentario,archivo_url,archivo_nombre});if(error){noteHistMsg.innerHTML='<div class="notice error">'+error.message+'</div>';return}noteHistMsg.innerHTML='<div class="notice ok">Respaldo agregado correctamente.</div>';noteHistAccion.value='';noteHistComentario.value='';noteHistArchivo.value='';await loadAtNoteHist(id);renderAtNoteDetail()}async function createAtNote(){if(!requireAction('crear','No tienes permiso para crear registros.'))return;let archivo_url=null,archivo_nombre=null;const file=noteArchivo.files[0];if(!requireFileAction(file))return;if(file){const path=`desempeno-at/anotaciones/${Date.now()}_${file.name}`;const up=await client.storage.from(bucket).upload(path,file,{upsert:true});if(up.error){noteMsg.innerHTML='<div class="notice error">'+up.error.message+'</div>';return}archivo_url=client.storage.from(bucket).getPublicUrl(path).data.publicUrl;archivo_nombre=file.name}const payload={trabajador_id:noteTrabajador.value||null,tipo:noteTipo.value,fecha_anotacion:noteFecha.value||new Date().toISOString(),responsable:noteResponsable.value||'Jefe de Protocolo y Servicio',titulo:noteTitulo.value.trim(),categoria:noteCategoria.value,detalle:noteDetalle.value,accion:noteAccion.value,archivo_url,archivo_nombre};if(!payload.trabajador_id||!payload.titulo){noteMsg.innerHTML='<div class="notice error">Falta trabajador o título.</div>';return}const {error}=await client.from('anotaciones_desempeno_at').insert(payload);if(error){noteMsg.innerHTML='<div class="notice error">'+error.message+'</div>';return}noteMsg.innerHTML='<div class="notice ok">Anotación guardada.</div>';noteTitulo.value=noteDetalle.value=noteAccion.value=noteArchivo.value='';await loadAtNotes()}async function loadAtendedores(){const {data,error}=await client.from('atendedores_nomina').select('*').order('nombre',{ascending:true});if(error){if(document.getElementById('atRows'))atRows.innerHTML='<div class="notice error">Error cargando nómina: '+error.message+'</div>';return}atendedores=data||[];if(!selectedAt)selectedAt=atendedores[0];fillNoteWorkers();renderAtendedores()}function renderAtendedores(){if(!document.getElementById('atRows'))return;let q=(atSearch?.value||'').toLowerCase();let list=atendedores.filter(a=>`${a.nombre||''} ${a.rut||''} ${a.estado||'Activo'}`.toLowerCase().includes(q));atRows.innerHTML=list.map(a=>{const estado=a.estado||'Activo';return `<div class="row ${selectedAt&&selectedAt.id===a.id?'selected':''}" onclick="selectAtendedor(${a.id})"><div>${a.foto_url?`<img src="${a.foto_url}" class="zoomable-photo" onclick="event.stopPropagation();openPhotoModal('${a.foto_url}','${(a.nombre||'Atendedor').replace(/'/g,'')}')" style="width:46px;height:46px;border-radius:14px;object-fit:cover">`:'👤'}</div><div><div class="title">${a.nombre||'-'} ${estado==='Inactivo'?'<span class="badge b-rechazado" style="margin-left:8px">Inactivo</span>':'<span class="badge b-aprobado" style="margin-left:8px">Activo</span>'}</div><div class="sub">Ingresado al sistema: ${fmt(a.created_at)}</div></div><div>${a.rut||'-'}</div><div>${a.fecha_ingreso||'-'}</div><div>${canEditAtendedor()?`<button class="secondary" data-action="editar" onclick="event.stopPropagation();editAtendedor(${a.id})">Editar</button>`:`<span class="badge b-revision">Sin edición</span>`}</div></div>`}).join('')||'<div class="notice">Sin trabajadores registrados.</div>';renderAtDetail()}function selectAtendedor(id){selectedAt=atendedores.find(a=>a.id===id);renderAtendedores()}function renderAtDetail(){if(!document.getElementById('atDetail'))return;const a=selectedAt;if(!a){atDetail.innerHTML='<h2>Ficha trabajador</h2><p>Selecciona un trabajador de la nómina.</p>';return}const total=atNotes.filter(n=>n.trabajador_id===a.id).length;const pos=atNotes.filter(n=>n.trabajador_id===a.id&&n.tipo==='Positiva').length;const neg=atNotes.filter(n=>n.trabajador_id===a.id&&n.tipo==='Negativa').length;const estado=a.estado||'Activo';atDetail.innerHTML=`<h2>${a.nombre||'Trabajador'}</h2><span class="badge ${estado==='Inactivo'?'b-rechazado':'b-aprobado'}">${estado}</span><div class="kv"><small>Foto</small>${a.foto_url?`<img src="${a.foto_url}" class="zoomable-photo" onclick="openPhotoModal('${a.foto_url}','${(a.nombre||'Atendedor').replace(/'/g,'')}')" style="width:180px;height:180px;border-radius:28px;object-fit:cover">`:'Sin foto cargada'}</div><div class="kv"><small>RUT</small>${a.rut||'-'}</div><div class="kv"><small>Fecha de ingreso a la EDS</small>${a.fecha_ingreso||'-'}</div><div class="kv"><small>Estado</small>${estado}</div><div class="kv"><small>Historial desempeño</small>${total} anotaciones · ${pos} positivas · ${neg} negativas</div><div class="kv"><small>Creado en sistema</small>${fmt(a.created_at)}</div><div class="actions">${canEditAtendedor()?`<button class="secondary" data-action="editar" onclick="editAtendedor(${a.id})">Editar ingreso</button><button class="secondary" data-action="desactivar" onclick="toggleEstadoAtendedor(${a.id})">${estado==='Inactivo'?'Reactivar trabajador':'Desactivar trabajador'}</button><button class="secondary" style="color:#991b1b;border-color:#fecaca" data-action="eliminar" onclick="deleteAtendedor(${a.id})">Eliminar registro</button>`:''}<button class="primary" onclick="exportFichaAtPdf(${a.id})">Descargar ficha PDF</button></div>`}function editAtendedor(id){if(!requireAction('editar','No tienes permiso para editar registros.'))return;if(!canEditAtendedor()){alert('Este usuario no tiene permiso para editar trabajadores.');return;}const a=atendedores.find(x=>x.id===id);if(!a)return;selectedAt=a;editandoAtendedor=id;atNombre.value=a.nombre||'';atRut.value=a.rut||'';atFechaIngreso.value=a.fecha_ingreso||'';atFoto.value='';atFormCard.classList.remove('hidden');atFormCard.scrollIntoView({behavior:'smooth',block:'start'});const h=atFormCard.querySelector('h2');if(h)h.textContent='Editar ingreso trabajador';const saveBtn=atFormCard.querySelector('button.primary');if(saveBtn)saveBtn.textContent='Guardar cambios';}
 
 function cancelEditAtendedor(){editandoAtendedor=null;atNombre.value=atRut.value=atFechaIngreso.value='';atFoto.value='';const h=atFormCard.querySelector('h2');if(h)h.textContent='Ingresar trabajador';const saveBtn=atFormCard.querySelector('button.primary');if(saveBtn)saveBtn.textContent='Guardar trabajador';}
@@ -1011,7 +1207,7 @@ function resetUsuarioForm(){
   usrRol.value='Consulta';
   [
     platWeb,platAdminMobile,platDesempenoMobile,platTicketMobile,
-    permSEC,permBitacora,permVNA,permDesempeno,permTicket,permUsuarios,permNomina,permHistorialAnotaciones,
+    permSEC,permBitacora,permVNA,permEstafas,permDesempeno,permTicket,permUsuarios,permNomina,permHistorialAnotaciones,
     actCrear,actEditar,actEliminar,actDesactivar,actSubirArchivos,actCambiarEstado
   ].forEach(x=>x.checked=false);
   usrMsg.innerHTML='';
@@ -1038,6 +1234,7 @@ function permisosFromForm(){
   if(permSEC.checked)modulos.push('sec');
   if(permBitacora.checked)modulos.push('bitacora');
   if(permVNA.checked)modulos.push('vna');
+  if(permEstafas.checked)modulos.push('estafas');
   if(permDesempeno.checked)modulos.push('desempeno');
   if(permTicket.checked)modulos.push('ticket_atendedor');
   if(permUsuarios.checked)modulos.push('usuarios');
@@ -1065,6 +1262,7 @@ function setPermisosForm(p){
   permSEC.checked=!!p.modulos.sec;
   permBitacora.checked=!!p.modulos.bitacora;
   permVNA.checked=!!p.modulos.vna;
+  permEstafas.checked=!!p.modulos.estafas;
   permDesempeno.checked=!!p.modulos.desempeno;
   permTicket.checked=!!p.modulos.ticket_atendedor;
   permUsuarios.checked=!!p.modulos.usuarios;
@@ -1128,6 +1326,7 @@ function renderUsuarioDetail(){
     ['Validador SEC',modulos.sec],
     ['Bitácora',modulos.bitacora],
     ['Ventas No Abonadas',modulos.vna],
+    ['Estafas / Perros muertos',modulos.estafas],
     ['Desempeño AT',modulos.desempeno],
     ['Ticket Atendedor',modulos.ticket_atendedor],
     ['Usuarios y Permisos',modulos.usuarios],
@@ -1586,6 +1785,7 @@ function applyModulePermissions(){
     ['nav-bitacora','bitacora'],
     ['nav-vna','vna'],
     ['nav-ticketat','ticket_atendedor'],
+    ['nav-estafas','estafas'],
     ['nav-usuarios','usuarios']
   ];
   map.forEach(([id,mod])=>{
