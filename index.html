@@ -5,86 +5,37 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>Centro de Control EDS 40098</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2">
-
-function roleLabel(){
-  const r=String(currentUser?.rol||'Usuario');
-  if(r.toLowerCase()==='admin')return 'Administrador';
-  return r.charAt(0).toUpperCase()+r.slice(1);
-}
-function updateSessionVisual(){
-  const name=currentUser?.nombre||currentUser?.usuario||'Usuario';
-  const rol=roleLabel();
-  ['sessionUserName','dashUserName'].forEach(id=>{const el=document.getElementById(id);if(el)el.textContent=name});
-  ['sessionUserRole','dashUserRole'].forEach(id=>{const el=document.getElementById(id);if(el)el.textContent=rol});
-}
-async function loadDashboard(){
-  try{updateSessionVisual()}catch(e){}
-  try{
-    const [d,b,v,t]=await Promise.all([
-      client.from('documentos').select('id',{count:'exact',head:true}),
-      client.from('bitacora_eventos').select('id',{count:'exact',head:true}),
-      client.from('ventas_no_abonadas').select('id',{count:'exact',head:true}),
-      client.from('tickets_atendedor').select('id',{count:'exact',head:true})
-    ]);
-    if(document.getElementById('dashDocs'))dashDocs.textContent=d.count??0;
-    if(document.getElementById('dashBits'))dashBits.textContent=b.count??0;
-    if(document.getElementById('dashVna'))dashVna.textContent=v.count??0;
-    if(document.getElementById('dashTickets'))dashTickets.textContent=t.count??0;
-  }catch(e){}
-}
-
 setInterval(()=>{try{if(currentUser&&document.getElementById('app')&&!document.getElementById('app').classList.contains('hidden')){loadTicketAt();}}catch(e){}},60000);
 
 /* RECUPERACION LOGIN ESTABLE */
 
 function hasPerm(mod){
-  return canModule(mod);
+  if(!currentUser)return false;
+  if(currentUser.usuario==='gabrielarancibia'||currentUser.rol==='admin')return true;
+  return !!(currentUser.permisos&&currentUser.permisos[mod]);
 }
-function hasModule(mod){return canModule(mod)}
+function hasModule(mod){return hasPerm(mod)}
 function canAction(a){
-  return canActionPerm(a);
+  if(!currentUser)return false;
+  if(currentUser.usuario==='gabrielarancibia'||currentUser.rol==='admin')return true;
+  return !!(currentUser.permisos&&currentUser.permisos[a]);
 }
 function applyModulePermissions(){
-  const directMap=[
+  const map=[
     ['nav-sec','sec'],
-    ['nav-bitacora','bitacora'],
+    ['nav-bit','bitacora'],
     ['nav-vna','vna'],
-    ['nav-ticketat','ticket_atendedor']
-  ];
-  directMap.forEach(([id,mod])=>{
-    const el=document.getElementById(id);
-    if(el)el.style.display=canModule(mod)?'inline-flex':'none';
-  });
-
-  const subMap=[
+    ['nav-estafas','estafas'],
     ['nav-at','desempeno'],
-    ['nav-historial','historial_anotaciones'],
-    ['nav-nomina-sub','nomina'],
+    ['nav-ticketat','ticket_atendedor'],
     ['nav-usuarios','usuarios']
   ];
-  subMap.forEach(([id,mod])=>{
+  map.forEach(([id,mod])=>{
     const el=document.getElementById(id);
-    if(el)el.style.display=canModule(mod)?'block':'none';
-  });
-
-  const nominaGroup=document.getElementById('nav-nomina-group');
-  if(nominaGroup){
-    const visible=[...nominaGroup.querySelectorAll('.dropdown button')].some(b=>b.style.display!=='none');
-    nominaGroup.style.display=visible?'block':'none';
-  }
-
-  const configGroup=document.getElementById('nav-config-group');
-  if(configGroup){
-    const visible=[...configGroup.querySelectorAll('.dropdown button')].some(b=>b.style.display!=='none');
-    configGroup.style.display=visible?'block':'none';
-  }
-}
-function applyActionPermissions(){
-  document.querySelectorAll('[data-action]').forEach(el=>{
-    const action=el.getAttribute('data-action');
-    el.style.display=canActionPerm(action)?'':'none';
+    if(el)el.style.display=hasPerm(mod)?'block':'none';
   });
 }
+function applyActionPermissions(){}
 
 window.addEventListener('load',()=>restoreLocalSession());
 </script>
@@ -94,42 +45,32 @@ setInterval(()=>{try{if(currentUser&&document.getElementById('app')&&!document.g
 /* RECUPERACION LOGIN ESTABLE */
 
 function hasPerm(mod){
-  return canModule(mod);
+  if(!currentUser)return false;
+  if(currentUser.usuario==='gabrielarancibia'||currentUser.rol==='admin')return true;
+  return !!(currentUser.permisos&&currentUser.permisos[mod]);
 }
-function hasModule(mod){return canModule(mod)}
+function hasModule(mod){return hasPerm(mod)}
 function canAction(a){
-  return canActionPerm(a);
+  if(!currentUser)return false;
+  if(currentUser.usuario==='gabrielarancibia'||currentUser.rol==='admin')return true;
+  return !!(currentUser.permisos&&currentUser.permisos[a]);
 }
 function applyModulePermissions(){
   const map=[
     ['nav-sec','sec'],
-    ['nav-bitacora','bitacora'],
+    ['nav-bit','bitacora'],
     ['nav-vna','vna'],
+    ['nav-estafas','estafas'],
+    ['nav-at','desempeno'],
     ['nav-ticketat','ticket_atendedor'],
     ['nav-usuarios','usuarios']
   ];
   map.forEach(([id,mod])=>{
     const el=document.getElementById(id);
-    if(el)el.style.display=canModule(mod)?'block':'none';
-  });
-
-  const nomina=document.getElementById('nav-nomina');
-  if(nomina){
-    nomina.style.display=(canModule('nomina')||canModule('desempeno')||canModule('historial_anotaciones'))?'block':'none';
-  }
-
-  const configGroup=document.getElementById('nav-config-group');
-  if(configGroup){
-    const visible=[...configGroup.querySelectorAll('.dropdown button')].some(b=>b.style.display!=='none');
-    configGroup.style.display=visible?'block':'none';
-  }
-}
-function applyActionPermissions(){
-  document.querySelectorAll('[data-action]').forEach(el=>{
-    const action=el.getAttribute('data-action');
-    el.style.display=canActionPerm(action)?'':'none';
+    if(el)el.style.display=hasPerm(mod)?'block':'none';
   });
 }
+function applyActionPermissions(){}
 
 window.addEventListener('load',()=>restoreLocalSession());
 </script>
@@ -316,93 +257,72 @@ body:before{
 
 
 
-/* ===============================
-   VALEPAC Dashboard limpio 2026
-   Capa visual sin cambiar backend
-================================ */
-.valepac-top{height:122px;align-items:center;justify-content:space-between;padding:24px 34px;background:rgba(255,255,255,.96);box-shadow:0 8px 28px rgba(15,23,42,.06);border-bottom:1px solid rgba(148,163,184,.18)}
-.brand-zone{display:flex;align-items:center;gap:26px}.brand-zone .portal-logo{font-size:43px;font-weight:950;color:#e30613;background:none;-webkit-text-fill-color:#e30613;letter-spacing:.5px}.brand-zone .portal-title{font-size:29px;color:#062b63;border-left:1px solid #6b8fbd;border-right:0;padding-left:24px;line-height:1.08}.brand-zone .portal-title small{font-size:16px;color:#6b7280;margin-top:10px}.session-zone{display:flex;align-items:center;gap:18px}.session-user{text-align:right;color:#062b63}.session-user strong{display:block;font-size:16px;font-weight:950}.session-user span{display:block;color:#6b7280;font-weight:800;margin-top:3px}.logout-btn{height:44px;border:1px solid #2f66d0;background:white;color:#0b3b91;border-radius:8px;padding:0 18px;font-weight:950;cursor:pointer}.logout-btn:hover{background:#eff6ff}.header-icons{display:none!important}
-.nav-modern{display:flex;gap:12px;align-items:center;padding:16px 18px;background:#fff;border-bottom:1px solid rgba(148,163,184,.2);overflow:visible;flex-wrap:wrap;position:relative;z-index:1000}.nav-modern>button,.nav-modern .menu-trigger{height:54px;border:1px solid #dbe7f3;background:#fff;color:#062b63;border-radius:10px;padding:0 18px;font-weight:950;white-space:nowrap;box-shadow:0 2px 10px rgba(15,23,42,.03)}.nav-modern>button:hover,.nav-modern .menu-trigger:hover,.nav-modern button.active{background:#eff6ff;color:#0b3b91;border-color:#c7ddff}.nav-modern .menu-group{padding-bottom:0;margin-bottom:0;position:relative}.nav-modern .dropdown{top:60px;border-radius:12px;min-width:250px;z-index:9999}.portal-header{overflow:visible}.layout,.main{overflow:visible}.main{max-width:none;padding:44px 16px 46px}.dashboard-hero{background:rgba(255,255,255,.86);border:1px solid rgba(255,255,255,.7);border-radius:24px;box-shadow:0 24px 70px rgba(15,23,42,.10);padding:46px 52px}.dashboard-hero h1{margin:0;color:#062b63;font-size:30px}.dashboard-hero>p{margin:12px 0 30px;color:#6b7280;font-weight:900;font-size:18px}.dashboard-stats{display:grid;grid-template-columns:repeat(4,1fr);gap:24px;margin-bottom:36px}.dash-card{display:flex;align-items:center;gap:24px;background:white;border:1px solid #dfe8f3;border-radius:14px;padding:28px 26px;min-height:132px;box-shadow:0 10px 30px rgba(15,23,42,.07)}.dash-card h3{margin:0;color:#2563eb;font-size:38px}.dash-card p{margin:8px 0 0;color:#6b7280;font-weight:800}.dash-icon{width:72px;height:72px;border-radius:50%;background:#edf4ff;border:1px solid #d7e5ff;display:grid;place-items:center;color:#2563eb;font-size:30px}.dashboard-hero hr{border:0;border-top:1px solid #dbe7f3;margin:8px 0 30px}.dashboard-hero h2{color:#062b63;margin:0 0 22px}.quick-grid{display:grid;grid-template-columns:repeat(8,1fr);gap:22px}.quick-grid button{min-height:160px;border:1px solid #dfe8f3;background:white;border-radius:14px;color:#062b63;font-weight:950;font-size:18px;cursor:pointer;box-shadow:0 10px 26px rgba(15,23,42,.06)}.quick-grid button:hover{transform:translateY(-2px);background:#f8fbff}.quick-grid span{display:grid;place-items:center;width:66px;height:66px;border-radius:50%;background:#edf4ff;color:#2563eb;margin:0 auto 18px;font-size:28px;border:1px solid #d7e5ff}
-@media(max-width:1200px){.dashboard-stats{grid-template-columns:repeat(2,1fr)}.quick-grid{grid-template-columns:repeat(4,1fr)}.valepac-top{height:auto;flex-wrap:wrap}.brand-zone .portal-title{font-size:24px}}
-@media(max-width:760px){.dashboard-stats,.quick-grid{grid-template-columns:1fr}.dashboard-hero{padding:26px}.brand-zone{align-items:flex-start;flex-direction:column;gap:10px}.brand-zone .portal-title{border-left:0;padding-left:0}.session-zone{width:100%;justify-content:space-between}.nav-modern{padding:12px}}
-
-
-
-/* Ajuste menú VALEPAC: botones directos y dropdown estable */
-.nav-modern{overflow:visible!important;align-items:flex-start!important;gap:12px!important;position:relative!important;z-index:2000!important;flex-wrap:wrap!important;}
-.nav-modern>button,.nav-modern .menu-trigger{height:54px!important;border:1px solid #dbe7f3!important;background:#fff!important;color:#062b63!important;border-radius:10px!important;padding:0 18px!important;font-weight:950!important;white-space:nowrap!important;box-shadow:0 2px 10px rgba(15,23,42,.03)!important;cursor:pointer!important;}
-.nav-modern>button:hover,.nav-modern .menu-trigger:hover,.nav-modern button.active{background:#eff6ff!important;color:#0b3b91!important;border-color:#c7ddff!important;}
-.nav-modern .menu-group{position:relative!important;margin:0!important;padding:0 0 14px 0!important;display:block;}
-.nav-modern .dropdown{display:none!important;position:absolute!important;top:54px!important;left:0!important;min-width:290px!important;background:#fff!important;border:1px solid #dbe7f3!important;border-radius:14px!important;padding:12px!important;box-shadow:0 18px 45px rgba(15,23,42,.14)!important;z-index:99999!important;}
-.nav-modern .dropdown:before{content:""!important;position:absolute!important;left:0!important;right:0!important;top:-16px!important;height:16px!important;border:0!important;background:transparent!important;}
-.nav-modern .menu-group:hover .dropdown,.nav-modern .menu-group:focus-within .dropdown{display:block!important;}
-.nav-modern .dropdown button{display:block!important;width:100%!important;text-align:left!important;border:0!important;background:transparent!important;border-radius:10px!important;padding:14px 16px!important;color:#062b63!important;font-weight:950!important;cursor:pointer!important;}
-.nav-modern .dropdown button:hover,.nav-modern .dropdown button.active{background:#eff6ff!important;color:#0b3b91!important;}
-.portal-header,.layout,.main{overflow:visible!important;}
+/* VALEPAC · Módulo Estafas / Perros muertos */
+.estafas .thead,.estafas .row{grid-template-columns:130px 130px 1fr 130px 145px}
+@media(max-width:1050px){.estafas .row{grid-template-columns:1fr}}
 
 </style>
 </head>
 <body>
 <div id="login" class="login"><div class="hero"><span class="pill">Centro de control operacional</span><h1>EDS 40098</h1><p>Plataforma operacional para controlar documentación SEC, bitácora, ventas no abonadas y desempeño de atendedores en línea.</p></div><div class="login-card"><h2>Ingreso privado</h2><p class="muted">Acceso privado por usuario y contraseña.</p><input id="loginUser" placeholder="Usuario"/><input id="loginPass" type="password" placeholder="Contraseña"/><button class="primary" style="width:100%" onclick="loginApp()">Ingresar</button><div id="loginMsg"></div></div></div>
 <div id="app" class="layout hidden">
-<header class="portal-header valepac-top">
-  <div class="brand-zone">
-    <div class="portal-logo">VALEPAC</div>
-    <div class="portal-title">Centro de Control EDS 40098<small>Administración y Control de Operaciones</small></div>
-  </div>
-  <div class="session-zone">
-    <div class="session-user">
-      <strong id="sessionUserName">Usuario</strong>
-      <span id="sessionUserRole">Rol</span>
+<header class="portal-header">
+  <div class="portal-logo">VALEPAC</div>
+  <div class="portal-title">Centro de Control EDS 40098<small>Operación · Documentos · Auditoría</small></div>
+  <nav class="nav">
+    <div class="menu-group"><button class="menu-trigger">Operaciones⌄</button><div class="dropdown">
+      <button id="nav-sec" class="active" onclick="showModule('sec')">Validador Documental SEC</button>
+      <button id="nav-bitacora" onclick="showModule('bitacora')">Bitácora Estación</button>
+      <button id="nav-vna" onclick="showModule('vna')">Ventas No Abonadas</button>
+      <button id="nav-estafas" onclick="showModule('estafas')">Estafas</button>
+    </div></div>
+    <div class="menu-group"><button class="menu-trigger">Personas⌄</button><div class="dropdown">
+      <button id="nav-at" onclick="showModule('at')">Desempeño AT</button>
+      <button id="nav-ticketat" onclick="showModule('ticketat')">Ticket Atendedor <span id="ticketNotifBadge" class="notif-badge hidden">0</span></button>
+    </div></div>
+  
+    <div class="menu-group">
+      <button type="button">Configuración⌄</button>
+      <div class="dropdown">
+        <button id="nav-usuarios" onclick="showModule('usuarios')">Usuarios y Permisos</button>
+      </div>
     </div>
-    <button class="logout-btn" onclick="logoutApp()">⇥ Cerrar sesión</button>
-  </div>
-</header>
-<nav class="nav nav-modern">
-  <button id="nav-inicio" class="active" onclick="showModule('inicio')">⌂ Inicio</button>
-  <button id="nav-sec" data-modulo="sec" onclick="showModule('sec')">SEC</button>
-  <button id="nav-bitacora" data-modulo="bitacora" onclick="showModule('bitacora')">Bitácora</button>
-  <button id="nav-vna" data-modulo="vna" onclick="showModule('vna')">VNA</button>
-  <button id="nav-ticketat" data-modulo="ticket_atendedor" onclick="showModule('ticketat')">Ticket Atendedor <span id="ticketNotifBadge" class="notif-badge hidden">0</span></button>
-
-  <button id="nav-nomina" data-modulo="nomina" onclick="showModule('at')">Nómina</button>
-
-  <div id="nav-config-group" class="menu-group">
-    <button class="menu-trigger" type="button">Configuración⌄</button>
-    <div class="dropdown">
-      <button id="nav-usuarios" data-modulo="usuarios" onclick="showModule('usuarios')">Usuarios y Permisos</button>
-    </div>
-  </div>
 </nav>
+  <div class="header-icons"><div class="header-icon">⌕</div><div class="header-icon">👤</div><div class="header-icon">⚙</div></div>
+</header>
 <main class="main">
-<section id="inicio" class="section active">
-  <div class="dashboard-hero">
-    <h1>Bienvenido, <span id="dashUserName">Usuario</span></h1>
-    <p id="dashUserRole">Rol</p>
-    <div class="dashboard-stats">
-      <div class="dash-card"><div class="dash-icon">▣</div><div><h3 id="dashDocs">0</h3><p>Documentos SEC</p></div></div>
-      <div class="dash-card"><div class="dash-icon">☷</div><div><h3 id="dashBits">0</h3><p>Bitácoras</p></div></div>
-      <div class="dash-card"><div class="dash-icon">⌁</div><div><h3 id="dashVna">0</h3><p>VNA</p></div></div>
-      <div class="dash-card"><div class="dash-icon">◆</div><div><h3 id="dashTickets">0</h3><p>Tickets Atendedor</p></div></div>
+<section id="sec" class="section active"><div class="topbar"><div><h1>Validador Documental SEC</h1><p>Control de documentos, vencimientos y respaldos.</p></div><button class="primary" onclick="loadDocuments()">Actualizar</button></div><div id="secStats" class="grid stats"></div><div class="grid content"><div class="card"><h2>Índice documental</h2><div class="toolbar"><input id="docSearch" oninput="renderDocs()" placeholder="Buscar documento"/><select id="docStatus" onchange="renderDocs()"><option>Todos</option><option>Vigente</option><option>Por vencer</option><option>Vencido</option><option>No cargado</option><option>En Proceso</option></select><button class="secondary" onclick="loadDocuments()">Recargar</button></div><div class="table docs"><div class="thead"><div>N°</div><div>Documento</div><div>Categoría</div><div>Estado</div></div><div id="docRows"></div></div></div><div class="card detail" id="docDetail"></div></div></section>
+<section id="bitacora" class="section"><div class="topbar"><div><h1>Bitácora de la Estación</h1><p>Cronología de situaciones y eventos importantes para consulta futura.</p></div><button class="primary" onclick="toggleBitForm()">Nuevo evento</button></div><div id="bitFormCard" class="card hidden"><h2>Registrar evento</h2><div class="form two"><input id="bitFecha" type="datetime-local"/><input id="bitTitulo" placeholder="Título del evento"/><select id="bitCategoria"><option>Operación</option><option>Seguridad</option><option>Mantención</option><option>Cliente</option><option>Fiscalización</option><option>Personal</option><option>Otro</option></select><select id="bitGravedad"><option>Baja</option><option>Media</option><option>Alta</option></select><input id="bitResponsable" placeholder="Responsable"/><select id="bitEstado"><option>Abierto</option><option>En seguimiento</option><option>Atendido</option></select></div><div class="form"><textarea id="bitDescripcion" placeholder="Descripción clara del evento"></textarea><textarea id="bitAcciones" placeholder="Acciones tomadas / decisiones / seguimiento"></textarea><input id="bitArchivo" type="file" accept=".pdf,image/*,.xlsx,.xls"/></div><div class="actions"><button class="primary" onclick="createBitacora()">Guardar evento</button><button class="secondary" onclick="toggleBitForm()">Cancelar</button></div><div id="bitMsg"></div></div><div class="grid content"><div class="card"><h2>Cronología</h2><div class="toolbar two"><input id="bitSearch" oninput="renderBitacora()" placeholder="Buscar en bitácora"/><select id="bitFilter" onchange="renderBitacora()"><option>Todos</option><option>Baja</option><option>Media</option><option>Alta</option></select></div><div class="table bit"><div class="thead"><div>Fecha</div><div>Evento</div><div>Gravedad</div><div>Estado</div></div><div id="bitRows"></div></div></div><div class="card detail" id="bitDetail"></div></div></section>
+<section id="vna" class="section"><div class="topbar"><div><h1>Ventas No Abonadas</h1><p>Control de requerimientos Llámenos, respaldos, avances y resolución VALEPAC.</p></div><div class="actions"><button class="light" onclick="exportVnaExcel()">⬇ Descargar Excel</button><button class="primary" onclick="toggleVnaForm()">Nuevo requerimiento</button></div></div><div id="vnaFormCard" class="card hidden"><h2>Ingresar ticket</h2><div class="form three"><input id="vnaReq" placeholder="N° requerimiento Llámenos"/><input id="vnaSurtidor" placeholder="Surtidor"/><input id="vnaFolioDte" placeholder="Folio DTE"/><input id="vnaMonto" type="number" placeholder="Monto"/><select id="vnaProducto"><option value="">Producto</option><option>Diesel</option><option>Gasolina 93</option><option>Gasolina 95</option><option>Gasolina 97</option><option>Bluemax</option><option>Otro</option></select><select id="vnaMedioPago"><option value="">Medio de pago</option><option>Débito</option><option>Crédito</option><option>App Copec</option><option>Transferencia</option><option>Otro</option></select><input id="vnaFechaHora" type="datetime-local"/><input id="vnaAtendedor" placeholder="Atendedor"/><input id="vnaNombreConductor" placeholder="Nombre conductor"/><input id="vnaRutConductor" placeholder="RUT conductor"/><input id="vnaCorreoConductor" placeholder="Correo conductor"/><input id="vnaCelularConductor" placeholder="Celular conductor"/><input id="vnaUltimos4" maxlength="4" placeholder="4 últimos dígitos tarjeta"/></div><div class="form"><textarea id="vnaDetalle" placeholder="Detalle inicial del caso"></textarea><label>Foto / respaldo inicial del vehículo</label><input id="vnaArchivoInicial" type="file" accept=".pdf,image/*,.xlsx,.xls"/></div><div class="actions"><button class="primary" onclick="createVna()">Guardar ticket</button><button class="secondary" onclick="toggleVnaForm()">Cancelar</button></div><div id="vnaMsg"></div></div><div class="grid content"><div class="card"><h2>Tickets</h2><div class="toolbar two"><input id="vnaSearch" oninput="renderVna()" placeholder="Buscar por requerimiento, folio, conductor, RUT, atendedor"/><select id="vnaFilter" onchange="renderVna()"><option>Todos</option><option>Ingresado</option><option>Documentación y respaldo</option><option>Aprobado</option><option>Rechazado</option></select></div><div class="table vna"><div class="thead"><div>Req.</div><div>Fecha/Hora</div><div>Conductor</div><div>Monto</div><div>Etapa</div></div><div id="vnaRows"></div></div></div><div class="card detail" id="vnaDetail"></div></div></section>
+<section id="estafas" class="section">
+  <div class="topbar">
+    <div>
+      <h1>Estafas · Perros muertos</h1>
+      <p>Registro de clientes que se retiran sin pagar combustible de forma intencional.</p>
     </div>
-    <hr>
-    <h2>Accesos rápidos</h2>
-    <div class="quick-grid">
-      <button data-modulo="sec" onclick="showModule('sec')"><span>🛡</span>SEC</button>
-      <button data-modulo="bitacora" onclick="showModule('bitacora')"><span>☷</span>Bitácora</button>
-      <button data-modulo="vna" onclick="showModule('vna')"><span>⌁</span>VNA</button>
-      <button data-modulo="desempeno" onclick="showModule('at')"><span>◔</span>Desempeño</button>
-      <button data-modulo="ticket_atendedor" onclick="showModule('ticketat')"><span>◆</span>Ticket<br>Atendedor</button>
-      <button data-modulo="nomina" onclick="showModule('at');setTimeout(()=>showAtSub('nomina'),100)"><span>👥</span>Nómina</button>
-      <button data-modulo="historial_anotaciones" onclick="showModule('at');setTimeout(()=>showAtSub('historial'),100)"><span>◷</span>Historial<br>Anotaciones</button>
-      <button data-modulo="usuarios" onclick="showModule('usuarios')"><span>⚙</span>Configuración</button>
+    <button class="primary" data-action="crear" onclick="openEstafaModal()">Agregar caso</button>
+  </div>
+
+  <div class="grid content">
+    <div class="card">
+      <h2>Casos registrados</h2>
+      <div class="toolbar two">
+        <input id="estafaSearch" oninput="renderEstafas()" placeholder="Buscar por patente, atendedor, Llámanos o parte policial"/>
+        <button class="secondary" onclick="loadEstafas()">Actualizar</button>
+      </div>
+      <div class="table estafas">
+        <div class="thead"><div>Fecha/Hora</div><div>Monto</div><div>Vehículo / Atendedor</div><div>Combustible</div><div>Llámanos</div></div>
+        <div id="estafaRows"></div>
+      </div>
+    </div>
+    <div class="card detail" id="estafaDetail">
+      <h2>Ficha del caso</h2>
+      <p>Selecciona un caso registrado.</p>
     </div>
   </div>
 </section>
-<section id="sec" class="section"><div class="topbar"><div><h1>Validador Documental SEC</h1><p>Control de documentos, vencimientos y respaldos.</p></div><button class="primary" onclick="loadDocuments()">Actualizar</button></div><div id="secStats" class="grid stats"></div><div class="grid content"><div class="card"><h2>Índice documental</h2><div class="toolbar"><input id="docSearch" oninput="renderDocs()" placeholder="Buscar documento"/><select id="docStatus" onchange="renderDocs()"><option>Todos</option><option>Vigente</option><option>Por vencer</option><option>Vencido</option><option>No cargado</option><option>En Proceso</option></select><button class="secondary" onclick="loadDocuments()">Recargar</button></div><div class="table docs"><div class="thead"><div>N°</div><div>Documento</div><div>Categoría</div><div>Estado</div></div><div id="docRows"></div></div></div><div class="card detail" id="docDetail"></div></div></section>
-<section id="bitacora" class="section"><div class="topbar"><div><h1>Bitácora de la Estación</h1><p>Cronología de situaciones y eventos importantes para consulta futura.</p></div><button class="primary" data-action="crear" onclick="toggleBitForm()">Nuevo evento</button></div><div id="bitFormCard" class="card hidden"><h2>Registrar evento</h2><div class="form two"><input id="bitFecha" type="datetime-local"/><input id="bitTitulo" placeholder="Título del evento"/><select id="bitCategoria"><option>Operación</option><option>Seguridad</option><option>Mantención</option><option>Cliente</option><option>Fiscalización</option><option>Personal</option><option>Otro</option></select><select id="bitGravedad"><option>Baja</option><option>Media</option><option>Alta</option></select><input id="bitResponsable" placeholder="Responsable"/><select id="bitEstado"><option>Abierto</option><option>En seguimiento</option><option>Atendido</option></select></div><div class="form"><textarea id="bitDescripcion" placeholder="Descripción clara del evento"></textarea><textarea id="bitAcciones" placeholder="Acciones tomadas / decisiones / seguimiento"></textarea><input id="bitArchivo" type="file" accept=".pdf,image/*,.xlsx,.xls"/></div><div class="actions"><button class="primary" data-action="crear" onclick="createBitacora()">Guardar evento</button><button class="secondary" onclick="toggleBitForm()">Cancelar</button></div><div id="bitMsg"></div></div><div class="grid content"><div class="card"><h2>Cronología</h2><div class="toolbar two"><input id="bitSearch" oninput="renderBitacora()" placeholder="Buscar en bitácora"/><select id="bitFilter" onchange="renderBitacora()"><option>Todos</option><option>Baja</option><option>Media</option><option>Alta</option></select></div><div class="table bit"><div class="thead"><div>Fecha</div><div>Evento</div><div>Gravedad</div><div>Estado</div></div><div id="bitRows"></div></div></div><div class="card detail" id="bitDetail"></div></div></section>
-<section id="vna" class="section"><div class="topbar"><div><h1>Ventas No Abonadas</h1><p>Control de requerimientos Llámenos, respaldos, avances y resolución VALEPAC.</p></div><div class="actions"><button class="light" onclick="exportVnaExcel()">⬇ Descargar Excel</button><button class="primary" data-action="crear" onclick="toggleVnaForm()">Nuevo requerimiento</button></div></div><div id="vnaFormCard" class="card hidden"><h2>Ingresar ticket</h2><div class="form three"><input id="vnaReq" placeholder="N° requerimiento Llámenos"/><input id="vnaSurtidor" placeholder="Surtidor"/><input id="vnaFolioDte" placeholder="Folio DTE"/><input id="vnaMonto" type="number" placeholder="Monto"/><select id="vnaProducto"><option value="">Producto</option><option>Diesel</option><option>Gasolina 93</option><option>Gasolina 95</option><option>Gasolina 97</option><option>Bluemax</option><option>Otro</option></select><select id="vnaMedioPago"><option value="">Medio de pago</option><option>Débito</option><option>Crédito</option><option>App Copec</option><option>Transferencia</option><option>Otro</option></select><input id="vnaFechaHora" type="datetime-local"/><input id="vnaAtendedor" placeholder="Atendedor"/><input id="vnaNombreConductor" placeholder="Nombre conductor"/><input id="vnaRutConductor" placeholder="RUT conductor"/><input id="vnaCorreoConductor" placeholder="Correo conductor"/><input id="vnaCelularConductor" placeholder="Celular conductor"/><input id="vnaUltimos4" maxlength="4" placeholder="4 últimos dígitos tarjeta"/></div><div class="form"><textarea id="vnaDetalle" placeholder="Detalle inicial del caso"></textarea><label>Foto / respaldo inicial del vehículo</label><input id="vnaArchivoInicial" type="file" accept=".pdf,image/*,.xlsx,.xls"/></div><div class="actions"><button class="primary" data-action="crear" onclick="createVna()">Guardar ticket</button><button class="secondary" onclick="toggleVnaForm()">Cancelar</button></div><div id="vnaMsg"></div></div><div class="grid content"><div class="card"><h2>Tickets</h2><div class="toolbar two"><input id="vnaSearch" oninput="renderVna()" placeholder="Buscar por requerimiento, folio, conductor, RUT, atendedor"/><select id="vnaFilter" onchange="renderVna()"><option>Todos</option><option>Ingresado</option><option>Documentación y respaldo</option><option>Aprobado</option><option>Rechazado</option></select></div><div class="table vna"><div class="thead"><div>Req.</div><div>Fecha/Hora</div><div>Conductor</div><div>Monto</div><div>Etapa</div></div><div id="vnaRows"></div></div></div><div class="card detail" id="vnaDetail"></div></div></section>
-<section id="at" class="section"><div class="topbar"><div><h1>Desempeño AT</h1><p>Historial de anotaciones positivas y negativas, gestionado por Jefe de Protocolo y Servicio.</p></div></div><div class="mini-tabs"><button id="tabAtHist" class="active" onclick="showAtSub('historial')">Historial de desempeño</button><button id="tabAtNom" onclick="showAtSub('nomina')">Nómina de atendedores</button></div><div id="atHistorialView"><div id="atNoteFormCard" class="card hidden"><h2>Registrar anotación</h2><div class="form two"><select id="noteTrabajador"></select><select id="noteTipo"><option>Positiva</option><option>Negativa</option></select><input id="noteFecha" type="datetime-local"/><input id="noteResponsable" placeholder="Responsable: Jefe de Protocolo y Servicio"/><input id="noteTitulo" placeholder="Título de la anotación"/><select id="noteCategoria"><option>Protocolo de atención</option><option>Servicio al cliente</option><option>Presentación personal</option><option>Puntualidad</option><option>Trabajo en equipo</option><option>Seguridad</option><option>Operación</option><option>Otro</option></select></div><div class="form"><textarea id="noteDetalle" placeholder="Detalle objetivo de la situación"></textarea><textarea id="noteAccion" placeholder="Acción tomada / compromiso / seguimiento"></textarea><input id="noteArchivo" type="file" accept=".pdf,image/*,.xlsx,.xls"/></div><div class="actions"><button class="primary" data-action="crear" onclick="createAtNote()">Guardar anotación</button><button class="secondary" onclick="toggleAtNoteForm()">Cancelar</button></div><div id="noteMsg"></div></div><div class="grid content"><div class="card"><h2>Anotaciones registradas</h2><div class="toolbar"><input id="noteSearch" oninput="renderAtNotes()" placeholder="Buscar por trabajador, RUT, título o detalle"/><select id="noteFilter" onchange="renderAtNotes()"><option>Todos</option><option>Positiva</option><option>Negativa</option></select><button class="primary" data-action="crear" onclick="toggleAtNoteForm()">Nueva anotación</button></div><div class="table atnote"><div class="thead"><div>Fecha</div><div>Trabajador / Anotación</div><div>Tipo</div><div>Responsable</div></div><div id="noteRows"></div></div></div><div class="card detail" id="noteDetail"><h2>Ficha de anotación</h2><p>Selecciona una anotación.</p></div></div></div><div id="atNominaView" class="hidden"><div class="topbar"><div><h2>Nómina de atendedores</h2><p>Ingreso y consulta de trabajadores: nombre, RUT, foto y fecha de ingreso a la EDS.</p></div><button class="primary" data-action="crear" onclick="toggleAtForm()">Nuevo trabajador</button></div><div id="atFormCard" class="card hidden"><h2>Ingresar trabajador</h2><div class="form two"><input id="atNombre" placeholder="Nombre completo"/><input id="atRut" placeholder="RUT"/><input id="atFechaIngreso" type="date"/><input id="atFoto" type="file" accept="image/*"/></div><div class="actions"><button class="primary" data-action="crear" onclick="createAtendedor()">Guardar trabajador</button><button class="secondary" onclick="resetAtForm();toggleAtForm()">Cancelar</button></div><div id="atMsg"></div></div><div class="grid content"><div class="card"><h2>Nómina</h2><div class="toolbar two"><input id="atSearch" oninput="renderAtendedores()" placeholder="Buscar por nombre o RUT"/><button class="secondary" onclick="loadAtendedores()">Actualizar</button></div><div class="table at"><div class="thead"><div>Foto</div><div>Nombre</div><div>RUT</div><div>Ingreso EDS</div><div>Acción</div></div><div id="atRows"></div></div></div><div class="card detail" id="atDetail"><h2>Ficha trabajador</h2><p>Selecciona un trabajador de la nómina.</p></div></div></div></section>
+
+<section id="at" class="section"><div class="topbar"><div><h1>Desempeño AT</h1><p>Historial de anotaciones positivas y negativas, gestionado por Jefe de Protocolo y Servicio.</p></div><div class="actions"><button class="secondary" onclick="openNomina()">👥 Nómina de atendedores</button><button class="primary" onclick="toggleAtNoteForm()">Nueva anotación</button></div></div><div class="mini-tabs"><button id="tabAtHist" class="active" onclick="showAtSub('historial')">Historial de desempeño</button><button id="tabAtNom" onclick="showAtSub('nomina')">Nómina de atendedores</button></div><div id="atHistorialView"><div id="atNoteFormCard" class="card hidden"><h2>Registrar anotación</h2><div class="form two"><select id="noteTrabajador"></select><select id="noteTipo"><option>Positiva</option><option>Negativa</option></select><input id="noteFecha" type="datetime-local"/><input id="noteResponsable" placeholder="Responsable: Jefe de Protocolo y Servicio"/><input id="noteTitulo" placeholder="Título de la anotación"/><select id="noteCategoria"><option>Protocolo de atención</option><option>Servicio al cliente</option><option>Presentación personal</option><option>Puntualidad</option><option>Trabajo en equipo</option><option>Seguridad</option><option>Operación</option><option>Otro</option></select></div><div class="form"><textarea id="noteDetalle" placeholder="Detalle objetivo de la situación"></textarea><textarea id="noteAccion" placeholder="Acción tomada / compromiso / seguimiento"></textarea><input id="noteArchivo" type="file" accept=".pdf,image/*,.xlsx,.xls"/></div><div class="actions"><button class="primary" onclick="createAtNote()">Guardar anotación</button><button class="secondary" onclick="toggleAtNoteForm()">Cancelar</button></div><div id="noteMsg"></div></div><div class="grid content"><div class="card"><h2>Anotaciones registradas</h2><div class="toolbar two"><input id="noteSearch" oninput="renderAtNotes()" placeholder="Buscar por trabajador, RUT, título o detalle"/><select id="noteFilter" onchange="renderAtNotes()"><option>Todos</option><option>Positiva</option><option>Negativa</option></select></div><div class="table atnote"><div class="thead"><div>Fecha</div><div>Trabajador / Anotación</div><div>Tipo</div><div>Responsable</div></div><div id="noteRows"></div></div></div><div class="card detail" id="noteDetail"><h2>Ficha de anotación</h2><p>Selecciona una anotación.</p></div></div></div><div id="atNominaView" class="hidden"><div class="topbar"><div><h2>Nómina de atendedores</h2><p>Ingreso y consulta de trabajadores: nombre, RUT, foto y fecha de ingreso a la EDS.</p></div><button class="primary" onclick="toggleAtForm()">Nuevo trabajador</button></div><div id="atFormCard" class="card hidden"><h2>Ingresar trabajador</h2><div class="form two"><input id="atNombre" placeholder="Nombre completo"/><input id="atRut" placeholder="RUT"/><input id="atFechaIngreso" type="date"/><input id="atFoto" type="file" accept="image/*"/></div><div class="actions"><button class="primary" onclick="createAtendedor()">Guardar trabajador</button><button class="secondary" onclick="resetAtForm();toggleAtForm()">Cancelar</button></div><div id="atMsg"></div></div><div class="grid content"><div class="card"><h2>Nómina</h2><div class="toolbar two"><input id="atSearch" oninput="renderAtendedores()" placeholder="Buscar por nombre o RUT"/><button class="secondary" onclick="loadAtendedores()">Actualizar</button></div><div class="table at"><div class="thead"><div>Foto</div><div>Nombre</div><div>RUT</div><div>Ingreso EDS</div><div>Acción</div></div><div id="atRows"></div></div></div><div class="card detail" id="atDetail"><h2>Ficha trabajador</h2><p>Selecciona un trabajador de la nómina.</p></div></div></div></section>
 
 <section id="ticketat" class="section">
   <div class="topbar">
@@ -410,7 +330,7 @@ body:before{
       <h1>Ticket Atendedor</h1>
       <p>Solicitudes internas de atendedores: ropa, vacaciones, días de permiso, cambios de turno y otros requerimientos.</p>
     </div>
-    <button class="primary" data-action="crear" onclick="toggleTicketAtForm()">Nuevo ticket</button>
+    <button class="primary" onclick="toggleTicketAtForm()">Nuevo ticket</button>
   </div>
 
   <div id="ticketAlertBox" class="ticket-alert">
@@ -459,7 +379,7 @@ body:before{
       <input id="ticketArchivo" type="file" accept=".jpg,.jpeg,.png,.webp,.pdf,image/jpeg,image/png,image/webp,image/*,.xlsx,.xls"/>
     </div>
     <div class="actions">
-      <button class="primary" data-action="crear" onclick="createTicketAt()">Guardar ticket</button>
+      <button class="primary" onclick="createTicketAt()">Guardar ticket</button>
       <button class="secondary" onclick="resetTicketAtForm();toggleTicketAtForm()">Cancelar</button>
     </div>
     <div id="ticketMsg"></div>
@@ -497,7 +417,7 @@ body:before{
       <h1>Usuarios y Permisos</h1>
       <p>Control de accesos por 3 niveles: plataformas, módulos y acciones.</p>
     </div>
-    <button class="primary" data-action="crear" onclick="toggleUsuarioForm()">Nuevo usuario</button>
+    <button class="primary" onclick="toggleUsuarioForm()">Nuevo usuario</button>
   </div>
 
   <div id="usuarioFormCard" class="card hidden">
@@ -523,6 +443,7 @@ body:before{
       <label><input id="permSEC" type="checkbox"> Validador Documental SEC</label><br>
       <label><input id="permBitacora" type="checkbox"> Bitácora Estación</label><br>
       <label><input id="permVNA" type="checkbox"> Ventas No Abonadas</label><br>
+      <label><input id="permEstafas" type="checkbox"> Estafas / Perros muertos</label><br>
       <label><input id="permDesempeno" type="checkbox"> Desempeño AT</label><br>
       <label><input id="permTicket" type="checkbox"> Ticket Atendedor</label><br>
       <label><input id="permUsuarios" type="checkbox"> Usuarios y Permisos</label><br>
@@ -541,7 +462,7 @@ body:before{
     </div>
 
     <div class="actions">
-      <button class="primary" data-action="crear" onclick="saveUsuarioConfig()">Guardar usuario</button>
+      <button class="primary" onclick="saveUsuarioConfig()">Guardar usuario</button>
       <button class="secondary" onclick="resetUsuarioForm();toggleUsuarioForm()">Cancelar</button>
     </div>
     <div id="usrMsg"></div>
@@ -583,99 +504,97 @@ body:before{
   </div>
 </div>
 
-<div id="progressModal" class="modal"><div class="modal-box"><h2 id="progressTitle">Agregar avance</h2><div class="form two"><input id="pTitulo" placeholder="Título del avance"/><input id="pUsuario" placeholder="Usuario / responsable"/><select id="pEtapa"><option>Ingresado</option><option>Documentación y respaldo</option><option>Aprobado</option><option>Rechazado</option></select><select id="pResolucion"><option>Pendiente</option><option>Abono por Portal Concesionario</option><option>Cliente paga en oficina</option><option>Rechazado por VALEPAC</option></select></div><div class="form"><textarea id="pComentario" placeholder="Comentario / respaldo / progreso"></textarea><input id="pArchivo" type="file" accept=".pdf,image/*,.xlsx,.xls"/></div><div class="actions"><button class="primary" data-action="cambiar_estado" onclick="saveVnaProgress()">Guardar avance</button><button class="secondary" onclick="closeProgress()">Cancelar</button></div><div id="pMsg"></div></div></div>
+<div id="estafaModal" class="modal">
+  <div class="modal-box">
+    <h2>Agregar caso · Estafa / Perro muerto</h2>
+    <div class="form two">
+      <input id="estafaFechaHora" type="datetime-local"/>
+      <input id="estafaMonto" type="number" placeholder="Monto"/>
+      <select id="estafaCombustible">
+        <option value="">Tipo combustible</option>
+        <option>Diesel</option>
+        <option>Gasolina 93</option>
+        <option>Gasolina 95</option>
+        <option>Gasolina 97</option>
+        <option>Bluemax</option>
+        <option>Otro</option>
+      </select>
+      <select id="estafaAtendedor"></select>
+      <input id="estafaPatente" placeholder="Patente vehículo"/>
+      <input id="estafaLlamanos" placeholder="N° Llámanos ingresado"/>
+      <input id="estafaParte" placeholder="N° parte policial"/>
+      <input id="estafaArchivo" type="file" accept="image/*,.pdf"/>
+    </div>
+    <div class="form">
+      <textarea id="estafaObservacion" placeholder="Observación / detalle del caso"></textarea>
+    </div>
+    <div class="actions">
+      <button class="primary" data-action="crear" onclick="createEstafa()">Guardar caso</button>
+      <button class="secondary" onclick="closeEstafaModal()">Cancelar</button>
+    </div>
+    <div id="estafaMsg"></div>
+  </div>
+</div>
+
+<div id="progressModal" class="modal"><div class="modal-box"><h2 id="progressTitle">Agregar avance</h2><div class="form two"><input id="pTitulo" placeholder="Título del avance"/><input id="pUsuario" placeholder="Usuario / responsable"/><select id="pEtapa"><option>Ingresado</option><option>Documentación y respaldo</option><option>Aprobado</option><option>Rechazado</option></select><select id="pResolucion"><option>Pendiente</option><option>Abono por Portal Concesionario</option><option>Cliente paga en oficina</option><option>Rechazado por VALEPAC</option></select></div><div class="form"><textarea id="pComentario" placeholder="Comentario / respaldo / progreso"></textarea><input id="pArchivo" type="file" accept=".pdf,image/*,.xlsx,.xls"/></div><div class="actions"><button class="primary" onclick="saveVnaProgress()">Guardar avance</button><button class="secondary" onclick="closeProgress()">Cancelar</button></div><div id="pMsg"></div></div></div>
 <script>
 const SUPABASE_URL='https://emyskqnsyspzjrguycjk.supabase.co';
 const SUPABASE_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVteXNrcW5zeXNwempyZ3V5Y2prIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzk5MDg5NDcsImV4cCI6MjA5NTQ4NDk0N30.bLCSwgLCop1Gg4rCbunFe4YCP_KHxIIFGF28vR0XD-0';
-const client=supabase.createClient(SUPABASE_URL,SUPABASE_KEY);const bucket='documentos-sec';let docs=[],bits=[],bitHist=[],vnas=[],history=[],atendedores=[],atNotes=[],atNoteHist=[],ticketsAt=[],ticketAtHist=[],selectedDoc=null,selectedBit=null,selectedVna=null,selectedAt=null,selectedNote=null,selectedTicketAt=null,editandoAtendedor=null,currentUser=null,usuariosConfig=[],selectedUsuario=null;
+const client=supabase.createClient(SUPABASE_URL,SUPABASE_KEY);const bucket='documentos-sec';let docs=[],bits=[],bitHist=[],vnas=[],estafas=[],history=[],atendedores=[],atNotes=[],ticketsAt=[],ticketAtHist=[],selectedDoc=null,selectedBit=null,selectedVna=null,selectedEstafa=null,selectedAt=null,selectedNote=null,selectedTicketAt=null,editandoAtendedor=null,currentUser=null,usuariosConfig=[],selectedUsuario=null;
 
-function roleLabel(){
-  const r=String(currentUser?.rol||'Usuario').trim();
-  const rl=r.toLowerCase();
-  if(rl==='admin'||rl==='administrador')return 'Administrador';
-  if(rl==='supervisor'||rl==='desempeno')return 'Supervisor';
-  if(rl==='consulta')return 'Consulta';
-  if(rl==='atendedor')return 'Atendedor';
-  return r.charAt(0).toUpperCase()+r.slice(1);
-}
-
-function updateSessionVisual(){
-  const name=currentUser?.nombre||currentUser?.usuario||'Usuario';
-  const rol=roleLabel();
-  ['sessionUserName','dashUserName'].forEach(id=>{const el=document.getElementById(id);if(el)el.textContent=name});
-  ['sessionUserRole','dashUserRole'].forEach(id=>{const el=document.getElementById(id);if(el)el.textContent=rol});
-}
-
-async function countTable(table){
-  const head=await client.from(table).select('id',{count:'exact',head:true});
-  if(!head.error && typeof head.count==='number')return head.count;
-  const normal=await client.from(table).select('id');
-  if(!normal.error && Array.isArray(normal.data))return normal.data.length;
-  return 0;
-}
-
-async function loadDashboard(){
-  try{updateSessionVisual()}catch(e){}
-  try{
-    const [docCount,bitCount,vnaCount,ticketCount]=await Promise.all([
-      countTable('documentos'),
-      countTable('bitacora_eventos'),
-      countTable('ventas_no_abonadas'),
-      countTable('tickets_atendedor')
-    ]);
-    const set=(id,val)=>{const el=document.getElementById(id);if(el)el.textContent=Number(val||0).toLocaleString('es-CL')};
-    set('dashDocs',docCount);
-    set('dashBits',bitCount);
-    set('dashVna',vnaCount);
-    set('dashTickets',ticketCount);
-  }catch(e){
-    console.warn('No se pudo cargar dashboard',e);
-  }
-}
-
-
-async function loginApp(){
+function loginApp(){
   const u=(loginUser.value||'').trim().toLowerCase();
   const p=(loginPass.value||'').trim();
 
-  loginMsg.innerHTML='<div class="notice">Validando acceso...</div>';
-
-  const { data, error } = await client
-    .from('usuarios_portal')
-    .select('*')
-    .eq('usuario', u)
-    .eq('password', p)
-    .eq('estado', 'Activo')
-    .maybeSingle();
-
-  if(error){
-    console.error(error);
-    loginMsg.innerHTML='<div class="notice error">Error consultando usuario en Supabase.</div>';
+  if(u==='gabrielarancibia' && p==='portalvalepac'){
+    currentUser={
+      usuario:'gabrielarancibia',
+      nombre:'Gabriel Arancibia',
+      rol:'admin',
+      permisos:{
+        sec:true,
+        bitacora:true,
+        vna:true,
+        estafas:true,
+        desempeno:true,
+        ticket_atendedor:true,
+        usuarios:true,
+        nomina:true,
+        historial_anotaciones:true,
+        crear:true,
+        editar:true,
+        eliminar:true,
+        desactivar:true,
+        subir_archivos:true,
+        cambiar_estado:true
+      }
+    };
+    try{localStorage.setItem('valepac_web_session',JSON.stringify(currentUser));}catch(e){}
+    enterApp();
     return;
   }
 
-  if(!data){
-    loginMsg.innerHTML='<div class="notice error">Usuario o contraseña incorrectos.</div>';
+  if(u==='briancalderon' && p==='brian2026'){
+    currentUser={
+      usuario:'briancalderon',
+      nombre:'Brian Calderón',
+      rol:'desempeno',
+      permisos:{
+        desempeno:true,
+        ticket_atendedor:true,
+        nomina:true,
+        historial_anotaciones:true,
+        crear:true,
+        subir_archivos:true,
+        cambiar_estado:true
+      }
+    };
+    try{localStorage.setItem('valepac_web_session',JSON.stringify(currentUser));}catch(e){}
+    enterApp();
     return;
   }
 
-  const permisos = normalizePermisos(data.permisos || {});
-
-  if(!hasPermInObject(permisos,'plataformas','web')){
-    loginMsg.innerHTML='<div class="notice error">Usuario sin permiso para Web escritorio.</div>';
-    return;
-  }
-
-  currentUser={
-    id:data.id,
-    usuario:data.usuario,
-    nombre:data.nombre,
-    rol:data.rol,
-    permisos:permisos
-  };
-
-  try{localStorage.setItem('valepac_web_session',JSON.stringify(currentUser));}catch(e){}
-  enterApp();
+  loginMsg.innerHTML='<div class="notice error">Usuario o contraseña incorrectos.</div>';
 }
 
 function restoreLocalSession(){
@@ -686,7 +605,6 @@ function restoreLocalSession(){
     login.classList.add('hidden');
     app.classList.remove('hidden');
     try{applyPermissions()}catch(e){}
-    try{updateSessionVisual()}catch(e){}
     try{loadAll()}catch(e){}
     return true;
   }catch(e){
@@ -704,153 +622,44 @@ function enterApp(){try{localStorage.setItem('valepac_web_session',JSON.stringif
   login.classList.add('hidden');
   app.classList.remove('hidden');
   applyPermissions();
-
-  loadDashboard();
-  showModule('inicio');
-}
-
-function normalizePermisos(p){
-  p=p||{};
-  const norm={plataformas:{},modulos:{},acciones:{}};
-
-  if(Array.isArray(p.plataformas)){
-    p.plataformas.forEach(x=>norm.plataformas[x]=true);
+  if(currentUser&&currentUser.rol==='desempeno'){
+    showModule('at');
+    loadDesempeno();
   }else{
-    norm.plataformas=p.plataformas||{};
+    loadAll();
   }
-
-  if(Array.isArray(p.modulos)){
-    p.modulos.forEach(x=>norm.modulos[x]=true);
-  }else{
-    norm.modulos=p.modulos||{};
-  }
-
-  if(Array.isArray(p.acciones)){
-    p.acciones.forEach(x=>norm.acciones[x]=true);
-  }else{
-    norm.acciones=p.acciones||{};
-  }
-
-  // Compatibilidad con permisos antiguos planos
-  ['sec','bitacora','vna','desempeno','ticket_atendedor','ticket','usuarios','nomina','historial_anotaciones'].forEach(k=>{
-    if(p[k]===true)norm.modulos[k]=true;
-  });
-  ['crear','editar','eliminar','desactivar','subir_archivos','cambiar_estado'].forEach(k=>{
-    if(p[k]===true)norm.acciones[k]=true;
-  });
-
-  if(norm.modulos.ticket===true)norm.modulos.ticket_atendedor=true;
-
-  return norm;
-}
-
-function hasPermInObject(permisos,nivel,clave){
-  permisos=normalizePermisos(permisos||{});
-  return !!(permisos[nivel]&&permisos[nivel][clave]);
-}
-
-function canModule(mod){
-  if(!currentUser)return false;
-  if(currentUser.usuario==='gabrielarancibia')return true;
-  const key=mod==='ticket'?'ticket_atendedor':mod;
-  return hasPermInObject(currentUser.permisos,'modulos',key);
-}
-
-function canActionPerm(action){
-  if(!currentUser)return false;
-  if(currentUser.usuario==='gabrielarancibia')return true;
-  return hasPermInObject(currentUser.permisos,'acciones',action);
-}
-
-function requireAction(action,msg){
-  if(canActionPerm(action))return true;
-  alert(msg||'No tienes permiso para realizar esta acción.');
-  return false;
-}
-
-function requireFileAction(file,msg){
-  if(!file)return true;
-  return requireAction('subir_archivos',msg||'No tienes permiso para subir archivos.');
 }
 
 function applyPermissions(){
   if(!currentUser)return;
+  const userIcon=document.querySelector('.header-icons .header-icon:nth-child(2)');
+  if(userIcon)userIcon.textContent=currentUser.rol==='admin'?'ADM':'AT';
 
-  currentUser.permisos=normalizePermisos(currentUser.permisos||{});
-
-  updateSessionVisual();
-
-  applyModulePermissions();
-  applyActionPermissions();
-  startPermissionObserver();
-
-  const firstAllowed=[
-    ['sec','sec'],
-    ['bitacora','bitacora'],
-    ['vna','vna'],
-    ['at','desempeno'],
-    ['ticketat','ticket_atendedor'],
-    ['usuarios','usuarios']
-  ].find(([section,perm])=>canModule(perm));
-
-  if(firstAllowed && !document.querySelector('.section.active:not(.hidden)')){
-    showModule(firstAllowed[0]);
+  if(currentUser.rol==='desempeno'){
+    document.querySelectorAll('.menu-group')[0].style.display='none';
+    const reportBtn=[...document.querySelectorAll('.nav>button')].find(b=>b.textContent.includes('Reportes'));
+    if(reportBtn)reportBtn.style.display='none';
+    const helpBtn=[...document.querySelectorAll('.nav>button')].find(b=>b.textContent.includes('Ayuda'));
+    if(helpBtn)helpBtn.style.display='none';
   }
 }
 
 function canEditAtendedor(){
-  return canActionPerm('editar');
+  return currentUser && currentUser.rol==='admin';
 }
 
 function isAdmin(){
-  return currentUser && currentUser.usuario==='gabrielarancibia';
+  return currentUser && currentUser.rol==='admin';
 }
 
-function showModule(m){
-  if(m==='inicio'){
-    document.querySelectorAll('.section').forEach(s=>s.classList.remove('active'));
-    const home=document.getElementById('inicio'); if(home)home.classList.add('active');
-    document.querySelectorAll('.nav button').forEach(b=>b.classList.remove('active'));
-    const ni=document.getElementById('nav-inicio'); if(ni)ni.classList.add('active');
-    loadDashboard();
-    return;
-  }
-  const mapPerm={sec:'sec',bitacora:'bitacora',vna:'vna',at:'desempeno',ticketat:'ticket_atendedor',usuarios:'usuarios'};
-  const perm=mapPerm[m]||m;
-
-  if(!canModule(perm)){
-    const firstAllowed=Object.entries(mapPerm).find(([section,p])=>canModule(p));
-    if(!firstAllowed){
-      alert('Tu usuario no tiene módulos autorizados.');
-      return;
-    }
-    m=firstAllowed[0];
-  }
-
-  document.querySelectorAll('.section').forEach(s=>s.classList.remove('active'));
-  const section=document.getElementById(m);
-  if(section)section.classList.add('active');
-
-  document.querySelectorAll('.nav button').forEach(b=>b.classList.remove('active'));
-  const nav=document.getElementById('nav-'+m);
-  if(nav)nav.classList.add('active');
-  if(m==='at'){const ng=document.getElementById('nav-nomina'); if(ng)ng.classList.add('active');}
-  if(m==='usuarios'){const cg=document.querySelector('#nav-config-group .menu-trigger'); if(cg)cg.classList.add('active');}
-
-  if(m==='sec')loadDocuments();
-  if(m==='bitacora')loadBitacora();
-  if(m==='vna')loadVna();
-  if(m==='at')loadDesempeno();
-  if(m==='ticketat')loadTicketAt();
-  if(m==='usuarios')loadUsuariosConfig();
-}async function loadAll(){await loadDashboard();await loadDocuments();await loadBitacora();await loadVna();await loadDesempeno()}function fmt(d){if(!d)return '-';return new Date(d).toLocaleString('es-CL',{dateStyle:'short',timeStyle:'short'})}function money(v){return v?Number(v).toLocaleString('es-CL',{style:'currency',currency:'CLP'}):'-'}function badge(s){let c='b-pendiente';if(s==='Vigente')c='b-vigente';if(s==='Por vencer')c='b-vencer';if(s==='Vencido')c='b-vencido';if(s==='No cargado')c='b-nocargado';if(s==='En Proceso')c='b-revision';if(s==='Ingresado')c='b-ingresado';if(s==='Documentación y respaldo')c='b-doc';if(s==='Aprobado')c='b-aprobado';if(s==='Rechazado')c='b-rechazado';if(s==='Baja')c='b-baja';if(s==='Media')c='b-media';if(s==='Alta')c='b-alta';if(s==='Positiva')c='b-aprobado';if(s==='Negativa')c='b-rechazado';return `<span class="badge ${c}">${s||'Pendiente'}</span>`}function daysLeft(d){if(!d)return null;const a=new Date();a.setHours(0,0,0,0);const b=new Date(d);b.setHours(0,0,0,0);return Math.ceil((b-a)/86400000)}function calcStatus(d,alertDays,hasFile){if(!hasFile)return 'No cargado';if(!d)return 'En Proceso';const rest=daysLeft(d);if(rest<0)return 'Vencido';if(rest<=Number(alertDays||30))return 'Por vencer';return 'Vigente'}
+function showModule(m){if(currentUser&&currentUser.rol==='desempeno'&&!(m==='at'||m==='ticketat')){m='at'}document.querySelectorAll('.section').forEach(s=>s.classList.remove('active'));document.getElementById(m).classList.add('active');document.querySelectorAll('.nav button').forEach(b=>b.classList.remove('active'));const navBtn=document.getElementById('nav-'+m);if(navBtn)navBtn.classList.add('active');if(m==='sec')loadDocuments();if(m==='bitacora')loadBitacora();if(m==='vna')loadVna();if(m==='estafas')loadEstafas();if(m==='at')loadDesempeno();if(m==='ticketat')loadTicketAt();if(m==='usuarios')loadUsuariosConfig()}async function loadAll(){await loadDocuments();await loadBitacora();await loadVna();await loadEstafas();await loadDesempeno()}function fmt(d){if(!d)return '-';return new Date(d).toLocaleString('es-CL',{dateStyle:'short',timeStyle:'short'})}function money(v){return v?Number(v).toLocaleString('es-CL',{style:'currency',currency:'CLP'}):'-'}function badge(s){let c='b-pendiente';if(s==='Vigente')c='b-vigente';if(s==='Por vencer')c='b-vencer';if(s==='Vencido')c='b-vencido';if(s==='No cargado')c='b-nocargado';if(s==='En Proceso')c='b-revision';if(s==='Ingresado')c='b-ingresado';if(s==='Documentación y respaldo')c='b-doc';if(s==='Aprobado')c='b-aprobado';if(s==='Rechazado')c='b-rechazado';if(s==='Baja')c='b-baja';if(s==='Media')c='b-media';if(s==='Alta')c='b-alta';if(s==='Positiva')c='b-aprobado';if(s==='Negativa')c='b-rechazado';return `<span class="badge ${c}">${s||'Pendiente'}</span>`}function daysLeft(d){if(!d)return null;const a=new Date();a.setHours(0,0,0,0);const b=new Date(d);b.setHours(0,0,0,0);return Math.ceil((b-a)/86400000)}function calcStatus(d,alertDays,hasFile){if(!hasFile)return 'No cargado';if(!d)return 'En Proceso';const rest=daysLeft(d);if(rest<0)return 'Vencido';if(rest<=Number(alertDays||30))return 'Por vencer';return 'Vigente'}
 async function loadDocuments(){const {data,error}=await client.from('documentos').select('*').order('numero_indice');if(error){docRows.innerHTML='<div class="notice error">Error cargando documentos: '+error.message+'</div>';return}docs=(data||[]).sort((a,b)=>{
   const parse=(v)=>String(v||'0').split('.').map(x=>parseInt(x,10)||0);
   const [a1,a2=0]=parse(a.numero_indice);
   const [b1,b2=0]=parse(b.numero_indice);
   if(a1!==b1)return a1-b1;
   return a2-b2;
-});if(!selectedDoc)selectedDoc=docs[0];renderDocs()}function renderDocs(){const q=docSearch.value.toLowerCase(),f=docStatus.value;const list=docs.filter(d=>(f==='Todos'||d.estado===f)&&`${d.numero_indice} ${d.nombre} ${d.categoria} ${d.responsable}`.toLowerCase().includes(q));const count=s=>docs.filter(d=>d.estado===s).length;secStats.innerHTML=`<div class="card stat"><p>Total</p><h3>${docs.length}</h3></div><div class="card stat"><p>Vigentes</p><h3>${count('Vigente')}</h3></div><div class="card stat"><p>Por vencer</p><h3>${count('Por vencer')}</h3></div><div class="card stat"><p>Vencidos</p><h3>${count('Vencido')}</h3></div><div class="card stat"><p>No cargados</p><h3>${count('No cargado')}</h3></div>`;docRows.innerHTML=list.map(d=>`<div class="row ${selectedDoc&&selectedDoc.id===d.id?'selected':''}" onclick="selectDoc(${d.id})"><div>${d.numero_indice}</div><div><div class="title">${d.nombre}</div><div class="sub">${d.responsable||'-'} · Vence: ${d.fecha_vencimiento||'Sin fecha'}</div></div><div>${d.categoria}</div><div>${badge(d.estado)}</div></div>`).join('')||'<div class="notice">Sin resultados.</div>';renderDocDetail()}function selectDoc(id){selectedDoc=docs.find(d=>d.id===id);renderDocs()}function renderDocDetail(){const d=selectedDoc;if(!d){docDetail.innerHTML='<p>Selecciona un documento.</p>';return}const dl=daysLeft(d.fecha_vencimiento);docDetail.innerHTML=`<h2>${d.nombre}</h2>${badge(d.estado)}<div class="kv"><small>Categoría</small>${d.categoria}</div><div class="kv"><small>Responsable</small>${d.responsable||'-'}</div><div class="kv"><small>Vencimiento</small>${d.fecha_vencimiento||'Sin fecha'} ${dl!==null?`· ${dl} días`:''}</div><div class="kv"><small>Archivo</small>${d.archivo_url?`<a href="${d.archivo_url}" target="_blank">Ver archivo</a>`:'No cargado'}</div><div class="kv"><small>Observación</small>${d.observacion||'-'}</div><hr><h3>Cargar PDF</h3><div class="form"><input id="pdf_${d.id}" type="file" accept="application/pdf"/><label>Fecha de vencimiento</label><input id="due_${d.id}" type="date" value="${d.fecha_vencimiento||''}"/><label>Días de alerta</label><input id="alert_${d.id}" type="number" value="${d.dias_alerta||30}"/></div><div class="actions"><button class="primary" data-action="subir_archivos" onclick="uploadDocPdf(${d.id})">Cargar PDF</button></div><div id="docMsg"></div>`}async function uploadDocPdf(id){if(!requireAction('subir_archivos','No tienes permiso para subir archivos.'))return;const file=document.getElementById('pdf_'+id).files[0],due=document.getElementById('due_'+id).value,alertDays=document.getElementById('alert_'+id).value||30;if(!file){docMsg.innerHTML='<div class="notice error">Selecciona un PDF.</div>';return}if(!due){docMsg.innerHTML='<div class="notice error">Ingresa fecha de vencimiento.</div>';return}const path=`sec/${id}_${Date.now()}_${file.name}`;const up=await client.storage.from(bucket).upload(path,file,{upsert:true});if(up.error){docMsg.innerHTML='<div class="notice error">'+up.error.message+'</div>';return}const url=client.storage.from(bucket).getPublicUrl(path).data.publicUrl;const estado=calcStatus(due,alertDays,true),rest=daysLeft(due),alerta=estado==='Por vencer'||estado==='Vencido';const {error}=await client.from('documentos').update({archivo_url:url,archivo_nombre:file.name,fecha_vencimiento:due,dias_alerta:Number(alertDays),dias_restantes:rest,alerta_activa:alerta,estado,updated_at:new Date().toISOString()}).eq('id',id);if(error){docMsg.innerHTML='<div class="notice error">'+error.message+'</div>';return}docMsg.innerHTML='<div class="notice ok">PDF cargado.</div>';selectedDoc=null;await loadDocuments()}
+});if(!selectedDoc)selectedDoc=docs[0];renderDocs()}function renderDocs(){const q=docSearch.value.toLowerCase(),f=docStatus.value;const list=docs.filter(d=>(f==='Todos'||d.estado===f)&&`${d.numero_indice} ${d.nombre} ${d.categoria} ${d.responsable}`.toLowerCase().includes(q));const count=s=>docs.filter(d=>d.estado===s).length;secStats.innerHTML=`<div class="card stat"><p>Total</p><h3>${docs.length}</h3></div><div class="card stat"><p>Vigentes</p><h3>${count('Vigente')}</h3></div><div class="card stat"><p>Por vencer</p><h3>${count('Por vencer')}</h3></div><div class="card stat"><p>Vencidos</p><h3>${count('Vencido')}</h3></div><div class="card stat"><p>No cargados</p><h3>${count('No cargado')}</h3></div>`;docRows.innerHTML=list.map(d=>`<div class="row ${selectedDoc&&selectedDoc.id===d.id?'selected':''}" onclick="selectDoc(${d.id})"><div>${d.numero_indice}</div><div><div class="title">${d.nombre}</div><div class="sub">${d.responsable||'-'} · Vence: ${d.fecha_vencimiento||'Sin fecha'}</div></div><div>${d.categoria}</div><div>${badge(d.estado)}</div></div>`).join('')||'<div class="notice">Sin resultados.</div>';renderDocDetail()}function selectDoc(id){selectedDoc=docs.find(d=>d.id===id);renderDocs()}function renderDocDetail(){const d=selectedDoc;if(!d){docDetail.innerHTML='<p>Selecciona un documento.</p>';return}const dl=daysLeft(d.fecha_vencimiento);docDetail.innerHTML=`<h2>${d.nombre}</h2>${badge(d.estado)}<div class="kv"><small>Categoría</small>${d.categoria}</div><div class="kv"><small>Responsable</small>${d.responsable||'-'}</div><div class="kv"><small>Vencimiento</small>${d.fecha_vencimiento||'Sin fecha'} ${dl!==null?`· ${dl} días`:''}</div><div class="kv"><small>Archivo</small>${d.archivo_url?`<a href="${d.archivo_url}" target="_blank">Ver archivo</a>`:'No cargado'}</div><div class="kv"><small>Observación</small>${d.observacion||'-'}</div><hr><h3>Cargar PDF</h3><div class="form"><input id="pdf_${d.id}" type="file" accept="application/pdf"/><label>Fecha de vencimiento</label><input id="due_${d.id}" type="date" value="${d.fecha_vencimiento||''}"/><label>Días de alerta</label><input id="alert_${d.id}" type="number" value="${d.dias_alerta||30}"/></div><div class="actions"><button class="primary" onclick="uploadDocPdf(${d.id})">Cargar PDF</button></div><div id="docMsg"></div>`}async function uploadDocPdf(id){const file=document.getElementById('pdf_'+id).files[0],due=document.getElementById('due_'+id).value,alertDays=document.getElementById('alert_'+id).value||30;if(!file){docMsg.innerHTML='<div class="notice error">Selecciona un PDF.</div>';return}if(!due){docMsg.innerHTML='<div class="notice error">Ingresa fecha de vencimiento.</div>';return}const path=`sec/${id}_${Date.now()}_${file.name}`;const up=await client.storage.from(bucket).upload(path,file,{upsert:true});if(up.error){docMsg.innerHTML='<div class="notice error">'+up.error.message+'</div>';return}const url=client.storage.from(bucket).getPublicUrl(path).data.publicUrl;const estado=calcStatus(due,alertDays,true),rest=daysLeft(due),alerta=estado==='Por vencer'||estado==='Vencido';const {error}=await client.from('documentos').update({archivo_url:url,archivo_nombre:file.name,fecha_vencimiento:due,dias_alerta:Number(alertDays),dias_restantes:rest,alerta_activa:alerta,estado,updated_at:new Date().toISOString()}).eq('id',id);if(error){docMsg.innerHTML='<div class="notice error">'+error.message+'</div>';return}docMsg.innerHTML='<div class="notice ok">PDF cargado.</div>';selectedDoc=null;await loadDocuments()}
 
 function resetBitForm(){
   bitFecha.value='';
@@ -898,11 +707,10 @@ async function loadBitHist(id){
   bitHist=error?[]:(data||[]);
 }
 
-async function addBitComment(id){if(!requireAction('cambiar_estado','No tienes permiso para cambiar estados.'))return;
+async function addBitComment(id){
   const accion=(bitHistAccion.value||'Actualización de evento').trim();
   const comentario=(bitHistComentario.value||'').trim();
   const file=bitHistArchivo.files[0];
-  if(!requireFileAction(file))return;
   const nuevoEstado=bitHistEstado.value||selectedBit?.estado||'En seguimiento';
   if(!comentario&&!file){
     bitHistMsg.innerHTML='<div class="notice error">Ingresa comentario o archivo.</div>';
@@ -949,9 +757,9 @@ function renderBitDetail(){const b=selectedBit;if(!b){bitDetail.innerHTML='<h2>B
   <option>Cerrado</option>
   <option>Atendido</option>
 </select>
-<input id="bitHistArchivo" type="file" accept=".jpg,.jpeg,.png,.webp,.pdf,image/*,.xlsx,.xls"/><button class="primary" data-action="cambiar_estado" onclick="addBitComment(${b.id})">Agregar al historial</button><div id="bitHistMsg"></div></div><hr><h3>Historial del evento</h3><div class="timeline">${bitHist.map(h=>`<div class="item"><h4>${h.accion}</h4><small>${fmt(h.created_at)} · ${h.usuario||'-'} ${h.estado?`· ${h.estado}`:''}</small><p>${h.comentario||''}</p>${h.archivo_url?`<a href="${h.archivo_url}" target="_blank">Ver archivo</a>`:''}</div>`).join('')||'<p class="muted">Sin información posterior registrada.</p>'}</div>`}async function createBitacora(){if(!requireAction('crear','No tienes permiso para crear registros.'))return;const file=bitArchivo.files[0];if(!requireFileAction(file))return;let url=null,nombre=null;if(file){const path=`bitacora/${Date.now()}_${safeFileName(file.name)}`;const up=await client.storage.from(bucket).upload(path,file,{upsert:true});if(up.error){bitMsg.innerHTML='<div class="notice error">'+up.error.message+'</div>';return}url=client.storage.from(bucket).getPublicUrl(path).data.publicUrl;nombre=file.name}const payload={fecha_evento:bitFecha.value||new Date().toISOString(),titulo:bitTitulo.value,categoria:bitCategoria.value,gravedad:bitGravedad.value,responsable:bitResponsable.value,estado:bitEstado.value,descripcion:bitDescripcion.value,acciones:bitAcciones.value,archivo_url:url,archivo_nombre:nombre};if(!payload.titulo){bitMsg.innerHTML='<div class="notice error">Falta título.</div>';return}const {error}=await client.from('bitacora_eventos').insert(payload);if(error){bitMsg.innerHTML='<div class="notice error">'+error.message+'</div>';return}bitMsg.innerHTML='<div class="notice ok">Evento guardado.</div>';await loadBitacora()}
-function toggleVnaForm(){vnaFormCard.classList.toggle('hidden')}async function loadVna(){const {data,error}=await client.from('ventas_no_abonadas').select('*').order('created_at',{ascending:false});if(error){vnaRows.innerHTML='<div class="notice error">Error cargando VNA: '+error.message+'</div>';return}vnas=data||[];if(!selectedVna)selectedVna=vnas[0];renderVna()}function renderVna(){let q=vnaSearch.value.toLowerCase(),f=vnaFilter.value;let list=vnas.filter(v=>(f==='Todos'||v.etapa===f)&&`${v.requerimiento} ${v.surtidor||''} ${v.folio_dte||''} ${v.producto||''} ${v.medio_pago||''} ${v.atendedor||''} ${v.nombre_conductor||''} ${v.rut_conductor||''} ${v.correo_conductor||''} ${v.celular_conductor||''} ${v.ultimos4_tarjeta||''} ${v.detalle||''}`.toLowerCase().includes(q));vnaRows.innerHTML=list.map(v=>`<div class="row ${selectedVna&&selectedVna.id===v.id?'selected':''}" onclick="selectVna(${v.id})"><div><b>${v.requerimiento}</b><div class="sub">Surtidor ${v.surtidor||'-'}</div></div><div>${fmt(v.fecha_hora)}</div><div><div class="title">${v.nombre_conductor||'-'}</div><div class="sub">${v.rut_conductor||''}</div></div><div>${money(v.monto)}</div><div>${badge(v.etapa)}</div></div>`).join('')||'<div class="notice">Sin tickets.</div>';renderVnaDetail()}async function selectVna(id){selectedVna=vnas.find(v=>v.id===id);const {data}=await client.from('historial_vta_no_abonada').select('*').eq('caso_id',id).order('created_at',{ascending:false});history=data||[];renderVna()}function renderVnaDetail(){const v=selectedVna;if(!v){vnaDetail.innerHTML='<h2>Ventas No Abonadas</h2><p>Selecciona o crea un ticket.</p>';return}vnaDetail.innerHTML=`<h2>Req. ${v.requerimiento}</h2>${badge(v.etapa)}<div class="kv"><small>Venta</small>Surtidor: ${v.surtidor||'-'} · Folio DTE: ${v.folio_dte||'-'} · ${money(v.monto)}</div><div class="kv"><small>Producto / Medio de pago</small>${v.producto||'-'} · ${v.medio_pago||'-'} · Tarjeta ****${v.ultimos4_tarjeta||'----'}</div><div class="kv"><small>Fecha y hora / Atendedor</small>${fmt(v.fecha_hora)} · ${v.atendedor||'-'}</div><div class="kv"><small>Conductor</small>${v.nombre_conductor||'-'} · ${v.rut_conductor||'-'}<br>${v.correo_conductor||'-'} · ${v.celular_conductor||'-'}</div><div class="kv"><small>Resolución</small>${v.resolucion||'Pendiente'}</div><div class="kv"><small>Detalle</small>${v.detalle||'-'}</div><div class="kv"><small>Respaldo inicial</small>${v.archivo_url?`<a href="${v.archivo_url}" target="_blank">Ver respaldo inicial</a>`:'Sin archivo'}</div><div class="actions"><button class="primary" data-action="cambiar_estado" onclick="openProgress()">+ Agregar respaldo / progreso</button>${isAdmin()?`<button class="secondary" style="color:#991b1b;border-color:#fecaca" data-action="eliminar" onclick="deleteVnaCase(${v.id})">Eliminar caso</button>`:''} </div><hr><h3>Historial de auditoría</h3><div class="timeline">${history.map(h=>`<div class="item"><h4>${h.accion}</h4><small>${fmt(h.created_at)} · ${h.usuario||'Sin usuario'} · ${h.etapa||''}</small><p>${h.comentario||''}</p>${h.archivo_url?`<a href="${h.archivo_url}" target="_blank">Ver respaldo</a>`:''}</div>`).join('')||'<p class="muted">Sin avances registrados.</p>'}</div>`}async function createVna(){if(!requireAction('crear','No tienes permiso para crear registros.'))return;let archivo_url=null,archivo_nombre=null;const file=vnaArchivoInicial.files[0];if(!requireFileAction(file))return;if(file){const reqTmp=String(vnaReq.value.trim()||'sin-requerimiento').replace(/[^a-zA-Z0-9_-]/g,'_');const path=`vta-no-abonada/${reqTmp}/ingreso_${Date.now()}_${safeFileName(file.name)}`;const up=await client.storage.from(bucket).upload(path,file,{upsert:true});if(up.error){vnaMsg.innerHTML='<div class="notice error">No se pudo subir el archivo. El nombre fue limpiado automáticamente; si sigue fallando, usa JPG/PNG/PDF. Detalle: '+up.error.message+'</div>';return}archivo_url=client.storage.from(bucket).getPublicUrl(path).data.publicUrl;archivo_nombre=file.name}const payload={requerimiento:vnaReq.value.trim(),surtidor:vnaSurtidor.value,folio_dte:vnaFolioDte.value,monto:vnaMonto.value||null,producto:vnaProducto.value,medio_pago:vnaMedioPago.value,fecha_hora:vnaFechaHora.value||null,atendedor:vnaAtendedor.value,nombre_conductor:vnaNombreConductor.value,rut_conductor:vnaRutConductor.value,correo_conductor:vnaCorreoConductor.value,celular_conductor:vnaCelularConductor.value,ultimos4_tarjeta:vnaUltimos4.value,detalle:vnaDetalle.value,etapa:'Ingresado',resolucion:'Pendiente',archivo_url,archivo_nombre};if(!payload.requerimiento){vnaMsg.innerHTML='<div class="notice error">Falta N° de requerimiento.</div>';return}const {data,error}=await client.from('ventas_no_abonadas').insert(payload).select().single();if(error){vnaMsg.innerHTML='<div class="notice error">'+error.message+'</div>';return}await client.from('historial_vta_no_abonada').insert({caso_id:data.id,accion:'Caso ingresado',etapa:'Ingresado',usuario:'Sistema',comentario:payload.detalle||'Ingreso inicial del requerimiento.',archivo_url,archivo_nombre});vnaMsg.innerHTML='<div class="notice ok">Ticket guardado.</div>';vnaArchivoInicial.value='';await loadVna()}
-async function deleteVnaCase(id){if(!requireAction('eliminar','No tienes permiso para eliminar registros.'))return;
+<input id="bitHistArchivo" type="file" accept=".jpg,.jpeg,.png,.webp,.pdf,image/*,.xlsx,.xls"/><button class="primary" onclick="addBitComment(${b.id})">Agregar al historial</button><div id="bitHistMsg"></div></div><hr><h3>Historial del evento</h3><div class="timeline">${bitHist.map(h=>`<div class="item"><h4>${h.accion}</h4><small>${fmt(h.created_at)} · ${h.usuario||'-'} ${h.estado?`· ${h.estado}`:''}</small><p>${h.comentario||''}</p>${h.archivo_url?`<a href="${h.archivo_url}" target="_blank">Ver archivo</a>`:''}</div>`).join('')||'<p class="muted">Sin información posterior registrada.</p>'}</div>`}async function createBitacora(){const file=bitArchivo.files[0];let url=null,nombre=null;if(file){const path=`bitacora/${Date.now()}_${safeFileName(file.name)}`;const up=await client.storage.from(bucket).upload(path,file,{upsert:true});if(up.error){bitMsg.innerHTML='<div class="notice error">'+up.error.message+'</div>';return}url=client.storage.from(bucket).getPublicUrl(path).data.publicUrl;nombre=file.name}const payload={fecha_evento:bitFecha.value||new Date().toISOString(),titulo:bitTitulo.value,categoria:bitCategoria.value,gravedad:bitGravedad.value,responsable:bitResponsable.value,estado:bitEstado.value,descripcion:bitDescripcion.value,acciones:bitAcciones.value,archivo_url:url,archivo_nombre:nombre};if(!payload.titulo){bitMsg.innerHTML='<div class="notice error">Falta título.</div>';return}const {error}=await client.from('bitacora_eventos').insert(payload);if(error){bitMsg.innerHTML='<div class="notice error">'+error.message+'</div>';return}bitMsg.innerHTML='<div class="notice ok">Evento guardado.</div>';await loadBitacora()}
+function toggleVnaForm(){vnaFormCard.classList.toggle('hidden')}async function loadVna(){const {data,error}=await client.from('ventas_no_abonadas').select('*').order('created_at',{ascending:false});if(error){vnaRows.innerHTML='<div class="notice error">Error cargando VNA: '+error.message+'</div>';return}vnas=data||[];if(!selectedVna)selectedVna=vnas[0];renderVna()}function renderVna(){let q=vnaSearch.value.toLowerCase(),f=vnaFilter.value;let list=vnas.filter(v=>(f==='Todos'||v.etapa===f)&&`${v.requerimiento} ${v.surtidor||''} ${v.folio_dte||''} ${v.producto||''} ${v.medio_pago||''} ${v.atendedor||''} ${v.nombre_conductor||''} ${v.rut_conductor||''} ${v.correo_conductor||''} ${v.celular_conductor||''} ${v.ultimos4_tarjeta||''} ${v.detalle||''}`.toLowerCase().includes(q));vnaRows.innerHTML=list.map(v=>`<div class="row ${selectedVna&&selectedVna.id===v.id?'selected':''}" onclick="selectVna(${v.id})"><div><b>${v.requerimiento}</b><div class="sub">Surtidor ${v.surtidor||'-'}</div></div><div>${fmt(v.fecha_hora)}</div><div><div class="title">${v.nombre_conductor||'-'}</div><div class="sub">${v.rut_conductor||''}</div></div><div>${money(v.monto)}</div><div>${badge(v.etapa)}</div></div>`).join('')||'<div class="notice">Sin tickets.</div>';renderVnaDetail()}async function selectVna(id){selectedVna=vnas.find(v=>v.id===id);const {data}=await client.from('historial_vta_no_abonada').select('*').eq('caso_id',id).order('created_at',{ascending:false});history=data||[];renderVna()}function renderVnaDetail(){const v=selectedVna;if(!v){vnaDetail.innerHTML='<h2>Ventas No Abonadas</h2><p>Selecciona o crea un ticket.</p>';return}vnaDetail.innerHTML=`<h2>Req. ${v.requerimiento}</h2>${badge(v.etapa)}<div class="kv"><small>Venta</small>Surtidor: ${v.surtidor||'-'} · Folio DTE: ${v.folio_dte||'-'} · ${money(v.monto)}</div><div class="kv"><small>Producto / Medio de pago</small>${v.producto||'-'} · ${v.medio_pago||'-'} · Tarjeta ****${v.ultimos4_tarjeta||'----'}</div><div class="kv"><small>Fecha y hora / Atendedor</small>${fmt(v.fecha_hora)} · ${v.atendedor||'-'}</div><div class="kv"><small>Conductor</small>${v.nombre_conductor||'-'} · ${v.rut_conductor||'-'}<br>${v.correo_conductor||'-'} · ${v.celular_conductor||'-'}</div><div class="kv"><small>Resolución</small>${v.resolucion||'Pendiente'}</div><div class="kv"><small>Detalle</small>${v.detalle||'-'}</div><div class="kv"><small>Respaldo inicial</small>${v.archivo_url?`<a href="${v.archivo_url}" target="_blank">Ver respaldo inicial</a>`:'Sin archivo'}</div><div class="actions"><button class="primary" onclick="openProgress()">+ Agregar respaldo / progreso</button>${isAdmin()?`<button class="secondary" style="color:#991b1b;border-color:#fecaca" onclick="deleteVnaCase(${v.id})">Eliminar caso</button>`:''} </div><hr><h3>Historial de auditoría</h3><div class="timeline">${history.map(h=>`<div class="item"><h4>${h.accion}</h4><small>${fmt(h.created_at)} · ${h.usuario||'Sin usuario'} · ${h.etapa||''}</small><p>${h.comentario||''}</p>${h.archivo_url?`<a href="${h.archivo_url}" target="_blank">Ver respaldo</a>`:''}</div>`).join('')||'<p class="muted">Sin avances registrados.</p>'}</div>`}async function createVna(){let archivo_url=null,archivo_nombre=null;const file=vnaArchivoInicial.files[0];if(file){const reqTmp=String(vnaReq.value.trim()||'sin-requerimiento').replace(/[^a-zA-Z0-9_-]/g,'_');const path=`vta-no-abonada/${reqTmp}/ingreso_${Date.now()}_${safeFileName(file.name)}`;const up=await client.storage.from(bucket).upload(path,file,{upsert:true});if(up.error){vnaMsg.innerHTML='<div class="notice error">No se pudo subir el archivo. El nombre fue limpiado automáticamente; si sigue fallando, usa JPG/PNG/PDF. Detalle: '+up.error.message+'</div>';return}archivo_url=client.storage.from(bucket).getPublicUrl(path).data.publicUrl;archivo_nombre=file.name}const payload={requerimiento:vnaReq.value.trim(),surtidor:vnaSurtidor.value,folio_dte:vnaFolioDte.value,monto:vnaMonto.value||null,producto:vnaProducto.value,medio_pago:vnaMedioPago.value,fecha_hora:vnaFechaHora.value||null,atendedor:vnaAtendedor.value,nombre_conductor:vnaNombreConductor.value,rut_conductor:vnaRutConductor.value,correo_conductor:vnaCorreoConductor.value,celular_conductor:vnaCelularConductor.value,ultimos4_tarjeta:vnaUltimos4.value,detalle:vnaDetalle.value,etapa:'Ingresado',resolucion:'Pendiente',archivo_url,archivo_nombre};if(!payload.requerimiento){vnaMsg.innerHTML='<div class="notice error">Falta N° de requerimiento.</div>';return}const {data,error}=await client.from('ventas_no_abonadas').insert(payload).select().single();if(error){vnaMsg.innerHTML='<div class="notice error">'+error.message+'</div>';return}await client.from('historial_vta_no_abonada').insert({caso_id:data.id,accion:'Caso ingresado',etapa:'Ingresado',usuario:'Sistema',comentario:payload.detalle||'Ingreso inicial del requerimiento.',archivo_url,archivo_nombre});vnaMsg.innerHTML='<div class="notice ok">Ticket guardado.</div>';vnaArchivoInicial.value='';await loadVna()}
+async function deleteVnaCase(id){
   if(!isAdmin()){
     alert('Solo Gabriel administrador puede eliminar casos.');
     return;
@@ -972,12 +780,113 @@ async function deleteVnaCase(id){if(!requireAction('eliminar','No tienes permiso
   await loadVna();
 }
 
-function openProgress(){if(!selectedVna)return;progressTitle.textContent='Agregar avance · Req. '+selectedVna.requerimiento;pEtapa.value=selectedVna.etapa||'Ingresado';pResolucion.value=selectedVna.resolucion||'Pendiente';progressModal.classList.add('open')}function closeProgress(){progressModal.classList.remove('open')}async function saveVnaProgress(){if(!requireAction('cambiar_estado','No tienes permiso para cambiar estados.'))return;if(!selectedVna)return;const titulo=pTitulo.value.trim();if(!titulo){pMsg.innerHTML='<div class="notice error">Ingresa título del avance.</div>';return}let archivo_url=null,archivo_nombre=null;const file=pArchivo.files[0];if(!requireFileAction(file))return;if(file){const path=`vta-no-abonada/${String(selectedVna.requerimiento).replace(/[^a-zA-Z0-9_-]/g,'_')}/${Date.now()}_${safeFileName(file.name)}`;const up=await client.storage.from(bucket).upload(path,file,{upsert:true});if(up.error){pMsg.innerHTML='<div class="notice error">No se pudo subir el archivo. El nombre fue limpiado automáticamente; si sigue fallando, usa JPG/PNG/PDF. Detalle: '+up.error.message+'</div>';return}archivo_url=client.storage.from(bucket).getPublicUrl(path).data.publicUrl;archivo_nombre=file.name}const update={etapa:pEtapa.value,resolucion:pResolucion.value,updated_at:new Date().toISOString()};const {error}=await client.from('ventas_no_abonadas').update(update).eq('id',selectedVna.id);if(error){pMsg.innerHTML='<div class="notice error">'+error.message+'</div>';return}await client.from('historial_vta_no_abonada').insert({caso_id:selectedVna.id,accion:titulo,etapa:pEtapa.value,usuario:pUsuario.value||'Usuario',comentario:pComentario.value,archivo_url,archivo_nombre});pMsg.innerHTML='<div class="notice ok">Avance guardado.</div>';closeProgress();pTitulo.value=pUsuario.value=pComentario.value='';pArchivo.value='';await loadVna();await selectVna(selectedVna.id)}
-function showAtSub(view){const hist=document.getElementById('atHistorialView'),nom=document.getElementById('atNominaView');hist.classList.toggle('hidden',view!=='historial');nom.classList.toggle('hidden',view!=='nomina');tabAtHist.classList.toggle('active',view==='historial');tabAtNom.classList.toggle('active',view==='nomina');if(view==='nomina')loadAtendedores();else loadAtNotes()}function openNomina(){showAtSub('nomina')}function toggleAtForm(){const opening=atFormCard.classList.contains('hidden');if(opening)resetAtForm();atFormCard.classList.toggle('hidden')}function toggleAtNoteForm(){const opening=atNoteFormCard.classList.contains('hidden');if(opening)resetAtNoteForm();atNoteFormCard.classList.toggle('hidden');fillNoteWorkers()}async function loadDesempeno(){await loadAtendedores();await loadAtNotes();showAtSub('historial')}function fillNoteWorkers(){if(!document.getElementById('noteTrabajador'))return;noteTrabajador.innerHTML='<option value="">Seleccionar trabajador</option>'+atendedores.filter(a=>(a.estado||'Activo')==='Activo').map(a=>`<option value="${a.id}">${a.nombre} · ${a.rut}</option>`).join('')}async function loadAtNotes(){const {data,error}=await client.from('anotaciones_desempeno_at').select('*, atendedores_nomina(nombre,rut,foto_url)').order('fecha_anotacion',{ascending:false});if(error){noteRows.innerHTML='<div class="notice error">Error cargando anotaciones: '+error.message+'</div>';return}atNotes=data||[];if(!selectedNote)selectedNote=atNotes[0];if(selectedNote)await loadAtNoteHist(selectedNote.id);renderAtNotes()}async function loadAtNoteHist(id){if(!id){atNoteHist=[];return}const {data,error}=await client.from('historial_anotaciones_desempeno_at').select('*').eq('anotacion_id',id).order('created_at',{ascending:false});atNoteHist=error?[]:(data||[])}function renderAtNotes(){let q=(noteSearch?.value||'').toLowerCase(),f=(noteFilter?.value||'Todos');let list=atNotes.filter(n=>(f==='Todos'||n.tipo===f)&&`${n.titulo||''} ${n.detalle||''} ${n.categoria||''} ${n.responsable||''} ${n.atendedores_nomina?.nombre||''} ${n.atendedores_nomina?.rut||''}`.toLowerCase().includes(q));noteRows.innerHTML=list.map(n=>`<div class="row ${selectedNote&&selectedNote.id===n.id?'selected':''}" onclick="selectAtNote(${n.id})"><div>${fmt(n.fecha_anotacion)}</div><div><div class="title">${n.atendedores_nomina?.nombre||'Trabajador no asignado'}</div><div class="sub">${n.titulo||'-'} · ${n.categoria||'-'}</div></div><div>${badge(n.tipo)}</div><div>${n.responsable||'-'}</div></div>`).join('')||'<div class="notice">Sin anotaciones registradas.</div>';renderAtNoteDetail()}async function selectAtNote(id){selectedNote=atNotes.find(n=>n.id===id);await loadAtNoteHist(id);renderAtNotes()}function renderAtNoteDetail(){const n=selectedNote;if(!n){noteDetail.innerHTML='<h2>Ficha de anotación</h2><p>Selecciona una anotación.</p>';return}noteDetail.innerHTML=`<h2>${n.titulo||'Anotación'}</h2>${badge(n.tipo)}<div class="kv"><small>Trabajador</small>${n.atendedores_nomina?.nombre||'-'} · ${n.atendedores_nomina?.rut||'-'}</div><div class="kv"><small>Fecha / Responsable</small>${fmt(n.fecha_anotacion)} · ${n.responsable||'-'}</div><div class="kv"><small>Categoría</small>${n.categoria||'-'}</div><div class="kv"><small>Detalle</small>${n.detalle||'-'}</div><div class="kv"><small>Acción / Seguimiento</small>${n.accion||'-'}</div><div class="kv"><small>Respaldo inicial</small>${n.archivo_url?`<a href="${n.archivo_url}" target="_blank">Ver archivo</a>`:'Sin archivo'}</div><div class="notice">Registro creado: ${fmt(n.created_at)}. Este histórico queda disponible para auditoría futura.</div><hr><h3>Agregar respaldo adicional</h3><div class="form"><input id="noteHistAccion" placeholder="Título del respaldo / avance"/><textarea id="noteHistComentario" placeholder="Comentario adicional para respaldar esta anotación"></textarea><input id="noteHistArchivo" type="file" accept=".jpg,.jpeg,.png,.webp,.pdf,image/*,.xlsx,.xls"/><button class="primary" data-action="crear" onclick="addAtNoteSupport(${n.id})">Agregar respaldo</button><div id="noteHistMsg"></div></div><hr><h3>Historial de respaldos</h3><div class="timeline">${atNoteHist.map(h=>`<div class="item"><h4>${h.accion||'Respaldo adicional'}</h4><small>${fmt(h.created_at)} · ${h.usuario||'-'}</small><p>${h.comentario||''}</p>${h.archivo_url?`<a href="${h.archivo_url}" target="_blank">Ver archivo</a>`:''}</div>`).join('')||'<p class="muted">Sin respaldos adicionales.</p>'}</div>`}async function addAtNoteSupport(id){if(!requireAction('crear','No tienes permiso para agregar respaldos.'))return;const accion=(noteHistAccion.value||'Respaldo adicional').trim();const comentario=(noteHistComentario.value||'').trim();const file=noteHistArchivo.files[0];if(file&&!requireAction('subir_archivos','No tienes permiso para subir archivos.'))return;if(!comentario&&!file){noteHistMsg.innerHTML='<div class="notice error">Ingresa comentario o archivo.</div>';return}let archivo_url=null,archivo_nombre=null;if(file){const path=`desempeno-at/anotaciones/respaldo/${id}/${Date.now()}_${safeFileName(file.name)}`;const up=await client.storage.from(bucket).upload(path,file,{upsert:true});if(up.error){noteHistMsg.innerHTML='<div class="notice error">No se pudo subir archivo: '+up.error.message+'</div>';return}archivo_url=client.storage.from(bucket).getPublicUrl(path).data.publicUrl;archivo_nombre=file.name}const {error}=await client.from('historial_anotaciones_desempeno_at').insert({anotacion_id:id,accion,usuario:currentUser?.nombre||'Usuario',comentario,archivo_url,archivo_nombre});if(error){noteHistMsg.innerHTML='<div class="notice error">'+error.message+'</div>';return}noteHistMsg.innerHTML='<div class="notice ok">Respaldo agregado correctamente.</div>';noteHistAccion.value='';noteHistComentario.value='';noteHistArchivo.value='';await loadAtNoteHist(id);renderAtNoteDetail()}async function createAtNote(){if(!requireAction('crear','No tienes permiso para crear registros.'))return;let archivo_url=null,archivo_nombre=null;const file=noteArchivo.files[0];if(!requireFileAction(file))return;if(file){const path=`desempeno-at/anotaciones/${Date.now()}_${file.name}`;const up=await client.storage.from(bucket).upload(path,file,{upsert:true});if(up.error){noteMsg.innerHTML='<div class="notice error">'+up.error.message+'</div>';return}archivo_url=client.storage.from(bucket).getPublicUrl(path).data.publicUrl;archivo_nombre=file.name}const payload={trabajador_id:noteTrabajador.value||null,tipo:noteTipo.value,fecha_anotacion:noteFecha.value||new Date().toISOString(),responsable:noteResponsable.value||'Jefe de Protocolo y Servicio',titulo:noteTitulo.value.trim(),categoria:noteCategoria.value,detalle:noteDetalle.value,accion:noteAccion.value,archivo_url,archivo_nombre};if(!payload.trabajador_id||!payload.titulo){noteMsg.innerHTML='<div class="notice error">Falta trabajador o título.</div>';return}const {error}=await client.from('anotaciones_desempeno_at').insert(payload);if(error){noteMsg.innerHTML='<div class="notice error">'+error.message+'</div>';return}noteMsg.innerHTML='<div class="notice ok">Anotación guardada.</div>';noteTitulo.value=noteDetalle.value=noteAccion.value=noteArchivo.value='';await loadAtNotes()}async function loadAtendedores(){const {data,error}=await client.from('atendedores_nomina').select('*').order('nombre',{ascending:true});if(error){if(document.getElementById('atRows'))atRows.innerHTML='<div class="notice error">Error cargando nómina: '+error.message+'</div>';return}atendedores=data||[];if(!selectedAt)selectedAt=atendedores[0];fillNoteWorkers();renderAtendedores()}function renderAtendedores(){if(!document.getElementById('atRows'))return;let q=(atSearch?.value||'').toLowerCase();let list=atendedores.filter(a=>`${a.nombre||''} ${a.rut||''} ${a.estado||'Activo'}`.toLowerCase().includes(q));atRows.innerHTML=list.map(a=>{const estado=a.estado||'Activo';return `<div class="row ${selectedAt&&selectedAt.id===a.id?'selected':''}" onclick="selectAtendedor(${a.id})"><div>${a.foto_url?`<img src="${a.foto_url}" class="zoomable-photo" onclick="event.stopPropagation();openPhotoModal('${a.foto_url}','${(a.nombre||'Atendedor').replace(/'/g,'')}')" style="width:46px;height:46px;border-radius:14px;object-fit:cover">`:'👤'}</div><div><div class="title">${a.nombre||'-'} ${estado==='Inactivo'?'<span class="badge b-rechazado" style="margin-left:8px">Inactivo</span>':'<span class="badge b-aprobado" style="margin-left:8px">Activo</span>'}</div><div class="sub">Ingresado al sistema: ${fmt(a.created_at)}</div></div><div>${a.rut||'-'}</div><div>${a.fecha_ingreso||'-'}</div><div>${canEditAtendedor()?`<button class="secondary" data-action="editar" onclick="event.stopPropagation();editAtendedor(${a.id})">Editar</button>`:`<span class="badge b-revision">Sin edición</span>`}</div></div>`}).join('')||'<div class="notice">Sin trabajadores registrados.</div>';renderAtDetail()}function selectAtendedor(id){selectedAt=atendedores.find(a=>a.id===id);renderAtendedores()}function renderAtDetail(){if(!document.getElementById('atDetail'))return;const a=selectedAt;if(!a){atDetail.innerHTML='<h2>Ficha trabajador</h2><p>Selecciona un trabajador de la nómina.</p>';return}const total=atNotes.filter(n=>n.trabajador_id===a.id).length;const pos=atNotes.filter(n=>n.trabajador_id===a.id&&n.tipo==='Positiva').length;const neg=atNotes.filter(n=>n.trabajador_id===a.id&&n.tipo==='Negativa').length;const estado=a.estado||'Activo';atDetail.innerHTML=`<h2>${a.nombre||'Trabajador'}</h2><span class="badge ${estado==='Inactivo'?'b-rechazado':'b-aprobado'}">${estado}</span><div class="kv"><small>Foto</small>${a.foto_url?`<img src="${a.foto_url}" class="zoomable-photo" onclick="openPhotoModal('${a.foto_url}','${(a.nombre||'Atendedor').replace(/'/g,'')}')" style="width:180px;height:180px;border-radius:28px;object-fit:cover">`:'Sin foto cargada'}</div><div class="kv"><small>RUT</small>${a.rut||'-'}</div><div class="kv"><small>Fecha de ingreso a la EDS</small>${a.fecha_ingreso||'-'}</div><div class="kv"><small>Estado</small>${estado}</div><div class="kv"><small>Historial desempeño</small>${total} anotaciones · ${pos} positivas · ${neg} negativas</div><div class="kv"><small>Creado en sistema</small>${fmt(a.created_at)}</div><div class="actions">${canEditAtendedor()?`<button class="secondary" data-action="editar" onclick="editAtendedor(${a.id})">Editar ingreso</button><button class="secondary" data-action="desactivar" onclick="toggleEstadoAtendedor(${a.id})">${estado==='Inactivo'?'Reactivar trabajador':'Desactivar trabajador'}</button><button class="secondary" style="color:#991b1b;border-color:#fecaca" data-action="eliminar" onclick="deleteAtendedor(${a.id})">Eliminar registro</button>`:''}<button class="primary" onclick="exportFichaAtPdf(${a.id})">Descargar ficha PDF</button></div>`}function editAtendedor(id){if(!requireAction('editar','No tienes permiso para editar registros.'))return;if(!canEditAtendedor()){alert('Este usuario no tiene permiso para editar trabajadores.');return;}const a=atendedores.find(x=>x.id===id);if(!a)return;selectedAt=a;editandoAtendedor=id;atNombre.value=a.nombre||'';atRut.value=a.rut||'';atFechaIngreso.value=a.fecha_ingreso||'';atFoto.value='';atFormCard.classList.remove('hidden');atFormCard.scrollIntoView({behavior:'smooth',block:'start'});const h=atFormCard.querySelector('h2');if(h)h.textContent='Editar ingreso trabajador';const saveBtn=atFormCard.querySelector('button.primary');if(saveBtn)saveBtn.textContent='Guardar cambios';}
+function openProgress(){if(!selectedVna)return;progressTitle.textContent='Agregar avance · Req. '+selectedVna.requerimiento;pEtapa.value=selectedVna.etapa||'Ingresado';pResolucion.value=selectedVna.resolucion||'Pendiente';progressModal.classList.add('open')}function closeProgress(){progressModal.classList.remove('open')}async function saveVnaProgress(){if(!selectedVna)return;const titulo=pTitulo.value.trim();if(!titulo){pMsg.innerHTML='<div class="notice error">Ingresa título del avance.</div>';return}let archivo_url=null,archivo_nombre=null;const file=pArchivo.files[0];if(file){const path=`vta-no-abonada/${String(selectedVna.requerimiento).replace(/[^a-zA-Z0-9_-]/g,'_')}/${Date.now()}_${safeFileName(file.name)}`;const up=await client.storage.from(bucket).upload(path,file,{upsert:true});if(up.error){pMsg.innerHTML='<div class="notice error">No se pudo subir el archivo. El nombre fue limpiado automáticamente; si sigue fallando, usa JPG/PNG/PDF. Detalle: '+up.error.message+'</div>';return}archivo_url=client.storage.from(bucket).getPublicUrl(path).data.publicUrl;archivo_nombre=file.name}const update={etapa:pEtapa.value,resolucion:pResolucion.value,updated_at:new Date().toISOString()};const {error}=await client.from('ventas_no_abonadas').update(update).eq('id',selectedVna.id);if(error){pMsg.innerHTML='<div class="notice error">'+error.message+'</div>';return}await client.from('historial_vta_no_abonada').insert({caso_id:selectedVna.id,accion:titulo,etapa:pEtapa.value,usuario:pUsuario.value||'Usuario',comentario:pComentario.value,archivo_url,archivo_nombre});pMsg.innerHTML='<div class="notice ok">Avance guardado.</div>';closeProgress();pTitulo.value=pUsuario.value=pComentario.value='';pArchivo.value='';await loadVna();await selectVna(selectedVna.id)}
+
+function resetEstafaForm(){
+  estafaFechaHora.value='';
+  estafaMonto.value='';
+  estafaCombustible.value='';
+  estafaPatente.value='';
+  estafaLlamanos.value='';
+  estafaParte.value='';
+  estafaArchivo.value='';
+  estafaObservacion.value='';
+  estafaMsg.innerHTML='';
+}
+
+function fillEstafaWorkers(){
+  if(!document.getElementById('estafaAtendedor'))return;
+  estafaAtendedor.innerHTML='<option value="">Seleccionar atendedor</option>'+atendedores.filter(a=>(a.estado||'Activo')==='Activo').map(a=>`<option value="${a.id}">${a.nombre} · ${a.rut}</option>`).join('');
+}
+
+async function openEstafaModal(){
+  if(!canAction('crear')){alert('No tienes permiso para crear registros.');return}
+  resetEstafaForm();
+  if(!atendedores.length)await loadAtendedores();
+  fillEstafaWorkers();
+  estafaModal.classList.add('open');
+}
+
+function closeEstafaModal(){estafaModal.classList.remove('open')}
+
+async function loadEstafas(){
+  const {data,error}=await client.from('estafas_perros_muertos').select('*, atendedores_nomina(nombre,rut)').order('fecha_hora',{ascending:false});
+  if(error){
+    estafaRows.innerHTML='<div class="notice error">Error cargando estafas: '+error.message+'</div>';
+    return;
+  }
+  estafas=data||[];
+  if(!selectedEstafa)selectedEstafa=estafas[0];
+  renderEstafas();
+}
+
+function renderEstafas(){
+  if(!document.getElementById('estafaRows'))return;
+  const q=(estafaSearch?.value||'').toLowerCase();
+  const list=estafas.filter(e=>`${e.patente||''} ${e.tipo_combustible||''} ${e.numero_llamanos||''} ${e.numero_parte_policial||''} ${e.observacion||''} ${e.atendedores_nomina?.nombre||''} ${e.atendedores_nomina?.rut||''}`.toLowerCase().includes(q));
+  estafaRows.innerHTML=list.map(e=>`<div class="row ${selectedEstafa&&selectedEstafa.id===e.id?'selected':''}" onclick="selectEstafa(${e.id})"><div>${fmt(e.fecha_hora)}</div><div>${money(e.monto)}</div><div><div class="title">${(e.patente||'-').toUpperCase()}</div><div class="sub">${e.atendedores_nomina?.nombre||'Atendedor no asignado'}</div></div><div>${e.tipo_combustible||'-'}</div><div>${e.numero_llamanos||'-'}</div></div>`).join('')||'<div class="notice">Sin casos registrados.</div>';
+  renderEstafaDetail();
+}
+
+function selectEstafa(id){selectedEstafa=estafas.find(e=>e.id===id);renderEstafas()}
+
+function renderEstafaDetail(){
+  const e=selectedEstafa;
+  if(!e){estafaDetail.innerHTML='<h2>Ficha del caso</h2><p>Selecciona un caso registrado.</p>';return}
+  estafaDetail.innerHTML=`<h2>${(e.patente||'Sin patente').toUpperCase()}</h2>
+  <div class="kv"><small>Fecha / Hora</small>${fmt(e.fecha_hora)}</div>
+  <div class="kv"><small>Monto / Combustible</small>${money(e.monto)} · ${e.tipo_combustible||'-'}</div>
+  <div class="kv"><small>Atendedor</small>${e.atendedores_nomina?.nombre||'-'} · ${e.atendedores_nomina?.rut||''}</div>
+  <div class="kv"><small>N° Llámanos ingresado</small>${e.numero_llamanos||'-'}</div>
+  <div class="kv"><small>N° parte policial</small>${e.numero_parte_policial||'-'}</div>
+  <div class="kv"><small>Observación</small>${e.observacion||'-'}</div>
+  <div class="kv"><small>Fotografía / respaldo</small>${e.archivo_url?`<a href="${e.archivo_url}" target="_blank">Ver archivo</a>`:'Sin archivo'}</div>
+  <div class="notice">Registro creado: ${fmt(e.created_at)}.</div>`;
+}
+
+async function createEstafa(){
+  if(!canAction('crear')){alert('No tienes permiso para crear registros.');return}
+  const trabajador_id=estafaAtendedor.value||null;
+  const payload={
+    fecha_hora:estafaFechaHora.value||new Date().toISOString(),
+    monto:estafaMonto.value||null,
+    tipo_combustible:estafaCombustible.value,
+    trabajador_id,
+    patente:(estafaPatente.value||'').trim().toUpperCase(),
+    numero_llamanos:(estafaLlamanos.value||'').trim(),
+    numero_parte_policial:(estafaParte.value||'').trim(),
+    observacion:estafaObservacion.value||'',
+    usuario_creador:currentUser?.nombre||currentUser?.usuario||'Usuario'
+  };
+  if(!payload.monto||!payload.tipo_combustible||!payload.trabajador_id||!payload.patente){
+    estafaMsg.innerHTML='<div class="notice error">Falta monto, combustible, atendedor o patente.</div>';
+    return;
+  }
+  let archivo_url=null,archivo_nombre=null;
+  const file=estafaArchivo.files[0];
+  if(file){
+    if(!canAction('subir_archivos')){alert('No tienes permiso para subir archivos.');return}
+    const path=`estafas/${payload.patente}/${Date.now()}_${safeFileName(file.name)}`;
+    const up=await client.storage.from(bucket).upload(path,file,{upsert:true});
+    if(up.error){estafaMsg.innerHTML='<div class="notice error">No se pudo subir archivo: '+up.error.message+'</div>';return}
+    archivo_url=client.storage.from(bucket).getPublicUrl(path).data.publicUrl;
+    archivo_nombre=file.name;
+  }
+  payload.archivo_url=archivo_url;
+  payload.archivo_nombre=archivo_nombre;
+  const {error}=await client.from('estafas_perros_muertos').insert(payload);
+  if(error){estafaMsg.innerHTML='<div class="notice error">'+error.message+'</div>';return}
+  estafaMsg.innerHTML='<div class="notice ok">Caso guardado correctamente.</div>';
+  closeEstafaModal();
+  selectedEstafa=null;
+  await loadEstafas();
+}
+
+function showAtSub(view){const hist=document.getElementById('atHistorialView'),nom=document.getElementById('atNominaView');hist.classList.toggle('hidden',view!=='historial');nom.classList.toggle('hidden',view!=='nomina');tabAtHist.classList.toggle('active',view==='historial');tabAtNom.classList.toggle('active',view==='nomina');if(view==='nomina')loadAtendedores();else loadAtNotes()}function openNomina(){showAtSub('nomina')}function toggleAtForm(){const opening=atFormCard.classList.contains('hidden');if(opening)resetAtForm();atFormCard.classList.toggle('hidden')}function toggleAtNoteForm(){const opening=atNoteFormCard.classList.contains('hidden');if(opening)resetAtNoteForm();atNoteFormCard.classList.toggle('hidden');fillNoteWorkers()}async function loadDesempeno(){await loadAtendedores();await loadAtNotes();showAtSub('historial')}function fillNoteWorkers(){if(!document.getElementById('noteTrabajador'))return;noteTrabajador.innerHTML='<option value="">Seleccionar trabajador</option>'+atendedores.filter(a=>(a.estado||'Activo')==='Activo').map(a=>`<option value="${a.id}">${a.nombre} · ${a.rut}</option>`).join('')}async function loadAtNotes(){const {data,error}=await client.from('anotaciones_desempeno_at').select('*, atendedores_nomina(nombre,rut,foto_url)').order('fecha_anotacion',{ascending:false});if(error){noteRows.innerHTML='<div class="notice error">Error cargando anotaciones: '+error.message+'</div>';return}atNotes=data||[];if(!selectedNote)selectedNote=atNotes[0];renderAtNotes()}function renderAtNotes(){let q=(noteSearch?.value||'').toLowerCase(),f=(noteFilter?.value||'Todos');let list=atNotes.filter(n=>(f==='Todos'||n.tipo===f)&&`${n.titulo||''} ${n.detalle||''} ${n.categoria||''} ${n.responsable||''} ${n.atendedores_nomina?.nombre||''} ${n.atendedores_nomina?.rut||''}`.toLowerCase().includes(q));noteRows.innerHTML=list.map(n=>`<div class="row ${selectedNote&&selectedNote.id===n.id?'selected':''}" onclick="selectAtNote(${n.id})"><div>${fmt(n.fecha_anotacion)}</div><div><div class="title">${n.atendedores_nomina?.nombre||'Trabajador no asignado'}</div><div class="sub">${n.titulo||'-'} · ${n.categoria||'-'}</div></div><div>${badge(n.tipo)}</div><div>${n.responsable||'-'}</div></div>`).join('')||'<div class="notice">Sin anotaciones registradas.</div>';renderAtNoteDetail()}function selectAtNote(id){selectedNote=atNotes.find(n=>n.id===id);renderAtNotes()}function renderAtNoteDetail(){const n=selectedNote;if(!n){noteDetail.innerHTML='<h2>Ficha de anotación</h2><p>Selecciona una anotación.</p>';return}noteDetail.innerHTML=`<h2>${n.titulo||'Anotación'}</h2>${badge(n.tipo)}<div class="kv"><small>Trabajador</small>${n.atendedores_nomina?.nombre||'-'} · ${n.atendedores_nomina?.rut||'-'}</div><div class="kv"><small>Fecha / Responsable</small>${fmt(n.fecha_anotacion)} · ${n.responsable||'-'}</div><div class="kv"><small>Categoría</small>${n.categoria||'-'}</div><div class="kv"><small>Detalle</small>${n.detalle||'-'}</div><div class="kv"><small>Acción / Seguimiento</small>${n.accion||'-'}</div><div class="kv"><small>Respaldo</small>${n.archivo_url?`<a href="${n.archivo_url}" target="_blank">Ver archivo</a>`:'Sin archivo'}</div><div class="notice">Registro creado: ${fmt(n.created_at)}. Este histórico queda disponible para auditoría futura.</div>`}async function createAtNote(){let archivo_url=null,archivo_nombre=null;const file=noteArchivo.files[0];if(file){const path=`desempeno-at/anotaciones/${Date.now()}_${file.name}`;const up=await client.storage.from(bucket).upload(path,file,{upsert:true});if(up.error){noteMsg.innerHTML='<div class="notice error">'+up.error.message+'</div>';return}archivo_url=client.storage.from(bucket).getPublicUrl(path).data.publicUrl;archivo_nombre=file.name}const payload={trabajador_id:noteTrabajador.value||null,tipo:noteTipo.value,fecha_anotacion:noteFecha.value||new Date().toISOString(),responsable:noteResponsable.value||'Jefe de Protocolo y Servicio',titulo:noteTitulo.value.trim(),categoria:noteCategoria.value,detalle:noteDetalle.value,accion:noteAccion.value,archivo_url,archivo_nombre};if(!payload.trabajador_id||!payload.titulo){noteMsg.innerHTML='<div class="notice error">Falta trabajador o título.</div>';return}const {error}=await client.from('anotaciones_desempeno_at').insert(payload);if(error){noteMsg.innerHTML='<div class="notice error">'+error.message+'</div>';return}noteMsg.innerHTML='<div class="notice ok">Anotación guardada.</div>';noteTitulo.value=noteDetalle.value=noteAccion.value=noteArchivo.value='';await loadAtNotes()}async function loadAtendedores(){const {data,error}=await client.from('atendedores_nomina').select('*').order('nombre',{ascending:true});if(error){if(document.getElementById('atRows'))atRows.innerHTML='<div class="notice error">Error cargando nómina: '+error.message+'</div>';return}atendedores=data||[];if(!selectedAt)selectedAt=atendedores[0];fillNoteWorkers();renderAtendedores()}function renderAtendedores(){if(!document.getElementById('atRows'))return;let q=(atSearch?.value||'').toLowerCase();let list=atendedores.filter(a=>`${a.nombre||''} ${a.rut||''} ${a.estado||'Activo'}`.toLowerCase().includes(q));atRows.innerHTML=list.map(a=>{const estado=a.estado||'Activo';return `<div class="row ${selectedAt&&selectedAt.id===a.id?'selected':''}" onclick="selectAtendedor(${a.id})"><div>${a.foto_url?`<img src="${a.foto_url}" class="zoomable-photo" onclick="event.stopPropagation();openPhotoModal('${a.foto_url}','${(a.nombre||'Atendedor').replace(/'/g,'')}')" style="width:46px;height:46px;border-radius:14px;object-fit:cover">`:'👤'}</div><div><div class="title">${a.nombre||'-'} ${estado==='Inactivo'?'<span class="badge b-rechazado" style="margin-left:8px">Inactivo</span>':'<span class="badge b-aprobado" style="margin-left:8px">Activo</span>'}</div><div class="sub">Ingresado al sistema: ${fmt(a.created_at)}</div></div><div>${a.rut||'-'}</div><div>${a.fecha_ingreso||'-'}</div><div>${canEditAtendedor()?`<button class="secondary" onclick="event.stopPropagation();editAtendedor(${a.id})">Editar</button>`:`<span class="badge b-revision">Sin edición</span>`}</div></div>`}).join('')||'<div class="notice">Sin trabajadores registrados.</div>';renderAtDetail()}function selectAtendedor(id){selectedAt=atendedores.find(a=>a.id===id);renderAtendedores()}function renderAtDetail(){if(!document.getElementById('atDetail'))return;const a=selectedAt;if(!a){atDetail.innerHTML='<h2>Ficha trabajador</h2><p>Selecciona un trabajador de la nómina.</p>';return}const total=atNotes.filter(n=>n.trabajador_id===a.id).length;const pos=atNotes.filter(n=>n.trabajador_id===a.id&&n.tipo==='Positiva').length;const neg=atNotes.filter(n=>n.trabajador_id===a.id&&n.tipo==='Negativa').length;const estado=a.estado||'Activo';atDetail.innerHTML=`<h2>${a.nombre||'Trabajador'}</h2><span class="badge ${estado==='Inactivo'?'b-rechazado':'b-aprobado'}">${estado}</span><div class="kv"><small>Foto</small>${a.foto_url?`<img src="${a.foto_url}" class="zoomable-photo" onclick="openPhotoModal('${a.foto_url}','${(a.nombre||'Atendedor').replace(/'/g,'')}')" style="width:180px;height:180px;border-radius:28px;object-fit:cover">`:'Sin foto cargada'}</div><div class="kv"><small>RUT</small>${a.rut||'-'}</div><div class="kv"><small>Fecha de ingreso a la EDS</small>${a.fecha_ingreso||'-'}</div><div class="kv"><small>Estado</small>${estado}</div><div class="kv"><small>Historial desempeño</small>${total} anotaciones · ${pos} positivas · ${neg} negativas</div><div class="kv"><small>Creado en sistema</small>${fmt(a.created_at)}</div><div class="actions">${canEditAtendedor()?`<button class="secondary" onclick="editAtendedor(${a.id})">Editar ingreso</button><button class="secondary" onclick="toggleEstadoAtendedor(${a.id})">${estado==='Inactivo'?'Reactivar trabajador':'Desactivar trabajador'}</button><button class="secondary" style="color:#991b1b;border-color:#fecaca" onclick="deleteAtendedor(${a.id})">Eliminar registro</button>`:''}<button class="primary" onclick="exportFichaAtPdf(${a.id})">Descargar ficha PDF</button></div>`}function editAtendedor(id){if(!canEditAtendedor()){alert('Este usuario no tiene permiso para editar trabajadores.');return;}const a=atendedores.find(x=>x.id===id);if(!a)return;selectedAt=a;editandoAtendedor=id;atNombre.value=a.nombre||'';atRut.value=a.rut||'';atFechaIngreso.value=a.fecha_ingreso||'';atFoto.value='';atFormCard.classList.remove('hidden');atFormCard.scrollIntoView({behavior:'smooth',block:'start'});const h=atFormCard.querySelector('h2');if(h)h.textContent='Editar ingreso trabajador';const saveBtn=atFormCard.querySelector('button.primary');if(saveBtn)saveBtn.textContent='Guardar cambios';}
 
 function cancelEditAtendedor(){editandoAtendedor=null;atNombre.value=atRut.value=atFechaIngreso.value='';atFoto.value='';const h=atFormCard.querySelector('h2');if(h)h.textContent='Ingresar trabajador';const saveBtn=atFormCard.querySelector('button.primary');if(saveBtn)saveBtn.textContent='Guardar trabajador';}
 
-async function createAtendedor(){if(!requireAction(editandoAtendedor?'editar':'crear',editandoAtendedor?'No tienes permiso para editar registros.':'No tienes permiso para crear registros.'))return;let foto_url=null,foto_nombre=null;const file=atFoto.files[0];if(!requireFileAction(file))return;const current=editandoAtendedor?atendedores.find(a=>a.id===editandoAtendedor):null;if(file){const rutTmp=(atRut.value.trim()||'sin_rut').replace(/[^a-zA-Z0-9_-]/g,'_');const path=`desempeno-at/${rutTmp}/${Date.now()}_${file.name}`;const up=await client.storage.from(bucket).upload(path,file,{upsert:true});if(up.error){atMsg.innerHTML='<div class="notice error">'+up.error.message+'</div>';return}foto_url=client.storage.from(bucket).getPublicUrl(path).data.publicUrl;foto_nombre=file.name}else if(current){foto_url=current.foto_url||null;foto_nombre=current.foto_nombre||null}const payload={nombre:atNombre.value.trim(),rut:atRut.value.trim(),fecha_ingreso:atFechaIngreso.value||null,foto_url,foto_nombre,estado:current&&current.estado?current.estado:'Activo',updated_at:new Date().toISOString()};if(!payload.nombre||!payload.rut){atMsg.innerHTML='<div class="notice error">Falta nombre o RUT.</div>';return}let error;if(editandoAtendedor){if(!canEditAtendedor()){atMsg.innerHTML='<div class="notice error">Este usuario no tiene permiso para editar trabajadores.</div>';return;}({error}=await client.from('atendedores_nomina').update(payload).eq('id',editandoAtendedor));}else{({error}=await client.from('atendedores_nomina').insert(payload));}if(error){atMsg.innerHTML='<div class="notice error">'+error.message+'</div>';return}atMsg.innerHTML=`<div class="notice ok">${editandoAtendedor?'Trabajador actualizado.':'Trabajador guardado.'}</div>`;editandoAtendedor=null;atNombre.value=atRut.value=atFechaIngreso.value='';atFoto.value='';const h=atFormCard.querySelector('h2');if(h)h.textContent='Ingresar trabajador';const saveBtn=atFormCard.querySelector('button.primary');if(saveBtn)saveBtn.textContent='Guardar trabajador';await loadAtendedores()}
+async function createAtendedor(){let foto_url=null,foto_nombre=null;const file=atFoto.files[0];const current=editandoAtendedor?atendedores.find(a=>a.id===editandoAtendedor):null;if(file){const rutTmp=(atRut.value.trim()||'sin_rut').replace(/[^a-zA-Z0-9_-]/g,'_');const path=`desempeno-at/${rutTmp}/${Date.now()}_${file.name}`;const up=await client.storage.from(bucket).upload(path,file,{upsert:true});if(up.error){atMsg.innerHTML='<div class="notice error">'+up.error.message+'</div>';return}foto_url=client.storage.from(bucket).getPublicUrl(path).data.publicUrl;foto_nombre=file.name}else if(current){foto_url=current.foto_url||null;foto_nombre=current.foto_nombre||null}const payload={nombre:atNombre.value.trim(),rut:atRut.value.trim(),fecha_ingreso:atFechaIngreso.value||null,foto_url,foto_nombre,estado:current&&current.estado?current.estado:'Activo',updated_at:new Date().toISOString()};if(!payload.nombre||!payload.rut){atMsg.innerHTML='<div class="notice error">Falta nombre o RUT.</div>';return}let error;if(editandoAtendedor){if(!canEditAtendedor()){atMsg.innerHTML='<div class="notice error">Este usuario no tiene permiso para editar trabajadores.</div>';return;}({error}=await client.from('atendedores_nomina').update(payload).eq('id',editandoAtendedor));}else{({error}=await client.from('atendedores_nomina').insert(payload));}if(error){atMsg.innerHTML='<div class="notice error">'+error.message+'</div>';return}atMsg.innerHTML=`<div class="notice ok">${editandoAtendedor?'Trabajador actualizado.':'Trabajador guardado.'}</div>`;editandoAtendedor=null;atNombre.value=atRut.value=atFechaIngreso.value='';atFoto.value='';const h=atFormCard.querySelector('h2');if(h)h.textContent='Ingresar trabajador';const saveBtn=atFormCard.querySelector('button.primary');if(saveBtn)saveBtn.textContent='Guardar trabajador';await loadAtendedores()}
 
 
 function openPhotoModal(url,nombre){
@@ -1011,7 +920,7 @@ function resetUsuarioForm(){
   usrRol.value='Consulta';
   [
     platWeb,platAdminMobile,platDesempenoMobile,platTicketMobile,
-    permSEC,permBitacora,permVNA,permDesempeno,permTicket,permUsuarios,permNomina,permHistorialAnotaciones,
+    permSEC,permBitacora,permVNA,permEstafas,permDesempeno,permTicket,permUsuarios,permNomina,permHistorialAnotaciones,
     actCrear,actEditar,actEliminar,actDesactivar,actSubirArchivos,actCambiarEstado
   ].forEach(x=>x.checked=false);
   usrMsg.innerHTML='';
@@ -1026,57 +935,62 @@ function toggleUsuarioForm(){
 }
 
 function permisosFromForm(){
-  const plataformas=[];
-  const modulos=[];
-  const acciones=[];
-
-  if(platWeb.checked)plataformas.push('web');
-  if(platAdminMobile.checked)plataformas.push('admin_mobile');
-  if(platDesempenoMobile.checked)plataformas.push('desempeno_mobile');
-  if(platTicketMobile.checked)plataformas.push('ticket_mobile');
-
-  if(permSEC.checked)modulos.push('sec');
-  if(permBitacora.checked)modulos.push('bitacora');
-  if(permVNA.checked)modulos.push('vna');
-  if(permDesempeno.checked)modulos.push('desempeno');
-  if(permTicket.checked)modulos.push('ticket_atendedor');
-  if(permUsuarios.checked)modulos.push('usuarios');
-  if(permNomina.checked)modulos.push('nomina');
-  if(permHistorialAnotaciones.checked)modulos.push('historial_anotaciones');
-
-  if(actCrear.checked)acciones.push('crear');
-  if(actEditar.checked)acciones.push('editar');
-  if(actEliminar.checked)acciones.push('eliminar');
-  if(actDesactivar.checked)acciones.push('desactivar');
-  if(actSubirArchivos.checked)acciones.push('subir_archivos');
-  if(actCambiarEstado.checked)acciones.push('cambiar_estado');
-
-  return {plataformas,modulos,acciones};
+  return {
+    plataformas:{
+      web:platWeb.checked,
+      admin_mobile:platAdminMobile.checked,
+      desempeno_mobile:platDesempenoMobile.checked,
+      ticket_mobile:platTicketMobile.checked
+    },
+    modulos:{
+      sec:permSEC.checked,
+      bitacora:permBitacora.checked,
+      vna:permVNA.checked,
+      estafas:permEstafas.checked,
+      desempeno:permDesempeno.checked,
+      ticket_atendedor:permTicket.checked,
+      usuarios:permUsuarios.checked,
+      nomina:permNomina.checked,
+      historial_anotaciones:permHistorialAnotaciones.checked
+    },
+    acciones:{
+      crear:actCrear.checked,
+      editar:actEditar.checked,
+      eliminar:actEliminar.checked,
+      desactivar:actDesactivar.checked,
+      subir_archivos:actSubirArchivos.checked,
+      cambiar_estado:actCambiarEstado.checked
+    }
+  };
 }
 
 function setPermisosForm(p){
-  p=normalizePermisos(p||{});
+  p=p||{};
+  const plataformas=p.plataformas||p;
+  const modulos=p.modulos||p;
+  const acciones=p.acciones||p;
 
-  platWeb.checked=!!p.plataformas.web;
-  platAdminMobile.checked=!!p.plataformas.admin_mobile;
-  platDesempenoMobile.checked=!!p.plataformas.desempeno_mobile;
-  platTicketMobile.checked=!!p.plataformas.ticket_mobile;
+  platWeb.checked=!!plataformas.web;
+  platAdminMobile.checked=!!plataformas.admin_mobile;
+  platDesempenoMobile.checked=!!plataformas.desempeno_mobile;
+  platTicketMobile.checked=!!plataformas.ticket_mobile;
 
-  permSEC.checked=!!p.modulos.sec;
-  permBitacora.checked=!!p.modulos.bitacora;
-  permVNA.checked=!!p.modulos.vna;
-  permDesempeno.checked=!!p.modulos.desempeno;
-  permTicket.checked=!!p.modulos.ticket_atendedor;
-  permUsuarios.checked=!!p.modulos.usuarios;
-  permNomina.checked=!!p.modulos.nomina;
-  permHistorialAnotaciones.checked=!!p.modulos.historial_anotaciones;
+  permSEC.checked=!!modulos.sec;
+  permBitacora.checked=!!modulos.bitacora;
+  permVNA.checked=!!modulos.vna;
+  permEstafas.checked=!!modulos.estafas;
+  permDesempeno.checked=!!modulos.desempeno;
+  permTicket.checked=!!modulos.ticket_atendedor;
+  permUsuarios.checked=!!modulos.usuarios;
+  permNomina.checked=!!modulos.nomina;
+  permHistorialAnotaciones.checked=!!modulos.historial_anotaciones;
 
-  actCrear.checked=!!p.acciones.crear;
-  actEditar.checked=!!p.acciones.editar;
-  actEliminar.checked=!!p.acciones.eliminar;
-  actDesactivar.checked=!!p.acciones.desactivar;
-  actSubirArchivos.checked=!!p.acciones.subir_archivos;
-  actCambiarEstado.checked=!!p.acciones.cambiar_estado;
+  actCrear.checked=!!acciones.crear;
+  actEditar.checked=!!acciones.editar;
+  actEliminar.checked=!!acciones.eliminar;
+  actDesactivar.checked=!!acciones.desactivar;
+  actSubirArchivos.checked=!!acciones.subir_archivos;
+  actCambiarEstado.checked=!!acciones.cambiar_estado;
 }
 
 async function loadUsuariosConfig(){
@@ -1107,10 +1021,10 @@ function selectUsuarioConfig(id){
 function renderUsuarioDetail(){
   const u=selectedUsuario;
   if(!u){usrDetail.innerHTML='<h2>Ficha de usuario</h2><p>Selecciona un usuario.</p>';return}
-  const p=normalizePermisos(u.permisos||{});
-  const plataformas=p.plataformas;
-  const modulos=p.modulos;
-  const acciones=p.acciones;
+  const p=u.permisos||{};
+  const plataformas=p.plataformas||p;
+  const modulos=p.modulos||p;
+  const acciones=p.acciones||p;
 
   const block=(title,arr)=>`<h3>${title}</h3>${arr.map(x=>`<div class="kv"><small>${x[0]}</small>${x[1]?'✅ Permitido':'❌ Sin acceso'}</div>`).join('')}`;
 
@@ -1128,6 +1042,7 @@ function renderUsuarioDetail(){
     ['Validador SEC',modulos.sec],
     ['Bitácora',modulos.bitacora],
     ['Ventas No Abonadas',modulos.vna],
+    ['Estafas / Perros muertos',modulos.estafas],
     ['Desempeño AT',modulos.desempeno],
     ['Ticket Atendedor',modulos.ticket_atendedor],
     ['Usuarios y Permisos',modulos.usuarios],
@@ -1143,12 +1058,12 @@ function renderUsuarioDetail(){
     ['Cambiar estado',acciones.cambiar_estado]
   ])}
   <div class="actions">
-    <button class="secondary" data-action="editar" onclick="editUsuarioConfig(${u.id})">Editar permisos</button>
-    <button class="secondary" style="color:#991b1b;border-color:#fecaca" data-action="desactivar" onclick="toggleUsuarioEstado(${u.id})">${u.estado==='Activo'?'Desactivar':'Activar'} usuario</button>
+    <button class="secondary" onclick="editUsuarioConfig(${u.id})">Editar permisos</button>
+    <button class="secondary" style="color:#991b1b;border-color:#fecaca" onclick="toggleUsuarioEstado(${u.id})">${u.estado==='Activo'?'Desactivar':'Activar'} usuario</button>
   </div>`;
 }
 
-function editUsuarioConfig(id){if(!requireAction('editar','No tienes permiso para editar usuarios.'))return;
+function editUsuarioConfig(id){
   const u=usuariosConfig.find(x=>x.id===id);
   if(!u)return;
   window.editandoUsuarioConfig=id;
@@ -1164,7 +1079,7 @@ function editUsuarioConfig(id){if(!requireAction('editar','No tienes permiso par
   usuarioFormCard.scrollIntoView({behavior:'smooth',block:'start'});
 }
 
-async function saveUsuarioConfig(){if(!requireAction(window.editandoUsuarioConfig?'editar':'crear',window.editandoUsuarioConfig?'No tienes permiso para editar usuarios.':'No tienes permiso para crear usuarios.'))return;
+async function saveUsuarioConfig(){
   const usuario=usrUsuario.value.trim().toLowerCase();
   const nombre=usrNombre.value.trim();
   const password=usrPassword.value.trim();
@@ -1194,7 +1109,7 @@ async function saveUsuarioConfig(){if(!requireAction(window.editandoUsuarioConfi
   await loadUsuariosConfig();
 }
 
-async function toggleUsuarioEstado(id){if(!requireAction('desactivar','No tienes permiso para activar/desactivar usuarios.'))return;
+async function toggleUsuarioEstado(id){
   const u=usuariosConfig.find(x=>x.id===id);
   if(!u)return;
   const nuevo=u.estado==='Activo'?'Inactivo':'Activo';
@@ -1332,27 +1247,27 @@ function renderTicketAtDetail(){
   <div class="kv"><small>Archivo inicial</small>${t.archivo_url?`<a href="${t.archivo_url}" target="_blank">Ver respaldo inicial</a>`:'Sin archivo'}</div>
   <h3>Cambiar estado</h3>
   <div class="actions">
-    <button class="secondary" data-action="cambiar_estado" onclick="quickTicketStatus(${t.id},'En Proceso')">En Proceso</button>
-    <button class="secondary" data-action="cambiar_estado" onclick="quickTicketStatus(${t.id},'Aprobado')">Aprobado</button>
-    <button class="secondary" data-action="cambiar_estado" onclick="quickTicketStatus(${t.id},'Rechazado')">Rechazado</button>
-    <button class="secondary" data-action="cambiar_estado" onclick="quickTicketStatus(${t.id},'Atendido')">Atendido</button>
+    <button class="secondary" onclick="quickTicketStatus(${t.id},'En Proceso')">En Proceso</button>
+    <button class="secondary" onclick="quickTicketStatus(${t.id},'Aprobado')">Aprobado</button>
+    <button class="secondary" onclick="quickTicketStatus(${t.id},'Rechazado')">Rechazado</button>
+    <button class="secondary" onclick="quickTicketStatus(${t.id},'Atendido')">Atendido</button>
   </div>
   <h3>Agregar comentario / archivo adicional</h3>
   <div class="form">
     <input id="ticketHistAccion" placeholder="Título del avance o comentario"/>
     <textarea id="ticketHistComentario" placeholder="Comentario adicional. No borra el ticket original."></textarea>
     <input id="ticketHistArchivo" type="file" accept=".jpg,.jpeg,.png,.webp,.pdf,image/jpeg,image/png,image/webp,image/*,.xlsx,.xls"/>
-    <button class="primary" data-action="crear" onclick="addTicketComment(${t.id})">Agregar al historial</button>
+    <button class="primary" onclick="addTicketComment(${t.id})">Agregar al historial</button>
     <div id="ticketHistMsg"></div>
   </div>
   <hr>
   <h3>Historial del ticket</h3>
   <div class="timeline">${ticketAtHist.map(h=>`<div class="item"><h4>${h.accion}</h4><small>${fmt(h.created_at)} · ${h.usuario||'-'} · ${h.estado||''}</small><p>${h.comentario||''}</p>${h.archivo_url?`<a href="${h.archivo_url}" target="_blank">Ver archivo</a>`:''}</div>`).join('')||'<p class="muted">Sin comentarios adicionales.</p>'}</div>
-  <div class="actions"><button class="secondary" data-action="editar" onclick="editTicketAt(${t.id})">Editar datos principales</button></div>
+  <div class="actions"><button class="secondary" onclick="editTicketAt(${t.id})">Editar datos principales</button></div>
   <div class="notice">Última modificación: ${fmt(t.updated_at||t.created_at)}</div>`;
 }
 
-function editTicketAt(id){if(!requireAction('editar','No tienes permiso para editar tickets.'))return;
+function editTicketAt(id){
   const t=ticketsAt.find(x=>x.id===id);
   if(!t)return;
   fillTicketWorkers();
@@ -1373,12 +1288,12 @@ function editTicketAt(id){if(!requireAction('editar','No tienes permiso para edi
   ticketAtFormCard.scrollIntoView({behavior:'smooth',block:'start'});
 }
 
-async function createTicketAt(){if(!requireAction(window.editandoTicketAt?'editar':'crear',window.editandoTicketAt?'No tienes permiso para editar tickets.':'No tienes permiso para crear tickets.'))return;
+async function createTicketAt(){
   const trabajador_id=ticketAtendedor.value||null;
   const titulo=ticketTitulo.value.trim();
   if(!trabajador_id||!titulo){ticketMsg.innerHTML='<div class="notice error">Falta atendedor o título.</div>';return}
   let archivo_url=null,archivo_nombre=null;
-  const file=ticketArchivo.files[0];if(!requireFileAction(file))return;
+  const file=ticketArchivo.files[0];
   const current=window.editandoTicketAt?ticketsAt.find(t=>t.id===window.editandoTicketAt):null;
   if(file){
     const path=`ticket-atendedor/${trabajador_id}/${Date.now()}_${safeFileName(file.name)}`;
@@ -1409,7 +1324,7 @@ async function createTicketAt(){if(!requireAction(window.editandoTicketAt?'edita
   await loadTicketAt();
 }
 
-async function quickTicketStatus(id,estado){if(!requireAction('cambiar_estado','No tienes permiso para cambiar estados.'))return;
+async function quickTicketStatus(id,estado){
   const t=ticketsAt.find(x=>x.id===id);
   if(!t)return;
   const comentario=`Cambio de estado: ${t.estado||'Ingresado'} → ${estado}`;
@@ -1421,13 +1336,12 @@ async function quickTicketStatus(id,estado){if(!requireAction('cambiar_estado','
   await selectTicketAt(id);
 }
 
-async function addTicketComment(id){if(!requireAction('crear','No tienes permiso para agregar comentarios.'))return;
+async function addTicketComment(id){
   const accion=(ticketHistAccion.value||'Comentario adicional').trim();
   const comentario=(ticketHistComentario.value||'').trim();
   if(!comentario&&!ticketHistArchivo.files[0]){ticketHistMsg.innerHTML='<div class="notice error">Ingresa comentario o archivo.</div>';return}
   let archivo_url=null,archivo_nombre=null;
   const file=ticketHistArchivo.files[0];
-  if(!requireFileAction(file))return;
   if(file){
     const path=`ticket-atendedor/historial/${id}/${Date.now()}_${safeFileName(file.name)}`;
     const up=await client.storage.from(bucket).upload(path,file,{upsert:true});
@@ -1443,7 +1357,7 @@ async function addTicketComment(id){if(!requireAction('crear','No tienes permiso
   await loadTicketAtHist(id);
   renderTicketAtDetail();
 }
-async function toggleEstadoAtendedor(id){if(!requireAction('desactivar','No tienes permiso para desactivar/reactivar trabajadores.'))return;
+async function toggleEstadoAtendedor(id){
   if(!isAdmin()){alert('Solo el administrador puede desactivar o reactivar trabajadores.');return}
   const a=atendedores.find(x=>x.id===id);
   if(!a)return;
@@ -1456,7 +1370,7 @@ async function toggleEstadoAtendedor(id){if(!requireAction('desactivar','No tien
   await loadAtendedores();
 }
 
-async function deleteAtendedor(id){if(!requireAction('eliminar','No tienes permiso para eliminar registros.'))return;
+async function deleteAtendedor(id){
   if(!isAdmin()){alert('Solo el administrador puede eliminar registros.');return}
   const a=atendedores.find(x=>x.id===id);
   if(!a)return;
@@ -1574,42 +1488,32 @@ setInterval(()=>{try{if(currentUser&&document.getElementById('app')&&!document.g
 /* RECUPERACION LOGIN ESTABLE */
 
 function hasPerm(mod){
-  return canModule(mod);
+  if(!currentUser)return false;
+  if(currentUser.usuario==='gabrielarancibia'||currentUser.rol==='admin')return true;
+  return !!(currentUser.permisos&&currentUser.permisos[mod]);
 }
-function hasModule(mod){return canModule(mod)}
+function hasModule(mod){return hasPerm(mod)}
 function canAction(a){
-  return canActionPerm(a);
+  if(!currentUser)return false;
+  if(currentUser.usuario==='gabrielarancibia'||currentUser.rol==='admin')return true;
+  return !!(currentUser.permisos&&currentUser.permisos[a]);
 }
 function applyModulePermissions(){
   const map=[
     ['nav-sec','sec'],
-    ['nav-bitacora','bitacora'],
+    ['nav-bit','bitacora'],
     ['nav-vna','vna'],
+    ['nav-estafas','estafas'],
+    ['nav-at','desempeno'],
     ['nav-ticketat','ticket_atendedor'],
     ['nav-usuarios','usuarios']
   ];
   map.forEach(([id,mod])=>{
     const el=document.getElementById(id);
-    if(el)el.style.display=canModule(mod)?'block':'none';
-  });
-
-  const nomina=document.getElementById('nav-nomina');
-  if(nomina){
-    nomina.style.display=(canModule('nomina')||canModule('desempeno')||canModule('historial_anotaciones'))?'block':'none';
-  }
-
-  const configGroup=document.getElementById('nav-config-group');
-  if(configGroup){
-    const visible=[...configGroup.querySelectorAll('.dropdown button')].some(b=>b.style.display!=='none');
-    configGroup.style.display=visible?'block':'none';
-  }
-}
-function applyActionPermissions(){
-  document.querySelectorAll('[data-action]').forEach(el=>{
-    const action=el.getAttribute('data-action');
-    el.style.display=canActionPerm(action)?'':'none';
+    if(el)el.style.display=hasPerm(mod)?'block':'none';
   });
 }
+function applyActionPermissions(){}
 
 window.addEventListener('load',()=>restoreLocalSession());
 </script>
