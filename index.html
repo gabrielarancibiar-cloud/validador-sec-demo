@@ -50,7 +50,8 @@ function applyModulePermissions(){
     ['nav-bitacora','bitacora'],
     ['nav-vna','vna'],
     ['nav-ticketat','ticket_atendedor'],
-    ['nav-estafas','estafas']
+    ['nav-estafas','estafas'],
+    ['nav-formatos','formatos']
   ];
   directMap.forEach(([id,mod])=>{
     const el=document.getElementById(id);
@@ -108,6 +109,7 @@ function applyModulePermissions(){
     ['nav-vna','vna'],
     ['nav-ticketat','ticket_atendedor'],
     ['nav-estafas','estafas'],
+    ['nav-formatos','formatos'],
     ['nav-usuarios','usuarios']
   ];
   map.forEach(([id,mod])=>{
@@ -354,6 +356,13 @@ body:before{
 .dash-sub b{color:#0b2f5b;font-weight:950}
 
 .sec-reset-btn{padding:8px 12px!important;font-size:12px!important;border-radius:999px!important;white-space:nowrap!important}
+
+
+/* Formatos EDS */
+.formatos .thead,.formatos .row{grid-template-columns:1.35fr 160px 170px 190px 230px}
+.file-pill{display:inline-flex;align-items:center;gap:7px;border-radius:999px;padding:7px 11px;background:#eff6ff;color:#0b3b91;font-weight:900;border:1px solid #c7ddff;font-size:12px}
+.formatos-empty{padding:18px;color:#64748b;font-weight:800}
+
 </style>
 </head>
 <body>
@@ -380,6 +389,8 @@ body:before{
   <button id="nav-ticketat" data-modulo="ticket_atendedor" onclick="showModule('ticketat')">Ticket Atendedor <span id="ticketNotifBadge" class="notif-badge hidden">0</span></button>
 
   <button id="nav-estafas" data-modulo="estafas" onclick="showModule('estafas')">Estafas</button>
+
+  <button id="nav-formatos" data-modulo="formatos" onclick="showModule('formatos')">Formatos</button>
 
   <button id="nav-nomina" data-modulo="nomina" onclick="showModule('at')">Nómina</button>
 
@@ -411,6 +422,7 @@ body:before{
       <button data-modulo="desempeno" onclick="showModule('at')"><span>◔</span>Desempeño</button>
       <button data-modulo="ticket_atendedor" onclick="showModule('ticketat')"><span>◆</span>Ticket<br>Atendedor</button>
       <button data-modulo="estafas" onclick="showModule('estafas')"><span>⚠</span>Estafas<br>Perros muertos</button>
+      <button data-modulo="formatos" onclick="showModule('formatos')"><span>▤</span>Formatos<br>EDS</button>
       <button data-modulo="nomina" onclick="showModule('at');setTimeout(()=>showAtSub('nomina'),100)"><span>👥</span>Nómina</button>
       <button data-modulo="historial_anotaciones" onclick="showModule('at');setTimeout(()=>showAtSub('historial'),100)"><span>◷</span>Historial<br>Anotaciones</button>
       <button data-modulo="usuarios" onclick="showModule('usuarios')"><span>⚙</span>Configuración</button>
@@ -546,6 +558,43 @@ body:before{
   </div>
 </section>
 
+
+<section id="formatos" class="section">
+  <div class="topbar">
+    <div>
+      <h1>Formatos EDS</h1>
+      <p>Repositorio de documentos de uso habitual para la estación. Permite cargar, reemplazar y descargar archivos PDF, Word, Excel u otros formatos.</p>
+    </div>
+    <button class="primary" data-action="subir_archivos" onclick="openFormatoModal()">Cargar formato</button>
+  </div>
+
+  <div class="grid content">
+    <div class="card">
+      <h2>Formatos disponibles</h2>
+      <div class="toolbar two">
+        <input id="formatoSearch" oninput="renderFormatos()" placeholder="Buscar por nombre, categoría o descripción"/>
+        <select id="formatoFilter" onchange="renderFormatos()">
+          <option>Todos</option>
+          <option>Administración</option>
+          <option>Operación</option>
+          <option>Personal</option>
+          <option>Seguridad</option>
+          <option>Clientes</option>
+          <option>Otros</option>
+        </select>
+      </div>
+      <div class="table formatos">
+        <div class="thead"><div>Documento</div><div>Categoría</div><div>Archivo</div><div>Actualizado</div><div>Acciones</div></div>
+        <div id="formatoRows"></div>
+      </div>
+    </div>
+    <div class="card detail" id="formatoDetail">
+      <h2>Detalle del formato</h2>
+      <p>Selecciona un documento o carga un nuevo formato.</p>
+    </div>
+  </div>
+</section>
+
 <section id="usuarios" class="section">
   <div class="topbar">
     <div>
@@ -579,6 +628,7 @@ body:before{
       <label><input id="permBitacora" type="checkbox"> Bitácora Estación</label><br>
       <label><input id="permVNA" type="checkbox"> Ventas No Abonadas</label><br>
       <label><input id="permEstafas" type="checkbox"> Estafas / Perros muertos</label><br>
+      <label><input id="permFormatos" type="checkbox"> Formatos EDS</label><br>
       <label><input id="permDesempeno" type="checkbox"> Desempeño AT</label><br>
       <label><input id="permTicket" type="checkbox"> Ticket Atendedor</label><br>
       <label><input id="permUsuarios" type="checkbox"> Usuarios y Permisos</label><br>
@@ -670,11 +720,43 @@ body:before{
   </div>
 </div>
 
+
+
+<div id="formatoModal" class="modal">
+  <div class="modal-box">
+    <h2 id="formatoModalTitle">Cargar formato EDS</h2>
+    <input id="fmtId" type="hidden"/>
+    <div class="form two">
+      <input id="fmtNombre" placeholder="Nombre del documento"/>
+      <select id="fmtCategoria">
+        <option>Administración</option>
+        <option>Operación</option>
+        <option>Personal</option>
+        <option>Seguridad</option>
+        <option>Clientes</option>
+        <option>Otros</option>
+      </select>
+    </div>
+    <div class="form">
+      <textarea id="fmtDescripcion" placeholder="Descripción breve / uso del formato"></textarea>
+      <label>Archivo formato</label>
+      <input id="fmtArchivo" type="file" accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.jpg,.jpeg,.png,.webp,.txt,.csv,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,image/*"/>
+      <label>Validación requerida</label>
+      <input id="fmtClave" type="password" placeholder="Ingresa la clave de tu sesión para confirmar la carga"/>
+    </div>
+    <div class="actions">
+      <button class="primary" data-action="subir_archivos" onclick="saveFormato()">Guardar formato</button>
+      <button class="secondary" onclick="closeFormatoModal()">Cancelar</button>
+    </div>
+    <div id="fmtMsg"></div>
+  </div>
+</div>
+
 <div id="progressModal" class="modal"><div class="modal-box"><h2 id="progressTitle">Agregar avance</h2><div class="form two"><input id="pTitulo" placeholder="Título del avance"/><input id="pUsuario" placeholder="Usuario / responsable"/><select id="pEtapa"><option>Ingresado</option><option>Documentación y respaldo</option><option>Aprobado</option><option>Rechazado</option></select><select id="pResolucion"><option>Pendiente</option><option>Abono por Portal Concesionario</option><option>Cliente paga en oficina</option><option>Rechazado por VALEPAC</option></select></div><div class="form"><textarea id="pComentario" placeholder="Comentario / respaldo / progreso"></textarea><input id="pArchivo" type="file" accept=".pdf,image/*,.xlsx,.xls"/></div><div class="actions"><button class="primary" data-action="cambiar_estado" onclick="saveVnaProgress()">Guardar avance</button><button class="secondary" onclick="closeProgress()">Cancelar</button></div><div id="pMsg"></div></div></div>
 <script>
 const SUPABASE_URL='https://emyskqnsyspzjrguycjk.supabase.co';
 const SUPABASE_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVteXNrcW5zeXNwempyZ3V5Y2prIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzk5MDg5NDcsImV4cCI6MjA5NTQ4NDk0N30.bLCSwgLCop1Gg4rCbunFe4YCP_KHxIIFGF28vR0XD-0';
-const client=supabase.createClient(SUPABASE_URL,SUPABASE_KEY);const bucket='documentos-sec';let docs=[],bits=[],bitHist=[],vnas=[],history=[],estafas=[],estafaHist=[],selectedEstafa=null,editandoEstafa=null,atendedores=[],atNotes=[],atNoteHist=[],ticketsAt=[],ticketAtHist=[],selectedDoc=null,selectedBit=null,selectedVna=null,selectedAt=null,selectedNote=null,selectedTicketAt=null,editandoAtendedor=null,currentUser=null,usuariosConfig=[],selectedUsuario=null;
+const client=supabase.createClient(SUPABASE_URL,SUPABASE_KEY);const bucket='documentos-sec';let docs=[],bits=[],bitHist=[],vnas=[],history=[],estafas=[],estafaHist=[],selectedEstafa=null,editandoEstafa=null,formatos=[],selectedFormato=null,atendedores=[],atNotes=[],atNoteHist=[],ticketsAt=[],ticketAtHist=[],selectedDoc=null,selectedBit=null,selectedVna=null,selectedAt=null,selectedNote=null,selectedTicketAt=null,editandoAtendedor=null,currentUser=null,usuariosConfig=[],selectedUsuario=null;
 
 function roleLabel(){
   const r=String(currentUser?.rol||'Usuario').trim();
@@ -843,7 +925,7 @@ function normalizePermisos(p){
   }
 
   // Compatibilidad con permisos antiguos planos
-  ['sec','bitacora','vna','estafas','desempeno','ticket_atendedor','ticket','usuarios','nomina','historial_anotaciones'].forEach(k=>{
+  ['sec','bitacora','vna','estafas','formatos','desempeno','ticket_atendedor','ticket','usuarios','nomina','historial_anotaciones'].forEach(k=>{
     if(p[k]===true)norm.modulos[k]=true;
   });
   ['crear','editar','eliminar','desactivar','subir_archivos','cambiar_estado'].forEach(k=>{
@@ -934,7 +1016,7 @@ function showModule(m){
     loadDashboard();
     return;
   }
-  const mapPerm={sec:'sec',bitacora:'bitacora',vna:'vna',estafas:'estafas',at:'desempeno',ticketat:'ticket_atendedor',usuarios:'usuarios'};
+  const mapPerm={sec:'sec',bitacora:'bitacora',vna:'vna',estafas:'estafas',formatos:'formatos',at:'desempeno',ticketat:'ticket_atendedor',formatos:'formatos',usuarios:'usuarios'};
   const perm=mapPerm[m]||m;
 
   if(!canModule(perm)){
@@ -960,10 +1042,11 @@ function showModule(m){
   if(m==='bitacora')loadBitacora();
   if(m==='vna')loadVna();
   if(m==='estafas')loadEstafas();
+  if(m==='formatos')loadFormatos();
   if(m==='at')loadDesempeno();
   if(m==='ticketat')loadTicketAt();
   if(m==='usuarios')loadUsuariosConfig();
-}async function loadAll(){await loadDashboard();await loadDocuments();await loadBitacora();await loadVna();await loadEstafas();await loadDesempeno()}function fmt(d){if(!d)return '-';return new Date(d).toLocaleString('es-CL',{dateStyle:'short',timeStyle:'short'})}function money(v){return v?Number(v).toLocaleString('es-CL',{style:'currency',currency:'CLP'}):'-'}function badge(s){let c='b-pendiente';if(s==='Vigente')c='b-vigente';if(s==='Por vencer')c='b-vencer';if(s==='Vencido')c='b-vencido';if(s==='No cargado')c='b-nocargado';if(s==='En Proceso')c='b-revision';if(s==='Ingresado')c='b-ingresado';if(s==='Documentación y respaldo')c='b-doc';if(s==='Aprobado')c='b-aprobado';if(s==='Rechazado')c='b-rechazado';if(s==='Baja')c='b-baja';if(s==='Media')c='b-media';if(s==='Alta')c='b-alta';if(s==='Positiva')c='b-aprobado';if(s==='Negativa')c='b-rechazado';if(s==='Neutra')c='b-revision';return `<span class="badge ${c}">${s||'Pendiente'}</span>`}function daysLeft(d){if(!d)return null;const a=new Date();a.setHours(0,0,0,0);const b=new Date(d);b.setHours(0,0,0,0);return Math.ceil((b-a)/86400000)}function calcStatus(d,alertDays,hasFile){if(!hasFile)return 'No cargado';if(!d)return 'En Proceso';const rest=daysLeft(d);if(rest<0)return 'Vencido';if(rest<=Number(alertDays||30))return 'Por vencer';return 'Vigente'}
+}async function loadAll(){await loadDashboard();await loadDocuments();await loadBitacora();await loadVna();await loadEstafas();await loadFormatos();await loadDesempeno()}function fmt(d){if(!d)return '-';return new Date(d).toLocaleString('es-CL',{dateStyle:'short',timeStyle:'short'})}function money(v){return v?Number(v).toLocaleString('es-CL',{style:'currency',currency:'CLP'}):'-'}function badge(s){let c='b-pendiente';if(s==='Vigente')c='b-vigente';if(s==='Por vencer')c='b-vencer';if(s==='Vencido')c='b-vencido';if(s==='No cargado')c='b-nocargado';if(s==='En Proceso')c='b-revision';if(s==='Ingresado')c='b-ingresado';if(s==='Documentación y respaldo')c='b-doc';if(s==='Aprobado')c='b-aprobado';if(s==='Rechazado')c='b-rechazado';if(s==='Baja')c='b-baja';if(s==='Media')c='b-media';if(s==='Alta')c='b-alta';if(s==='Positiva')c='b-aprobado';if(s==='Negativa')c='b-rechazado';if(s==='Neutra')c='b-revision';return `<span class="badge ${c}">${s||'Pendiente'}</span>`}function daysLeft(d){if(!d)return null;const a=new Date();a.setHours(0,0,0,0);const b=new Date(d);b.setHours(0,0,0,0);return Math.ceil((b-a)/86400000)}function calcStatus(d,alertDays,hasFile){if(!hasFile)return 'No cargado';if(!d)return 'En Proceso';const rest=daysLeft(d);if(rest<0)return 'Vencido';if(rest<=Number(alertDays||30))return 'Por vencer';return 'Vigente'}
 async function loadDocuments(){const {data,error}=await client.from('documentos').select('*').order('numero_indice');if(error){docRows.innerHTML='<div class="notice error">Error cargando documentos: '+error.message+'</div>';return}docs=(data||[]).sort((a,b)=>{
   const parse=(v)=>String(v||'0').split('.').map(x=>parseInt(x,10)||0);
   const [a1,a2=0]=parse(a.numero_indice);
@@ -1279,6 +1362,131 @@ function safeFileName(name){
 }
 
 
+
+async function loadFormatos(){
+  if(!document.getElementById('formatoRows'))return;
+  const {data,error}=await client.from('formatos_eds').select('*').order('nombre_documento',{ascending:true});
+  if(error){
+    formatoRows.innerHTML='<div class="notice error">Error cargando Formatos EDS. Ejecuta primero el SQL del módulo. Detalle: '+error.message+'</div>';
+    return;
+  }
+  formatos=data||[];
+  if(!selectedFormato)selectedFormato=formatos[0]||null;
+  renderFormatos();
+}
+
+function renderFormatos(){
+  if(!document.getElementById('formatoRows'))return;
+  const q=(formatoSearch?.value||'').toLowerCase();
+  const f=formatoFilter?.value||'Todos';
+  const list=formatos.filter(x=>(f==='Todos'||x.categoria===f)&&`${x.nombre_documento||''} ${x.descripcion||''} ${x.categoria||''} ${x.archivo_nombre||''}`.toLowerCase().includes(q));
+  formatoRows.innerHTML=list.map(x=>`<div class="row ${selectedFormato&&selectedFormato.id===x.id?'selected':''}" onclick="selectFormato(${x.id})">
+    <div><div class="title">${x.nombre_documento||'-'}</div><div class="sub">${x.descripcion||'Sin descripción'}</div></div>
+    <div>${x.categoria||'Otros'}</div>
+    <div>${x.archivo_url?`<span class="file-pill">${x.archivo_nombre||'Archivo cargado'}</span>`:'<span class="badge b-nocargado">Sin archivo</span>'}</div>
+    <div>${fmt(x.updated_at||x.created_at)}</div>
+    <div class="actions" style="margin:0">
+      ${x.archivo_url?`<button class="secondary" onclick="event.stopPropagation();downloadFormato(${x.id})">Descargar</button>`:''}
+      <button class="secondary" data-action="subir_archivos" onclick="event.stopPropagation();openFormatoModal(${x.id})">${x.archivo_url?'Reemplazar':'Cargar'}</button>
+    </div>
+  </div>`).join('')||'<div class="formatos-empty">Sin formatos cargados.</div>';
+  renderFormatoDetail();
+  try{applyActionPermissions()}catch(e){}
+}
+
+function selectFormato(id){
+  selectedFormato=formatos.find(x=>x.id===id)||null;
+  renderFormatos();
+}
+
+function renderFormatoDetail(){
+  const x=selectedFormato;
+  if(!x){
+    formatoDetail.innerHTML='<h2>Detalle del formato</h2><p>Selecciona un documento o carga un nuevo formato.</p>';
+    return;
+  }
+  formatoDetail.innerHTML=`<h2>${x.nombre_documento||'Formato EDS'}</h2>
+    <div class="kv"><small>Categoría</small>${x.categoria||'Otros'}</div>
+    <div class="kv"><small>Descripción</small>${x.descripcion||'-'}</div>
+    <div class="kv"><small>Archivo</small>${x.archivo_url?`<a href="${x.archivo_url}" target="_blank">${x.archivo_nombre||'Descargar archivo'}</a>`:'Sin archivo cargado'}</div>
+    <div class="kv"><small>Actualizado por</small>${x.uploaded_by||'-'} · ${fmt(x.updated_at||x.created_at)}</div>
+    <div class="actions">
+      ${x.archivo_url?`<button class="primary" onclick="downloadFormato(${x.id})">Descargar</button>`:''}
+      <button class="secondary" data-action="subir_archivos" onclick="openFormatoModal(${x.id})">${x.archivo_url?'Reemplazar archivo':'Cargar archivo'}</button>
+    </div>`;
+}
+
+function openFormatoModal(id=null){
+  if(!requireAction('subir_archivos','No tienes permiso para cargar formatos.'))return;
+  const x=id?formatos.find(f=>f.id===id):null;
+  fmtId.value=x?.id||'';
+  fmtNombre.value=x?.nombre_documento||'';
+  fmtCategoria.value=x?.categoria||'Operación';
+  fmtDescripcion.value=x?.descripcion||'';
+  fmtArchivo.value='';
+  fmtClave.value='';
+  fmtMsg.innerHTML='';
+  formatoModalTitle.textContent=x?'Actualizar formato EDS':'Cargar formato EDS';
+  formatoModal.classList.add('open');
+}
+
+function closeFormatoModal(){
+  formatoModal.classList.remove('open');
+}
+
+async function validarClaveSesion(clave){
+  if(!currentUser?.usuario||!clave)return false;
+  const {data,error}=await client.from('usuarios_portal').select('id').eq('usuario',currentUser.usuario).eq('password',clave).eq('estado','Activo').maybeSingle();
+  if(error){console.error(error);return false}
+  return !!data;
+}
+
+async function saveFormato(){
+  if(!requireAction('subir_archivos','No tienes permiso para cargar formatos.'))return;
+  const id=fmtId.value?Number(fmtId.value):null;
+  const nombre=fmtNombre.value.trim();
+  const categoria=fmtCategoria.value;
+  const descripcion=fmtDescripcion.value.trim();
+  const file=fmtArchivo.files[0];
+  const clave=fmtClave.value.trim();
+  if(!nombre){fmtMsg.innerHTML='<div class="notice error">Ingresa el nombre del documento.</div>';return}
+  if(!id&&!file){fmtMsg.innerHTML='<div class="notice error">Para crear un formato debes cargar un archivo.</div>';return}
+  if(!clave){fmtMsg.innerHTML='<div class="notice error">Ingresa la clave de tu sesión para validar la carga.</div>';return}
+  fmtMsg.innerHTML='<div class="notice">Validando clave...</div>';
+  const ok=await validarClaveSesion(clave);
+  if(!ok){fmtMsg.innerHTML='<div class="notice error">Clave incorrecta. No se realizó la carga.</div>';return}
+
+  let payload={nombre_documento:nombre,categoria,descripcion,uploaded_by:currentUser?.nombre||currentUser?.usuario||'Usuario',updated_at:new Date().toISOString()};
+  if(file){
+    if(!requireFileAction(file))return;
+    const path=`formatos-eds/${Date.now()}_${safeFileName(file.name)}`;
+    const up=await client.storage.from(bucket).upload(path,file,{upsert:true});
+    if(up.error){fmtMsg.innerHTML='<div class="notice error">No se pudo subir archivo: '+up.error.message+'</div>';return}
+    payload.archivo_url=client.storage.from(bucket).getPublicUrl(path).data.publicUrl;
+    payload.archivo_nombre=file.name;
+    payload.archivo_tipo=file.type||'';
+    payload.archivo_size=file.size||0;
+  }
+
+  let result;
+  if(id){
+    result=await client.from('formatos_eds').update(payload).eq('id',id).select().single();
+  }else{
+    result=await client.from('formatos_eds').insert(payload).select().single();
+  }
+  if(result.error){fmtMsg.innerHTML='<div class="notice error">'+result.error.message+'</div>';return}
+  selectedFormato=result.data;
+  fmtMsg.innerHTML='<div class="notice ok">Formato guardado correctamente.</div>';
+  closeFormatoModal();
+  await loadFormatos();
+}
+
+function downloadFormato(id){
+  const x=formatos.find(f=>f.id===id);
+  if(!x?.archivo_url){alert('Este formato no tiene archivo cargado.');return}
+  window.open(x.archivo_url,'_blank');
+}
+
 function resetUsuarioForm(){
   window.editandoUsuarioConfig=null;
   usrUsuario.value='';
@@ -1288,7 +1496,7 @@ function resetUsuarioForm(){
   usrRol.value='Consulta';
   [
     platWeb,platAdminMobile,platDesempenoMobile,platTicketMobile,
-    permSEC,permBitacora,permVNA,permEstafas,permDesempeno,permTicket,permUsuarios,permNomina,permHistorialAnotaciones,
+    permSEC,permBitacora,permVNA,permEstafas,permFormatos,permDesempeno,permTicket,permUsuarios,permNomina,permHistorialAnotaciones,
     actCrear,actEditar,actEliminar,actDesactivar,actSubirArchivos,actCambiarEstado
   ].forEach(x=>x.checked=false);
   usrMsg.innerHTML='';
@@ -1316,6 +1524,7 @@ function permisosFromForm(){
   if(permBitacora.checked)modulos.push('bitacora');
   if(permVNA.checked)modulos.push('vna');
   if(permEstafas.checked)modulos.push('estafas');
+  if(permFormatos.checked)modulos.push('formatos');
   if(permDesempeno.checked)modulos.push('desempeno');
   if(permTicket.checked)modulos.push('ticket_atendedor');
   if(permUsuarios.checked)modulos.push('usuarios');
@@ -1344,6 +1553,7 @@ function setPermisosForm(p){
   permBitacora.checked=!!p.modulos.bitacora;
   permVNA.checked=!!p.modulos.vna;
   permEstafas.checked=!!p.modulos.estafas;
+  permFormatos.checked=!!p.modulos.formatos;
   permDesempeno.checked=!!p.modulos.desempeno;
   permTicket.checked=!!p.modulos.ticket_atendedor;
   permUsuarios.checked=!!p.modulos.usuarios;
@@ -1408,6 +1618,7 @@ function renderUsuarioDetail(){
     ['Bitácora',modulos.bitacora],
     ['Ventas No Abonadas',modulos.vna],
     ['Estafas / Perros muertos',modulos.estafas],
+    ['Formatos EDS',modulos.formatos],
     ['Desempeño AT',modulos.desempeno],
     ['Ticket Atendedor',modulos.ticket_atendedor],
     ['Usuarios y Permisos',modulos.usuarios],
@@ -2336,6 +2547,7 @@ function applyModulePermissions(){
     ['nav-vna','vna'],
     ['nav-ticketat','ticket_atendedor'],
     ['nav-estafas','estafas'],
+    ['nav-formatos','formatos'],
     ['nav-usuarios','usuarios']
   ];
   map.forEach(([id,mod])=>{
