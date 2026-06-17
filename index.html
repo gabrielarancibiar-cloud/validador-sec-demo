@@ -363,6 +363,8 @@ body:before{
 .file-pill{display:inline-flex;align-items:center;gap:7px;border-radius:999px;padding:7px 11px;background:#eff6ff;color:#0b3b91;font-weight:900;border:1px solid #c7ddff;font-size:12px}
 .formatos-empty{padding:18px;color:#64748b;font-weight:800}
 
+.sec-files-list{display:grid;gap:10px;margin-top:10px}.sec-file-item{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 14px;border:1px solid rgba(148,163,184,.28);border-radius:16px;background:rgba(248,251,255,.78)}.sec-file-item a{font-weight:950}.sec-file-meta{font-size:12px;color:#64748b;font-weight:800;margin-top:3px}.sec-upload-note{font-size:12px;color:#64748b;font-weight:800;margin-top:-4px}
+
 </style>
 </head>
 <body>
@@ -756,7 +758,7 @@ body:before{
 <script>
 const SUPABASE_URL='https://emyskqnsyspzjrguycjk.supabase.co';
 const SUPABASE_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVteXNrcW5zeXNwempyZ3V5Y2prIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzk5MDg5NDcsImV4cCI6MjA5NTQ4NDk0N30.bLCSwgLCop1Gg4rCbunFe4YCP_KHxIIFGF28vR0XD-0';
-const client=supabase.createClient(SUPABASE_URL,SUPABASE_KEY);const bucket='documentos-sec';let docs=[],bits=[],bitHist=[],vnas=[],history=[],estafas=[],estafaHist=[],selectedEstafa=null,editandoEstafa=null,formatos=[],selectedFormato=null,atendedores=[],atNotes=[],atNoteHist=[],ticketsAt=[],ticketAtHist=[],selectedDoc=null,selectedBit=null,selectedVna=null,selectedAt=null,selectedNote=null,selectedTicketAt=null,editandoAtendedor=null,currentUser=null,usuariosConfig=[],selectedUsuario=null;
+const client=supabase.createClient(SUPABASE_URL,SUPABASE_KEY);const bucket='documentos-sec';let docs=[],secFilesByDoc={},bits=[],bitHist=[],vnas=[],history=[],estafas=[],estafaHist=[],selectedEstafa=null,editandoEstafa=null,formatos=[],selectedFormato=null,atendedores=[],atNotes=[],atNoteHist=[],ticketsAt=[],ticketAtHist=[],selectedDoc=null,selectedBit=null,selectedVna=null,selectedAt=null,selectedNote=null,selectedTicketAt=null,editandoAtendedor=null,currentUser=null,usuariosConfig=[],selectedUsuario=null;
 
 function roleLabel(){
   const r=String(currentUser?.rol||'Usuario').trim();
@@ -1047,15 +1049,126 @@ function showModule(m){
   if(m==='ticketat')loadTicketAt();
   if(m==='usuarios')loadUsuariosConfig();
 }async function loadAll(){await loadDashboard();await loadDocuments();await loadBitacora();await loadVna();await loadEstafas();await loadFormatos();await loadDesempeno()}function fmt(d){if(!d)return '-';return new Date(d).toLocaleString('es-CL',{dateStyle:'short',timeStyle:'short'})}function money(v){return v?Number(v).toLocaleString('es-CL',{style:'currency',currency:'CLP'}):'-'}function badge(s){let c='b-pendiente';if(s==='Vigente')c='b-vigente';if(s==='Por vencer')c='b-vencer';if(s==='Vencido')c='b-vencido';if(s==='No cargado')c='b-nocargado';if(s==='En Proceso')c='b-revision';if(s==='Ingresado')c='b-ingresado';if(s==='Documentación y respaldo')c='b-doc';if(s==='Aprobado')c='b-aprobado';if(s==='Rechazado')c='b-rechazado';if(s==='Baja')c='b-baja';if(s==='Media')c='b-media';if(s==='Alta')c='b-alta';if(s==='Positiva')c='b-aprobado';if(s==='Negativa')c='b-rechazado';if(s==='Neutra')c='b-revision';return `<span class="badge ${c}">${s||'Pendiente'}</span>`}function daysLeft(d){if(!d)return null;const a=new Date();a.setHours(0,0,0,0);const b=new Date(d);b.setHours(0,0,0,0);return Math.ceil((b-a)/86400000)}function calcStatus(d,alertDays,hasFile){if(!hasFile)return 'No cargado';if(!d)return 'En Proceso';const rest=daysLeft(d);if(rest<0)return 'Vencido';if(rest<=Number(alertDays||30))return 'Por vencer';return 'Vigente'}
-async function loadDocuments(){const {data,error}=await client.from('documentos').select('*').order('numero_indice');if(error){docRows.innerHTML='<div class="notice error">Error cargando documentos: '+error.message+'</div>';return}docs=(data||[]).sort((a,b)=>{
-  const parse=(v)=>String(v||'0').split('.').map(x=>parseInt(x,10)||0);
-  const [a1,a2=0]=parse(a.numero_indice);
-  const [b1,b2=0]=parse(b.numero_indice);
-  if(a1!==b1)return a1-b1;
-  return a2-b2;
-});if(!selectedDoc)selectedDoc=docs[0];renderDocs()}function renderDocs(){const q=docSearch.value.toLowerCase(),f=docStatus.value;const list=docs.filter(d=>(f==='Todos'||d.estado===f)&&`${d.numero_indice} ${d.nombre} ${d.categoria} ${d.responsable}`.toLowerCase().includes(q));const count=s=>docs.filter(d=>d.estado===s).length;secStats.innerHTML=`<div class="card stat"><p>Total</p><h3>${docs.length}</h3></div><div class="card stat"><p>Vigentes</p><h3>${count('Vigente')}</h3></div><div class="card stat"><p>Por vencer</p><h3>${count('Por vencer')}</h3></div><div class="card stat"><p>Vencidos</p><h3>${count('Vencido')}</h3></div><div class="card stat"><p>No cargados</p><h3>${count('No cargado')}</h3></div>`;docRows.innerHTML=list.map(d=>`<div class="row ${selectedDoc&&selectedDoc.id===d.id?'selected':''}" onclick="selectDoc(${d.id})"><div>${d.numero_indice}</div><div><div class="title">${d.nombre}</div><div class="sub">${d.responsable||'-'} · Vence: ${d.fecha_vencimiento||'Sin fecha'}</div></div><div>${d.categoria}</div><div>${badge(d.estado)}</div><div><button type="button" class="secondary sec-reset-btn" data-action="editar" onclick="event.stopPropagation();resetDocStatus(${d.id})">Reiniciar</button></div></div>`).join('')||'<div class="notice">Sin resultados.</div>';renderDocDetail()}function selectDoc(id){selectedDoc=docs.find(d=>d.id===id);renderDocs()}function renderDocDetail(){const d=selectedDoc;if(!d){docDetail.innerHTML='<p>Selecciona un documento.</p>';return}const dl=daysLeft(d.fecha_vencimiento);docDetail.innerHTML=`<h2>${d.nombre}</h2>${badge(d.estado)}<div class="kv"><small>Categoría</small>${d.categoria}</div><div class="kv"><small>Responsable</small>${d.responsable||'-'}</div><div class="kv"><small>Vencimiento</small>${d.fecha_vencimiento||'Sin fecha'} ${dl!==null?`· ${dl} días`:''}</div><div class="kv"><small>Archivo</small>${d.archivo_url?`<a href="${d.archivo_url}" target="_blank">Ver archivo</a>`:'No cargado'}</div><div class="kv"><small>Observación</small>${d.observacion||'-'}</div><hr><h3>Cargar PDF</h3><div class="form"><input id="pdf_${d.id}" type="file" accept="application/pdf"/><label>Fecha de vencimiento</label><input id="due_${d.id}" type="date" value="${d.fecha_vencimiento||''}"/><label>Días de alerta</label><input id="alert_${d.id}" type="number" value="${d.dias_alerta||30}"/></div><div class="actions"><button class="primary" data-action="subir_archivos" onclick="uploadDocPdf(${d.id})">Cargar PDF</button><button class="secondary" style="color:#991b1b;border-color:#fecaca" data-action="editar" onclick="resetDocStatus(${d.id})">Reiniciar a No cargado</button></div><div id="docMsg"></div>`}async function uploadDocPdf(id){if(!requireAction('subir_archivos','No tienes permiso para subir archivos.'))return;const file=document.getElementById('pdf_'+id).files[0],due=document.getElementById('due_'+id).value,alertDays=document.getElementById('alert_'+id).value||30;if(!file){docMsg.innerHTML='<div class="notice error">Selecciona un PDF.</div>';return}if(!due){docMsg.innerHTML='<div class="notice error">Ingresa fecha de vencimiento.</div>';return}const path=`sec/${id}_${Date.now()}_${file.name}`;const up=await client.storage.from(bucket).upload(path,file,{upsert:true});if(up.error){docMsg.innerHTML='<div class="notice error">'+up.error.message+'</div>';return}const url=client.storage.from(bucket).getPublicUrl(path).data.publicUrl;const estado=calcStatus(due,alertDays,true),rest=daysLeft(due),alerta=estado==='Por vencer'||estado==='Vencido';const {error}=await client.from('documentos').update({archivo_url:url,archivo_nombre:file.name,fecha_vencimiento:due,dias_alerta:Number(alertDays),dias_restantes:rest,alerta_activa:alerta,estado,updated_at:new Date().toISOString()}).eq('id',id);if(error){docMsg.innerHTML='<div class="notice error">'+error.message+'</div>';return}docMsg.innerHTML='<div class="notice ok">PDF cargado.</div>';selectedDoc=null;await loadDocuments()}
+async function loadDocuments(){
+  const {data,error}=await client.from('documentos').select('*').order('numero_indice');
+  if(error){docRows.innerHTML='<div class="notice error">Error cargando documentos: '+error.message+'</div>';return}
 
-async function resetDocStatus(id){if(!requireAction('editar','No tienes permiso para reiniciar documentos SEC.'))return;const d=docs.find(x=>x.id===id);const nombre=d?.nombre||'este documento';if(!confirm(`¿Reiniciar ${nombre} a estado No cargado?`))return;if(!confirm('Confirmación final: se limpiará el archivo, vencimiento, alerta y estado vigente. Esta acción no elimina el archivo del storage, pero lo desvincula del registro.'))return;const payload={archivo_url:null,archivo_nombre:null,fecha_vencimiento:null,dias_restantes:null,alerta_activa:false,estado:'No cargado',updated_at:new Date().toISOString()};const {error}=await client.from('documentos').update(payload).eq('id',id);if(error){alert('Error reiniciando documento: '+error.message);return}await loadDocuments();selectedDoc=docs.find(x=>x.id===id)||selectedDoc;renderDocs();const msg=document.getElementById('docMsg');if(msg)msg.innerHTML='<div class="notice ok">Documento reiniciado a No cargado.</div>';await loadDashboard();}
+  docs=(data||[]).sort((a,b)=>{
+    const parse=(v)=>String(v||'0').split('.').map(x=>parseInt(x,10)||0);
+    const [a1,a2=0]=parse(a.numero_indice);
+    const [b1,b2=0]=parse(b.numero_indice);
+    if(a1!==b1)return a1-b1;
+    return a2-b2;
+  });
+
+  secFilesByDoc={};
+  try{
+    const fr=await client.from('documentos_archivos').select('*').order('created_at',{ascending:false});
+    if(!fr.error){
+      (fr.data||[]).forEach(f=>{
+        const k=String(f.documento_id);
+        if(!secFilesByDoc[k])secFilesByDoc[k]=[];
+        secFilesByDoc[k].push(f);
+      });
+    }
+  }catch(e){
+    console.warn('Tabla documentos_archivos no disponible todavía',e);
+  }
+
+  if(!selectedDoc)selectedDoc=docs[0];
+  renderDocs();
+}
+
+function renderDocs(){
+  const q=docSearch.value.toLowerCase(),f=docStatus.value;
+  const list=docs.filter(d=>(f==='Todos'||d.estado===f)&&`${d.numero_indice} ${d.nombre} ${d.categoria} ${d.responsable}`.toLowerCase().includes(q));
+  const count=s=>docs.filter(d=>d.estado===s).length;
+  secStats.innerHTML=`<div class="card stat"><p>Total</p><h3>${docs.length}</h3></div><div class="card stat"><p>Vigentes</p><h3>${count('Vigente')}</h3></div><div class="card stat"><p>Por vencer</p><h3>${count('Por vencer')}</h3></div><div class="card stat"><p>Vencidos</p><h3>${count('Vencido')}</h3></div><div class="card stat"><p>No cargados</p><h3>${count('No cargado')}</h3></div>`;
+  docRows.innerHTML=list.map(d=>{
+    const archivos=(secFilesByDoc[String(d.id)]||[]).length + (d.archivo_url?1:0);
+    return `<div class="row ${selectedDoc&&selectedDoc.id===d.id?'selected':''}" onclick="selectDoc(${d.id})"><div>${d.numero_indice}</div><div><div class="title">${d.nombre}</div><div class="sub">${d.responsable||'-'} · Vence: ${d.fecha_vencimiento||'Sin fecha'} · Archivos: ${archivos}</div></div><div>${d.categoria}</div><div>${badge(d.estado)}</div><div><button type="button" class="secondary sec-reset-btn" data-action="editar" onclick="event.stopPropagation();resetDocStatus(${d.id})">Reiniciar</button></div></div>`;
+  }).join('')||'<div class="notice">Sin resultados.</div>';
+  renderDocDetail();
+}
+
+function selectDoc(id){
+  selectedDoc=docs.find(d=>d.id===id);
+  renderDocs();
+}
+
+function renderDocDetail(){
+  const d=selectedDoc;
+  if(!d){docDetail.innerHTML='<p>Selecciona un documento.</p>';return}
+  const dl=daysLeft(d.fecha_vencimiento);
+  const archivosNuevos=secFilesByDoc[String(d.id)]||[];
+  const archivoPrincipal=d.archivo_url?`<div class="sec-file-item"><div><a href="${d.archivo_url}" target="_blank">${d.archivo_nombre||'Archivo principal'}</a><div class="sec-file-meta">Archivo principal del registro · ${d.fecha_vencimiento?`Vence: ${d.fecha_vencimiento}`:'Sin vencimiento'}</div></div></div>`:'';
+  const listaArchivos=(archivoPrincipal + archivosNuevos.map(f=>`<div class="sec-file-item"><div><a href="${f.archivo_url}" target="_blank">${f.archivo_nombre||'Archivo'}</a><div class="sec-file-meta">${f.usuario||'Usuario'} · ${fmt(f.created_at)} ${f.fecha_vencimiento?`· Vence: ${f.fecha_vencimiento}`:''}</div></div></div>`).join('')) || '<div class="notice">Este ítem aún no tiene archivos cargados.</div>';
+
+  docDetail.innerHTML=`<h2>${d.nombre}</h2>${badge(d.estado)}<div class="kv"><small>Categoría</small>${d.categoria}</div><div class="kv"><small>Responsable</small>${d.responsable||'-'}</div><div class="kv"><small>Vencimiento general</small>${d.fecha_vencimiento||'Sin fecha'} ${dl!==null?`· ${dl} días`:''}</div><div class="kv"><small>Archivos cargados</small><div class="sec-files-list">${listaArchivos}</div></div><div class="kv"><small>Observación</small>${d.observacion||'-'}</div><hr><h3>Cargar archivos</h3><p class="sec-upload-note">Puedes seleccionar varios archivos para un mismo ítem. Ejemplo: hoja de seguridad Gas 93, Gas 95, Gas 97 y Diesel.</p><div class="form"><input id="pdf_${d.id}" type="file" multiple accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.jpg,.jpeg,.png,.webp,.txt,.csv,application/pdf,image/*"/><label>Fecha de vencimiento general</label><input id="due_${d.id}" type="date" value="${d.fecha_vencimiento||''}"/><label>Días de alerta</label><input id="alert_${d.id}" type="number" value="${d.dias_alerta||30}"/></div><div class="actions"><button class="primary" data-action="subir_archivos" onclick="uploadDocPdf(${d.id})">Cargar archivo(s)</button><button class="secondary" style="color:#991b1b;border-color:#fecaca" data-action="editar" onclick="resetDocStatus(${d.id})">Reiniciar a No cargado</button></div><div id="docMsg"></div>`;
+}
+
+async function uploadDocPdf(id){
+  if(!requireAction('subir_archivos','No tienes permiso para subir archivos.'))return;
+  const input=document.getElementById('pdf_'+id);
+  const files=Array.from(input.files||[]);
+  const due=document.getElementById('due_'+id).value;
+  const alertDays=document.getElementById('alert_'+id).value||30;
+  if(!files.length){docMsg.innerHTML='<div class="notice error">Selecciona uno o más archivos.</div>';return}
+  if(!due){docMsg.innerHTML='<div class="notice error">Ingresa fecha de vencimiento.</div>';return}
+
+  docMsg.innerHTML='<div class="notice">Subiendo archivos...</div>';
+  let lastUrl=null,lastName=null;
+  for(const file of files){
+    const path=`sec/${id}/${Date.now()}_${safeFileName(file.name)}`;
+    const up=await client.storage.from(bucket).upload(path,file,{upsert:true});
+    if(up.error){docMsg.innerHTML='<div class="notice error">No se pudo subir '+file.name+': '+up.error.message+'</div>';return}
+    const url=client.storage.from(bucket).getPublicUrl(path).data.publicUrl;
+    lastUrl=url;lastName=file.name;
+    const ins=await client.from('documentos_archivos').insert({
+      documento_id:id,
+      archivo_url:url,
+      archivo_nombre:file.name,
+      archivo_path:path,
+      mime_type:file.type||null,
+      size_bytes:file.size||null,
+      fecha_vencimiento:due,
+      dias_alerta:Number(alertDays),
+      usuario:currentUser?.nombre||currentUser?.usuario||'Usuario'
+    });
+    if(ins.error){
+      docMsg.innerHTML='<div class="notice error">Archivo subido, pero no se pudo registrar en el historial múltiple. Ejecuta el SQL de documentos_archivos. Detalle: '+ins.error.message+'</div>';
+      return;
+    }
+  }
+
+  const estado=calcStatus(due,alertDays,true),rest=daysLeft(due),alerta=estado==='Por vencer'||estado==='Vencido';
+  const {error}=await client.from('documentos').update({archivo_url:lastUrl,archivo_nombre:lastName,fecha_vencimiento:due,dias_alerta:Number(alertDays),dias_restantes:rest,alerta_activa:alerta,estado,updated_at:new Date().toISOString()}).eq('id',id);
+  if(error){docMsg.innerHTML='<div class="notice error">'+error.message+'</div>';return}
+  docMsg.innerHTML='<div class="notice ok">Archivo(s) cargado(s) correctamente.</div>';
+  selectedDoc=docs.find(x=>x.id===id)||selectedDoc;
+  await loadDocuments();
+  selectedDoc=docs.find(x=>x.id===id)||selectedDoc;
+  renderDocs();
+  await loadDashboard();
+}
+
+async function resetDocStatus(id){
+  if(!requireAction('editar','No tienes permiso para reiniciar documentos SEC.'))return;
+  const d=docs.find(x=>x.id===id);
+  const nombre=d?.nombre||'este documento';
+  if(!confirm(`¿Reiniciar ${nombre} a estado No cargado?`))return;
+  if(!confirm('Confirmación final: se limpiará el estado, vencimiento general y los archivos asociados del registro. Los archivos pueden quedar en storage, pero serán desvinculados del ítem.'))return;
+  try{await client.from('documentos_archivos').delete().eq('documento_id',id);}catch(e){console.warn(e)}
+  const payload={archivo_url:null,archivo_nombre:null,fecha_vencimiento:null,dias_restantes:null,alerta_activa:false,estado:'No cargado',updated_at:new Date().toISOString()};
+  const {error}=await client.from('documentos').update(payload).eq('id',id);
+  if(error){alert('Error reiniciando documento: '+error.message);return}
+  await loadDocuments();
+  selectedDoc=docs.find(x=>x.id===id)||selectedDoc;
+  renderDocs();
+  const msg=document.getElementById('docMsg');
+  if(msg)msg.innerHTML='<div class="notice ok">Documento reiniciado a No cargado.</div>';
+  await loadDashboard();
+}
 
 
 function resetBitForm(){
