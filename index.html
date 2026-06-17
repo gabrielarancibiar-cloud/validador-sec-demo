@@ -393,6 +393,7 @@ body:before{
       <div class="dash-card"><div class="dash-icon">☷</div><div><h3 id="dashBits">0</h3><p>Bitácoras</p></div></div>
       <div class="dash-card"><div class="dash-icon">⌁</div><div><h3 id="dashVna">0</h3><p>VNA</p></div></div>
       <div class="dash-card"><div class="dash-icon">◆</div><div><h3 id="dashTickets">0</h3><p>Tickets Atendedor</p></div></div>
+      <div class="dash-card" data-modulo="estafas"><div class="dash-icon">⚠</div><div><h3 id="dashEstafasMonto">$0</h3><p>Monto Estafas</p></div></div>
     </div>
     <hr>
     <h2>Accesos rápidos</h2>
@@ -693,20 +694,29 @@ async function countTable(table){
   return 0;
 }
 
+async function sumTableColumn(table,column){
+  const res=await client.from(table).select(column);
+  if(res.error || !Array.isArray(res.data))return 0;
+  return res.data.reduce((acc,row)=>acc+(Number(row[column])||0),0);
+}
+
 async function loadDashboard(){
   try{updateSessionVisual()}catch(e){}
   try{
-    const [docCount,bitCount,vnaCount,ticketCount]=await Promise.all([
+    const [docCount,bitCount,vnaCount,ticketCount,estafasMonto]=await Promise.all([
       countTable('documentos'),
       countTable('bitacora_eventos'),
       countTable('ventas_no_abonadas'),
-      countTable('tickets_atendedor')
+      countTable('tickets_atendedor'),
+      sumTableColumn('estafas_perros_muertos','monto')
     ]);
     const set=(id,val)=>{const el=document.getElementById(id);if(el)el.textContent=Number(val||0).toLocaleString('es-CL')};
+    const setMoney=(id,val)=>{const el=document.getElementById(id);if(el)el.textContent=Number(val||0).toLocaleString('es-CL',{style:'currency',currency:'CLP',maximumFractionDigits:0})};
     set('dashDocs',docCount);
     set('dashBits',bitCount);
     set('dashVna',vnaCount);
     set('dashTickets',ticketCount);
+    setMoney('dashEstafasMonto',estafasMonto);
   }catch(e){
     console.warn('No se pudo cargar dashboard',e);
   }
