@@ -347,6 +347,11 @@ body:before{
 .estafa-detail-photo{max-width:100%;border-radius:18px;border:1px solid rgba(148,163,184,.28);box-shadow:0 12px 30px rgba(15,23,42,.08)}
 @media(max-width:1050px){.estafas .row{grid-template-columns:1fr}}
 
+
+/* KPI VNA: monto recuperado principal + total registrado */
+.dashboard-stats{grid-template-columns:repeat(auto-fit,minmax(260px,1fr))!important}
+.dash-sub{display:block;margin-top:4px;color:#64748b;font-weight:800;font-size:13px;line-height:1.25}
+.dash-sub b{color:#0b2f5b;font-weight:950}
 </style>
 </head>
 <body>
@@ -391,7 +396,7 @@ body:before{
     <div class="dashboard-stats">
       <div class="dash-card"><div class="dash-icon">▣</div><div><h3 id="dashDocs">0</h3><p>Documentos SEC</p></div></div>
       <div class="dash-card"><div class="dash-icon">☷</div><div><h3 id="dashBits">0</h3><p>Bitácoras</p></div></div>
-      <div class="dash-card"><div class="dash-icon">⌁</div><div><h3 id="dashVna">0</h3><p>VNA</p></div></div>
+      <div class="dash-card"><div class="dash-icon">⌁</div><div><h3 id="dashVnaAprobado">$0</h3><p>VNA recuperadas</p><small class="dash-sub">Total registrado: <b id="dashVnaTotalMonto">$0</b></small></div></div>
       <div class="dash-card"><div class="dash-icon">◆</div><div><h3 id="dashTickets">0</h3><p>Tickets Atendedor</p></div></div>
       <div class="dash-card" data-modulo="estafas"><div class="dash-icon">⚠</div><div><h3 id="dashEstafasMonto">$0</h3><p>Monto Estafas</p></div></div>
     </div>
@@ -700,13 +705,27 @@ async function sumTableColumn(table,column){
   return res.data.reduce((acc,row)=>acc+(Number(row[column])||0),0);
 }
 
+async function getVnaDashboardTotals(){
+  const res=await client.from('ventas_no_abonadas').select('monto,etapa,resolucion');
+  if(res.error || !Array.isArray(res.data))return {total:0,aprobado:0};
+  return res.data.reduce((acc,row)=>{
+    const monto=Number(row.monto)||0;
+    const etapa=String(row.etapa||'').trim().toLowerCase();
+    const resolucion=String(row.resolucion||'').trim().toLowerCase();
+    const recuperado=etapa==='aprobado' || resolucion==='abono por portal concesionario' || resolucion==='cliente paga en oficina';
+    acc.total+=monto;
+    if(recuperado)acc.aprobado+=monto;
+    return acc;
+  },{total:0,aprobado:0});
+}
+
 async function loadDashboard(){
   try{updateSessionVisual()}catch(e){}
   try{
-    const [docCount,bitCount,vnaCount,ticketCount,estafasMonto]=await Promise.all([
+    const [docCount,bitCount,vnaMontos,ticketCount,estafasMonto]=await Promise.all([
       countTable('documentos'),
       countTable('bitacora_eventos'),
-      countTable('ventas_no_abonadas'),
+      getVnaDashboardTotals(),
       countTable('tickets_atendedor'),
       sumTableColumn('estafas_perros_muertos','monto')
     ]);
@@ -714,7 +733,8 @@ async function loadDashboard(){
     const setMoney=(id,val)=>{const el=document.getElementById(id);if(el)el.textContent=Number(val||0).toLocaleString('es-CL',{style:'currency',currency:'CLP',maximumFractionDigits:0})};
     set('dashDocs',docCount);
     set('dashBits',bitCount);
-    set('dashVna',vnaCount);
+    setMoney('dashVnaAprobado',vnaMontos.aprobado);
+    setMoney('dashVnaTotalMonto',vnaMontos.total);
     set('dashTickets',ticketCount);
     setMoney('dashEstafasMonto',estafasMonto);
   }catch(e){
