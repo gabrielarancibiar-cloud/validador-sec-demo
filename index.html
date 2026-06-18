@@ -359,7 +359,7 @@ body:before{
 
 
 /* Formatos EDS */
-.formatos .thead,.formatos .row{grid-template-columns:1.35fr 160px 170px 190px 230px}
+.formatos .thead,.formatos .row{grid-template-columns:1.8fr 170px 190px 230px}
 .file-pill{display:inline-flex;align-items:center;gap:7px;border-radius:999px;padding:7px 11px;background:#eff6ff;color:#0b3b91;font-weight:900;border:1px solid #c7ddff;font-size:12px}
 .formatos-empty{padding:18px;color:#64748b;font-weight:800}
 
@@ -586,7 +586,7 @@ body:before{
         </select>
       </div>
       <div class="table formatos">
-        <div class="thead"><div>Documento</div><div>Categoría</div><div>Archivo</div><div>Actualizado</div><div>Acciones</div></div>
+        <div class="thead"><div>Documento</div><div>Categoría</div><div>Actualizado</div><div>Acciones</div></div>
         <div id="formatoRows"></div>
       </div>
     </div>
@@ -1536,7 +1536,6 @@ function renderFormatos(){
   formatoRows.innerHTML=list.map(x=>`<div class="row ${selectedFormato&&selectedFormato.id===x.id?'selected':''}" onclick="selectFormato(${x.id})">
     <div><div class="title">${x.nombre_documento||'-'}</div><div class="sub">${x.descripcion||'Sin descripción'}</div></div>
     <div>${x.categoria||'Otros'}</div>
-    <div>${x.archivo_url?`<span class="file-pill">${x.archivo_nombre||'Archivo cargado'}</span>`:'<span class="badge b-nocargado">Sin archivo</span>'}</div>
     <div>${fmt(x.updated_at||x.created_at)}</div>
     <div class="actions" style="margin:0">
       ${x.archivo_url?`<button class="secondary" onclick="event.stopPropagation();downloadFormato(${x.id})">Descargar</button>`:''}
