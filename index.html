@@ -3164,30 +3164,7 @@ body:before{
   .quick-grid{grid-template-columns:1fr!important}
 }
 
-</style></head><body><div class="brand">VALEPAC · Centro de Control EDS 40098</div><h1>Ficha de trabajador</h1><div class="card grid"><div>${a.foto_url?`<img class="foto" src="${a.foto_url}">`:'<div class="foto" style="display:grid;place-items:center;background:#eef4fb">Sin foto</div>'}</div><div><h2 style="margin-top:0">${a.nombre||''}</h2><p><b>RUT:</b> ${a.rut||'-'}</p><p><b>Fecha ingreso EDS:</b> ${a.fecha_ingreso||'-'}</p><p><b>Tiempo en la empresa:</b> ${tiempoEmpresa(a.fecha_ingreso)}</p><p><b>Creado en sistema:</b> ${fmt(a.created_at)}</p></div></div><div class="kpi"><div><b>Total anotaciones</b><br>${notas.length}</div><div><b>Positivas</b><br>${pos}</div><div><b>Negativas</b><br>${neg}</div></div><h2>Historial de anotaciones</h2><table><thead><tr><th>Fecha</th><th>Tipo</th><th>Responsable</th><th>Detalle / Acción</th></tr></thead><tbody>${filas}</tbody></table><div class="footer">Documento generado desde Centro de Control EDS 40098. Información sujeta a auditoría interna.</div><script>window.onload=()=>setTimeout(()=>window.print(),400)<\/script>
-<script>
-/* Login: permitir ingreso con tecla Enter en usuario o contraseña */
-(function(){
-  function setupLoginEnter(){
-    ['loginUser','loginPass'].forEach(function(id){
-      var el=document.getElementById(id);
-      if(el && !el.dataset.enterBound){
-        el.dataset.enterBound='1';
-        el.addEventListener('keydown',function(e){
-          if(e.key==='Enter'){
-            e.preventDefault();
-            if(typeof loginApp==='function') loginApp();
-          }
-        });
-      }
-    });
-  }
-  document.addEventListener('DOMContentLoaded',setupLoginEnter);
-  window.addEventListener('load',setupLoginEnter);
-  setTimeout(setupLoginEnter,500);
-})();
-</script>
-</body></html>`;const w=window.open('','','width=980,height=900');w.document.write(htmlPdf);w.document.close();}
+</style></head><body><div class="brand">VALEPAC · Centro de Control EDS 40098</div><h1>Ficha de trabajador</h1><div class="card grid"><div>${a.foto_url?`<img class="foto" src="${a.foto_url}">`:'<div class="foto" style="display:grid;place-items:center;background:#eef4fb">Sin foto</div>'}</div><div><h2 style="margin-top:0">${a.nombre||''}</h2><p><b>RUT:</b> ${a.rut||'-'}</p><p><b>Fecha ingreso EDS:</b> ${a.fecha_ingreso||'-'}</p><p><b>Tiempo en la empresa:</b> ${tiempoEmpresa(a.fecha_ingreso)}</p><p><b>Creado en sistema:</b> ${fmt(a.created_at)}</p></div></div><div class="kpi"><div><b>Total anotaciones</b><br>${notas.length}</div><div><b>Positivas</b><br>${pos}</div><div><b>Negativas</b><br>${neg}</div></div><h2>Historial de anotaciones</h2><table><thead><tr><th>Fecha</th><th>Tipo</th><th>Responsable</th><th>Detalle / Acción</th></tr></thead><tbody>${filas}</tbody></table><div class="footer">Documento generado desde Centro de Control EDS 40098. Información sujeta a auditoría interna.</div><script>window.onload=()=>setTimeout(()=>window.print(),400)<\/script></body></html>`;const w=window.open('','','width=980,height=900');w.document.write(htmlPdf);w.document.close();}
 
 async function exportVnaExcel(){
   const casos=vnas.map(c=>({
@@ -3305,28 +3282,5 @@ function applyActionPermissions(){
 }
 
 window.addEventListener('load',()=>{try{setupPermModuleListeners()}catch(e){};restoreLocalSession();});
-</script>
-
-<script>
-/* Login: permitir ingreso con tecla Enter en usuario o contraseña */
-(function(){
-  function setupLoginEnter(){
-    ['loginUser','loginPass'].forEach(function(id){
-      var el=document.getElementById(id);
-      if(el && !el.dataset.enterBound){
-        el.dataset.enterBound='1';
-        el.addEventListener('keydown',function(e){
-          if(e.key==='Enter'){
-            e.preventDefault();
-            if(typeof loginApp==='function') loginApp();
-          }
-        });
-      }
-    });
-  }
-  document.addEventListener('DOMContentLoaded',setupLoginEnter);
-  window.addEventListener('load',setupLoginEnter);
-  setTimeout(setupLoginEnter,500);
-})();
 </script>
 </body></html>
