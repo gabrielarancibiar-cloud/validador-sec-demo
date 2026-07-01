@@ -1879,11 +1879,12 @@ function downloadFormato(id){
 /* ===============================
    Módulo Flota
 ================================ */
-const FLOTA_DOC_TYPES=['Permiso de circulación','Revisión técnica','Seguro SOAP','TCT'];
+const FLOTA_DOC_TYPES=['Permiso de circulación','Revisión técnica','Seguro SOAP','TCT','Vencimiento extintor'];
 function qs(id){return document.getElementById(id)}
 function escapeHtml(v){return String(v??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[m]))}
 function flotaDaysLeft(dateStr){return daysLeft(dateStr)}
 function flotaDocStatus(doc){
+  if(doc && doc.no_aplica)return 'No aplica';
   if(!doc || !doc.archivo_url)return 'No cargado';
   if(!doc.fecha_vencimiento)return 'En Proceso';
   const d=flotaDaysLeft(doc.fecha_vencimiento);
@@ -1955,18 +1956,18 @@ function renderFlotaVehiculos(){
     const txt=`${v.patente||''} ${v.marca||''} ${v.modelo||''} ${v.tipo_vehiculo||''}`.toLowerCase();
     const statuses=FLOTA_DOC_TYPES.map(t=>flotaDocStatus(getFlotaDoc(v.id,t)));
     const vencido=statuses.includes('Vencido'), porvencer=statuses.includes('Por vencer'), incompleto=statuses.includes('No cargado')||statuses.includes('En Proceso');
-    const vigente=statuses.every(s=>s==='Vigente');
+    const vigente=statuses.every(s=>s==='Vigente'||s==='No aplica');
     const okFilter=f==='Todos'||(f==='Vencido'&&vencido)||(f==='Por vencer'&&porvencer)||(f==='Incompleto'&&incompleto)||(f==='Vigente'&&vigente);
     return okFilter && txt.includes(q);
   });
   flotaVehRows.innerHTML=list.map(v=>{
     const statuses=FLOTA_DOC_TYPES.map(t=>flotaDocStatus(getFlotaDoc(v.id,t)));
     const critic=statuses.includes('Vencido')?'Vencido':(statuses.includes('Por vencer')?'Por vencer':(statuses.includes('No cargado')?'Incompleto':'Vigente'));
-    const docsOk=statuses.filter(s=>s==='Vigente').length;
+    const docsOk=statuses.filter(s=>s==='Vigente'||s==='No aplica').length;
     return `<div class="row ${selectedFlotaVeh&&selectedFlotaVeh.id===v.id?'selected':''}" onclick="selectFlotaVehiculo(${v.id})">
       <div><div class="title">${escapeHtml(v.patente||'-')}</div><div class="sub">${escapeHtml(v.tipo_vehiculo||'Vehículo')}</div></div>
       <div><div class="title">${escapeHtml([v.marca,v.modelo].filter(Boolean).join(' ')||'-')}</div><div class="sub">${escapeHtml(v.observacion||'')}</div></div>
-      <div>${docsOk}/${FLOTA_DOC_TYPES.length} vigentes<div class="sub">Permiso · RT · SOAP · TCT</div></div>
+      <div>${docsOk}/${FLOTA_DOC_TYPES.length} al día<div class="sub">Permiso · RT · SOAP · TCT · Extintor</div></div>
       <div>${flotaStatusBadge(critic)}</div>
     </div>`;
   }).join('')||'<div class="notice">Sin vehículos registrados.</div>';
@@ -1987,11 +1988,14 @@ function renderFlotaVehDetail(){
   const docSelector=`<select id="flotaDocSelector" onchange="window.selectedFlotaDocTipo=this.value;renderFlotaVehDetail()">
     ${FLOTA_DOC_TYPES.map(t=>`<option value="${escapeHtml(t)}" ${t===tipo?'selected':''}>${escapeHtml(t)}</option>`).join('')}
   </select>`;
+  const tctNoAplicaAction=tipo==='TCT'
+    ? `<button class="secondary" data-action="editar" onclick="marcarTctNoAplica(${v.id},${d?.no_aplica?'false':'true'})">${d?.no_aplica?'Quitar No aplica':'No aplica'}</button>`
+    : '';
   const docPanel=`<div class="flota-doc-card">
-    <div class="flota-doc-head"><div><b>${escapeHtml(tipo)}</b><div class="flota-small">Vence: ${d?.fecha_vencimiento||'Sin fecha'} ${dias!==null?`· ${dias} días`:''}</div></div>${flotaStatusBadge(st)}</div>
-    <div class="kv"><small>Archivo</small>${d?.archivo_url?`<a href="${d.archivo_url}" target="_blank">Ver documento</a>`:'Sin archivo cargado'}</div>
-    <div class="form"><input id="flotaDocFile_${idx}" type="file" accept=".pdf,.doc,.docx,.jpg,.jpeg,.png,.webp,image/*"/><input id="flotaDocDue_${idx}" type="date" value="${d?.fecha_vencimiento||''}"/></div>
-    <div class="actions"><button class="primary" data-action="subir_archivos" onclick="uploadFlotaDoc(${v.id},${idx})">${d?.archivo_url?'Actualizar':'Cargar'} documento</button></div>
+    <div class="flota-doc-head"><div><b>${escapeHtml(tipo)}</b><div class="flota-small">${d?.no_aplica?'Este documento no aplica para el vehículo.':`Vence: ${d?.fecha_vencimiento||'Sin fecha'} ${dias!==null?`· ${dias} días`:''}`}</div></div>${flotaStatusBadge(st)}</div>
+    <div class="kv"><small>Archivo</small>${d?.archivo_url?`<a href="${d.archivo_url}" target="_blank">Ver documento</a>`:(d?.no_aplica?'No aplica':'Sin archivo cargado')}</div>
+    <div class="form"><input id="flotaDocFile_${idx}" type="file" accept=".pdf,.doc,.docx,.jpg,.jpeg,.png,.webp,image/*"/><input id="flotaDocDue_${idx}" type="date" value="${d?.fecha_vencimiento||''}" ${d?.no_aplica?'disabled':''}/></div>
+    <div class="actions"><button class="primary" data-action="subir_archivos" onclick="uploadFlotaDoc(${v.id},${idx})">${d?.archivo_url?'Actualizar':'Cargar'} documento</button>${tctNoAplicaAction}</div>
     <div id="flotaDocMsg_${idx}"></div>
   </div>`;
   box.innerHTML=`<h2>${escapeHtml(v.patente||'Vehículo')}</h2>
@@ -2029,12 +2033,34 @@ async function uploadFlotaDoc(vehiculoId,idx){
   const msg=qs(`flotaDocMsg_${idx}`); const current=getFlotaDoc(vehiculoId,tipo);
   if(!due){msg.innerHTML='<div class="notice error">Ingresa fecha de vencimiento.</div>';return}
   if(!file&&!current){msg.innerHTML='<div class="notice error">Selecciona un archivo.</div>';return}
-  let payload={vehiculo_id:vehiculoId,tipo_documento:tipo,fecha_vencimiento:due,updated_at:new Date().toISOString()};
+  let payload={vehiculo_id:vehiculoId,tipo_documento:tipo,fecha_vencimiento:due,no_aplica:false,updated_at:new Date().toISOString()};
   if(file){const path=`flota/vehiculos/${vehiculoId}/${idx}_${Date.now()}_${safeFileName(file.name)}`;const up=await client.storage.from(bucket).upload(path,file,{upsert:true});if(up.error){msg.innerHTML='<div class="notice error">'+up.error.message+'</div>';return}payload.archivo_url=client.storage.from(bucket).getPublicUrl(path).data.publicUrl;payload.archivo_nombre=file.name;payload.archivo_tipo=file.type||'';payload.archivo_size=file.size||0;}
   else{payload.archivo_url=current.archivo_url;payload.archivo_nombre=current.archivo_nombre;payload.archivo_tipo=current.archivo_tipo;payload.archivo_size=current.archivo_size;}
   const res=await client.from('flota_documentos_vehiculo').upsert(payload,{onConflict:'vehiculo_id,tipo_documento'}).select().single();
   if(res.error){msg.innerHTML='<div class="notice error">'+res.error.message+'</div>';return}
   msg.innerHTML='<div class="notice ok">Documento guardado.</div>';await loadFlota();selectedFlotaVeh=flotaVehiculos.find(v=>v.id===vehiculoId)||selectedFlotaVeh;renderFlotaVehDetail();
+}
+async function marcarTctNoAplica(vehiculoId,activar){
+  if(!requireAction('editar','No tienes permiso para editar documentación de flota.'))return;
+  const tipo='TCT';
+  const current=getFlotaDoc(vehiculoId,tipo);
+  const payload={
+    vehiculo_id:vehiculoId,
+    tipo_documento:tipo,
+    no_aplica:!!activar,
+    fecha_vencimiento:activar?null:(current?.fecha_vencimiento||null),
+    archivo_url:activar?null:(current?.archivo_url||null),
+    archivo_nombre:activar?null:(current?.archivo_nombre||null),
+    archivo_tipo:activar?null:(current?.archivo_tipo||null),
+    archivo_size:activar?null:(current?.archivo_size||null),
+    updated_at:new Date().toISOString()
+  };
+  const res=await client.from('flota_documentos_vehiculo').upsert(payload,{onConflict:'vehiculo_id,tipo_documento'}).select().single();
+  if(res.error){alert('No se pudo actualizar TCT: '+res.error.message);return}
+  await loadFlota();
+  selectedFlotaVeh=flotaVehiculos.find(v=>v.id===vehiculoId)||selectedFlotaVeh;
+  window.selectedFlotaDocTipo='TCT';
+  renderFlotaVehDetail();
 }
 function renderFlotaConductores(){
   if(!qs('flotaCondRows'))return;
