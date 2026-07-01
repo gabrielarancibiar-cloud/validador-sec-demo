@@ -51,7 +51,8 @@ function applyModulePermissions(){
     ['nav-vna','vna'],
     ['nav-ticketat','ticket_atendedor'],
     ['nav-estafas','estafas'],
-    ['nav-formatos','formatos']
+    ['nav-formatos','formatos'],
+    ['nav-flota','flota']
   ];
   directMap.forEach(([id,mod])=>{
     const el=document.getElementById(id);
@@ -110,6 +111,7 @@ function applyModulePermissions(){
     ['nav-ticketat','ticket_atendedor'],
     ['nav-estafas','estafas'],
     ['nav-formatos','formatos'],
+    ['nav-flota','flota'],
     ['nav-usuarios','usuarios']
   ];
   map.forEach(([id,mod])=>{
@@ -366,6 +368,20 @@ body:before{
 .sec-files-list{display:grid;gap:10px;margin-top:10px}.sec-file-item{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 14px;border:1px solid rgba(148,163,184,.28);border-radius:16px;background:rgba(248,251,255,.78)}.sec-file-item a{font-weight:950}.sec-file-meta{font-size:12px;color:#64748b;font-weight:800;margin-top:3px}.sec-upload-note{font-size:12px;color:#64748b;font-weight:800;margin-top:-4px}
 
 
+
+
+/* Módulo Flota */
+.flota-vehiculos .thead,.flota-vehiculos .row{grid-template-columns:130px 1fr 230px 170px 160px}
+.flota-conductores .thead,.flota-conductores .row{grid-template-columns:1fr 150px 170px 170px}
+.flota-doc-grid{display:grid;gap:12px;margin-top:12px}
+.flota-doc-card{border:1px solid rgba(148,163,184,.28);border-radius:18px;background:rgba(248,251,255,.82);padding:14px}
+.flota-doc-head{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:10px}
+.flota-alert{background:#fff7ed;border:1px solid #fed7aa;color:#9a3412;border-radius:18px;padding:14px 16px;margin-bottom:16px;font-weight:850}
+.flota-alert strong{color:#7c2d12}
+.flota-ok{background:#ecfdf5;border-color:#bbf7d0;color:#166534}
+.flota-small{font-size:12px;color:#64748b;font-weight:800;margin-top:4px}
+@media(max-width:1050px){.flota-vehiculos .row,.flota-conductores .row{grid-template-columns:1fr}}
+
 /* Filtro mensual historial de desempeño */
 @media(max-width:1050px){#atHistorialView .toolbar{grid-template-columns:1fr!important}}
 </style>
@@ -396,6 +412,7 @@ body:before{
   <button id="nav-estafas" data-modulo="estafas" onclick="showModule('estafas')">Estafas</button>
 
   <button id="nav-formatos" data-modulo="formatos" onclick="showModule('formatos')">Formatos</button>
+  <button id="nav-flota" data-modulo="flota" onclick="showModule('flota')">Flota</button>
 
   <button id="nav-nomina" data-modulo="nomina" onclick="showModule('at')">Nómina</button>
 
@@ -428,6 +445,7 @@ body:before{
       <button data-modulo="ticket_atendedor" onclick="showModule('ticketat')"><span>◆</span>Ticket<br>Atendedor</button>
       <button data-modulo="estafas" onclick="showModule('estafas')"><span>⚠</span>Estafas<br>Perros muertos</button>
       <button data-modulo="formatos" onclick="showModule('formatos')"><span>▤</span>Formatos<br>EDS</button>
+      <button data-modulo="flota" onclick="showModule('flota')"><span>🚚</span>Flota<br>Documental</button>
       <button data-modulo="nomina" onclick="showModule('at');setTimeout(()=>showAtSub('nomina'),100)"><span>👥</span>Nómina</button>
       <button data-modulo="historial_anotaciones" onclick="showModule('at');setTimeout(()=>showAtSub('historial'),100)"><span>◷</span>Historial<br>Anotaciones</button>
       <button data-modulo="usuarios" onclick="showModule('usuarios')"><span>⚙</span>Configuración</button>
@@ -600,6 +618,78 @@ body:before{
   </div>
 </section>
 
+
+<section id="flota" class="section">
+  <div class="topbar">
+    <div>
+      <h1>Flota</h1>
+      <p>Control documental de vehículos, medios de pago y conductores asociados a la operación.</p>
+    </div>
+    <div class="actions">
+      <button class="secondary" onclick="loadFlota()">Actualizar</button>
+      <button class="primary" data-action="crear" onclick="openFlotaVehiculoModal()">Nuevo vehículo</button>
+      <button class="primary" data-action="crear" onclick="openFlotaConductorModal()">Nuevo conductor</button>
+    </div>
+  </div>
+
+  <div id="flotaAlertBox" class="flota-alert hidden"></div>
+
+  <div class="mini-tabs">
+    <button id="tabFlotaVeh" class="active" onclick="showFlotaSub('vehiculos')">Vehículos</button>
+    <button id="tabFlotaCond" onclick="showFlotaSub('conductores')">Conductores</button>
+  </div>
+
+  <div id="flotaVehiculosView">
+    <div class="grid content">
+      <div class="card">
+        <h2>Vehículos registrados</h2>
+        <div class="toolbar two">
+          <input id="flotaVehSearch" oninput="renderFlotaVehiculos()" placeholder="Buscar por patente, marca, modelo o medio de pago"/>
+          <select id="flotaVehFilter" onchange="renderFlotaVehiculos()">
+            <option>Todos</option>
+            <option>Vigente</option>
+            <option>Por vencer</option>
+            <option>Vencido</option>
+            <option>Incompleto</option>
+          </select>
+        </div>
+        <div class="table flota-vehiculos">
+          <div class="thead"><div>Patente</div><div>Vehículo</div><div>Documentación</div><div>Medio pago</div><div>Alerta</div></div>
+          <div id="flotaVehRows"></div>
+        </div>
+      </div>
+      <div class="card detail" id="flotaVehDetail">
+        <h2>Ficha de vehículo</h2>
+        <p>Selecciona un vehículo.</p>
+      </div>
+    </div>
+  </div>
+
+  <div id="flotaConductoresView" class="hidden">
+    <div class="grid content">
+      <div class="card">
+        <h2>Conductores</h2>
+        <div class="toolbar two">
+          <input id="flotaCondSearch" oninput="renderFlotaConductores()" placeholder="Buscar por nombre, RUT o tipo de licencia"/>
+          <select id="flotaCondFilter" onchange="renderFlotaConductores()">
+            <option>Todos</option>
+            <option>Activo</option>
+            <option>Inactivo</option>
+          </select>
+        </div>
+        <div class="table flota-conductores">
+          <div class="thead"><div>Conductor</div><div>RUT</div><div>Licencia</div><div>Documentos</div></div>
+          <div id="flotaCondRows"></div>
+        </div>
+      </div>
+      <div class="card detail" id="flotaCondDetail">
+        <h2>Ficha de conductor</h2>
+        <p>Selecciona un conductor.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
 <section id="usuarios" class="section">
   <div class="topbar">
     <div>
@@ -634,6 +724,7 @@ body:before{
       <label><input id="permVNA" type="checkbox"> Ventas No Abonadas</label><br>
       <label><input id="permEstafas" type="checkbox"> Estafas / Perros muertos</label><br>
       <label><input id="permFormatos" type="checkbox"> Formatos EDS</label><br>
+      <label><input id="permFlota" type="checkbox"> Flota</label><br>
       <label><input id="permDesempeno" type="checkbox"> Desempeño AT</label><br>
       <label><input id="permTicket" type="checkbox"> Ticket Atendedor</label><br>
       <label><input id="permUsuarios" type="checkbox"> Usuarios y Permisos</label><br>
@@ -757,11 +848,58 @@ body:before{
   </div>
 </div>
 
+
+<div id="flotaVehiculoModal" class="modal">
+  <div class="modal-box">
+    <h2 id="flotaVehiculoModalTitle">Nuevo vehículo</h2>
+    <div class="form three">
+      <input id="flotaPatente" placeholder="Patente vehículo"/>
+      <input id="flotaMarca" placeholder="Marca"/>
+      <input id="flotaModelo" placeholder="Modelo"/>
+      <input id="flotaTipoVehiculo" placeholder="Tipo de vehículo"/>
+      <select id="flotaMedioPago">
+        <option value="">Medio de pago</option>
+        <option>Crédito</option>
+        <option>TCT</option>
+        <option>Cupón</option>
+        <option>App Empresa</option>
+        <option>Otro</option>
+      </select>
+      <input id="flotaPagoVencimiento" type="date" title="Vencimiento medio de pago"/>
+    </div>
+    <label style="display:block;margin-top:10px"><input id="flotaPagoNoAplica" type="checkbox" onchange="toggleFlotaPagoNoAplica()"> Vencimiento de medio de pago no aplica</label>
+    <div class="form"><textarea id="flotaObservacion" placeholder="Observación del vehículo / medio de pago"></textarea></div>
+    <div class="actions">
+      <button class="primary" data-action="crear" onclick="saveFlotaVehiculo()">Guardar vehículo</button>
+      <button class="secondary" onclick="closeFlotaVehiculoModal()">Cancelar</button>
+    </div>
+    <div id="flotaVehMsg"></div>
+  </div>
+</div>
+
+<div id="flotaConductorModal" class="modal">
+  <div class="modal-box">
+    <h2 id="flotaConductorModalTitle">Nuevo conductor</h2>
+    <div class="form two">
+      <input id="flotaCondNombre" placeholder="Nombre conductor"/>
+      <input id="flotaCondRut" placeholder="RUT conductor"/>
+      <input id="flotaCondLicencia" placeholder="Tipo de licencia"/>
+      <select id="flotaCondEstado"><option>Activo</option><option>Inactivo</option></select>
+    </div>
+    <div class="form"><textarea id="flotaCondObservacion" placeholder="Observación del conductor"></textarea></div>
+    <div class="actions">
+      <button class="primary" data-action="crear" onclick="saveFlotaConductor()">Guardar conductor</button>
+      <button class="secondary" onclick="closeFlotaConductorModal()">Cancelar</button>
+    </div>
+    <div id="flotaCondMsg"></div>
+  </div>
+</div>
+
 <div id="progressModal" class="modal"><div class="modal-box"><h2 id="progressTitle">Agregar avance</h2><div class="form two"><input id="pTitulo" placeholder="Título del avance"/><input id="pUsuario" placeholder="Usuario / responsable"/><select id="pEtapa"><option>Ingresado</option><option>Documentación y respaldo</option><option>Aprobado</option><option>Rechazado</option></select><select id="pResolucion"><option>Pendiente</option><option>Abono por Portal Concesionario</option><option>Cliente paga en oficina</option><option>Rechazado por VALEPAC</option></select></div><div class="form"><textarea id="pComentario" placeholder="Comentario / respaldo / progreso"></textarea><input id="pArchivo" type="file" accept=".pdf,image/*,.xlsx,.xls"/></div><div class="actions"><button class="primary" data-action="cambiar_estado" onclick="saveVnaProgress()">Guardar avance</button><button class="secondary" onclick="closeProgress()">Cancelar</button></div><div id="pMsg"></div></div></div>
 <script>
 const SUPABASE_URL='https://emyskqnsyspzjrguycjk.supabase.co';
 const SUPABASE_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVteXNrcW5zeXNwempyZ3V5Y2prIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzk5MDg5NDcsImV4cCI6MjA5NTQ4NDk0N30.bLCSwgLCop1Gg4rCbunFe4YCP_KHxIIFGF28vR0XD-0';
-const client=supabase.createClient(SUPABASE_URL,SUPABASE_KEY);const bucket='documentos-sec';let docs=[],secFilesByDoc={},bits=[],bitHist=[],vnas=[],history=[],estafas=[],estafaHist=[],selectedEstafa=null,editandoEstafa=null,formatos=[],selectedFormato=null,atendedores=[],atNotes=[],atNoteHist=[],ticketsAt=[],ticketAtHist=[],selectedDoc=null,selectedBit=null,selectedVna=null,selectedAt=null,selectedNote=null,selectedTicketAt=null,editandoAtendedor=null,currentUser=null,usuariosConfig=[],selectedUsuario=null;
+const client=supabase.createClient(SUPABASE_URL,SUPABASE_KEY);const bucket='documentos-sec';let docs=[],secFilesByDoc={},bits=[],bitHist=[],vnas=[],history=[],estafas=[],estafaHist=[],selectedEstafa=null,editandoEstafa=null,formatos=[],selectedFormato=null,flotaVehiculos=[],flotaDocs=[],flotaConductores=[],flotaConductorDocs=[],selectedFlotaVeh=null,selectedFlotaCond=null,editandoFlotaVeh=null,editandoFlotaCond=null,atendedores=[],atNotes=[],atNoteHist=[],ticketsAt=[],ticketAtHist=[],selectedDoc=null,selectedBit=null,selectedVna=null,selectedAt=null,selectedNote=null,selectedTicketAt=null,editandoAtendedor=null,currentUser=null,usuariosConfig=[],selectedUsuario=null;
 
 function roleLabel(){
   const r=String(currentUser?.rol||'Usuario').trim();
@@ -930,7 +1068,7 @@ function normalizePermisos(p){
   }
 
   // Compatibilidad con permisos antiguos planos
-  ['sec','bitacora','vna','estafas','formatos','desempeno','ticket_atendedor','ticket','usuarios','nomina','historial_anotaciones'].forEach(k=>{
+  ['sec','bitacora','vna','estafas','formatos','flota','desempeno','ticket_atendedor','ticket','usuarios','nomina','historial_anotaciones'].forEach(k=>{
     if(p[k]===true)norm.modulos[k]=true;
   });
   ['crear','editar','eliminar','desactivar','subir_archivos','cambiar_estado'].forEach(k=>{
@@ -996,6 +1134,8 @@ function applyPermissions(){
     ['at','desempeno'],
     ['ticketat','ticket_atendedor'],
     ['estafas','estafas'],
+    ['formatos','formatos'],
+    ['flota','flota'],
     ['usuarios','usuarios']
   ].find(([section,perm])=>canModule(perm));
 
@@ -1021,7 +1161,7 @@ function showModule(m){
     loadDashboard();
     return;
   }
-  const mapPerm={sec:'sec',bitacora:'bitacora',vna:'vna',estafas:'estafas',formatos:'formatos',at:'desempeno',ticketat:'ticket_atendedor',formatos:'formatos',usuarios:'usuarios'};
+  const mapPerm={sec:'sec',bitacora:'bitacora',vna:'vna',estafas:'estafas',formatos:'formatos',flota:'flota',at:'desempeno',ticketat:'ticket_atendedor',formatos:'formatos',usuarios:'usuarios'};
   const perm=mapPerm[m]||m;
 
   if(!canModule(perm)){
@@ -1048,10 +1188,11 @@ function showModule(m){
   if(m==='vna')loadVna();
   if(m==='estafas')loadEstafas();
   if(m==='formatos')loadFormatos();
+  if(m==='flota')loadFlota();
   if(m==='at')loadDesempeno();
   if(m==='ticketat')loadTicketAt();
   if(m==='usuarios')loadUsuariosConfig();
-}async function loadAll(){await loadDashboard();await loadDocuments();await loadBitacora();await loadVna();await loadEstafas();await loadFormatos();await loadDesempeno()}function fmt(d){if(!d)return '-';return new Date(d).toLocaleString('es-CL',{dateStyle:'short',timeStyle:'short'})}
+}async function loadAll(){await loadDashboard();await loadDocuments();await loadBitacora();await loadVna();await loadEstafas();await loadFormatos();await loadFlota();await loadDesempeno()}function fmt(d){if(!d)return '-';return new Date(d).toLocaleString('es-CL',{dateStyle:'short',timeStyle:'short'})}
 function fmtAt(d){if(!d)return '-';const dt=new Date(d);if(isNaN(dt))return '-';dt.setHours(dt.getHours()+4);return dt.toLocaleString('es-CL',{dateStyle:'short',timeStyle:'short'})}
 function tiempoEmpresa(fechaIngreso){
   if(!fechaIngreso)return 'Sin fecha de ingreso';
@@ -1643,6 +1784,200 @@ function downloadFormato(id){
   window.open(x.archivo_url,'_blank');
 }
 
+
+/* ===============================
+   Módulo Flota
+================================ */
+const FLOTA_DOC_TYPES=['Permiso de circulación','Revisión técnica','Seguro SOAP'];
+function qs(id){return document.getElementById(id)}
+function escapeHtml(v){return String(v??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[m]))}
+function flotaDaysLeft(dateStr){return daysLeft(dateStr)}
+function flotaDocStatus(doc){
+  if(!doc || !doc.archivo_url)return 'No cargado';
+  if(!doc.fecha_vencimiento)return 'En Proceso';
+  const d=flotaDaysLeft(doc.fecha_vencimiento);
+  if(d<0)return 'Vencido';
+  if(d<=30)return 'Por vencer';
+  return 'Vigente';
+}
+function flotaStatusBadge(s){return badge(s)}
+function getFlotaDoc(vehiculoId,tipo){return flotaDocs.find(d=>Number(d.vehiculo_id)===Number(vehiculoId)&&d.tipo_documento===tipo)}
+function getFlotaVehicleAlerts(v){
+  return FLOTA_DOC_TYPES.map(t=>({tipo:t,doc:getFlotaDoc(v.id,t)})).filter(x=>{
+    const st=flotaDocStatus(x.doc);
+    return st==='Vencido'||st==='Por vencer'||st==='No cargado';
+  });
+}
+function showFlotaSub(view){
+  const veh=qs('flotaVehiculosView'),cond=qs('flotaConductoresView');
+  if(veh)veh.classList.toggle('hidden',view!=='vehiculos');
+  if(cond)cond.classList.toggle('hidden',view!=='conductores');
+  if(qs('tabFlotaVeh'))tabFlotaVeh.classList.toggle('active',view==='vehiculos');
+  if(qs('tabFlotaCond'))tabFlotaCond.classList.toggle('active',view==='conductores');
+  if(view==='conductores')renderFlotaConductores(); else renderFlotaVehiculos();
+}
+async function loadFlota(){
+  if(!qs('flotaVehRows'))return;
+  const [veh,docs,cond,condDocs]=await Promise.all([
+    client.from('flota_vehiculos').select('*').order('patente',{ascending:true}),
+    client.from('flota_documentos_vehiculo').select('*').order('updated_at',{ascending:false}),
+    client.from('flota_conductores').select('*').order('nombre',{ascending:true}),
+    client.from('flota_documentos_conductor').select('*').order('created_at',{ascending:false})
+  ]);
+  if(veh.error){flotaVehRows.innerHTML='<div class="notice error">Error cargando Flota. Ejecuta primero el SQL del módulo. Detalle: '+veh.error.message+'</div>';return}
+  flotaVehiculos=veh.data||[];
+  flotaDocs=docs.error?[]:(docs.data||[]);
+  flotaConductores=cond.error?[]:(cond.data||[]);
+  flotaConductorDocs=condDocs.error?[]:(condDocs.data||[]);
+  if(!selectedFlotaVeh)selectedFlotaVeh=flotaVehiculos[0]||null;
+  if(!selectedFlotaCond)selectedFlotaCond=flotaConductores[0]||null;
+  renderFlotaAlerts();
+  renderFlotaVehiculos();
+  renderFlotaConductores();
+}
+function renderFlotaAlerts(){
+  const box=qs('flotaAlertBox'); if(!box)return;
+  const alertas=[];
+  flotaVehiculos.forEach(v=>{
+    FLOTA_DOC_TYPES.forEach(t=>{
+      const d=getFlotaDoc(v.id,t),st=flotaDocStatus(d),dias=d?.fecha_vencimiento?flotaDaysLeft(d.fecha_vencimiento):null;
+      if(st==='Vencido'||st==='Por vencer')alertas.push(`${escapeHtml(v.patente)} · ${escapeHtml(t)} · ${st}${dias!==null?` (${dias} días)`:''}`);
+    });
+  });
+  if(alertas.length){box.classList.remove('hidden','flota-ok');box.innerHTML='<strong>Alertas de documentación:</strong><br>'+alertas.slice(0,8).join('<br>')+(alertas.length>8?`<br>+ ${alertas.length-8} alertas adicionales`:'' );}
+  else{box.classList.remove('hidden');box.classList.add('flota-ok');box.innerHTML='<strong>Sin vencimientos críticos:</strong> no hay documentos vencidos o por vencer dentro de 30 días.';}
+}
+function renderFlotaVehiculos(){
+  if(!qs('flotaVehRows'))return;
+  const q=(qs('flotaVehSearch')?.value||'').toLowerCase();
+  const f=qs('flotaVehFilter')?.value||'Todos';
+  const list=flotaVehiculos.filter(v=>{
+    const txt=`${v.patente||''} ${v.marca||''} ${v.modelo||''} ${v.tipo_vehiculo||''} ${v.medio_pago||''}`.toLowerCase();
+    const statuses=FLOTA_DOC_TYPES.map(t=>flotaDocStatus(getFlotaDoc(v.id,t)));
+    const vencido=statuses.includes('Vencido'), porvencer=statuses.includes('Por vencer'), incompleto=statuses.includes('No cargado')||statuses.includes('En Proceso');
+    const vigente=statuses.every(s=>s==='Vigente');
+    const okFilter=f==='Todos'||(f==='Vencido'&&vencido)||(f==='Por vencer'&&porvencer)||(f==='Incompleto'&&incompleto)||(f==='Vigente'&&vigente);
+    return okFilter && txt.includes(q);
+  });
+  flotaVehRows.innerHTML=list.map(v=>{
+    const statuses=FLOTA_DOC_TYPES.map(t=>flotaDocStatus(getFlotaDoc(v.id,t)));
+    const critic=statuses.includes('Vencido')?'Vencido':(statuses.includes('Por vencer')?'Por vencer':(statuses.includes('No cargado')?'Incompleto':'Vigente'));
+    const docsOk=statuses.filter(s=>s==='Vigente').length;
+    const pago=v.medio_pago||'Sin medio';
+    const pagoVenc=v.medio_pago_no_aplica?'No aplica':(v.medio_pago_vencimiento||'Sin vencimiento');
+    return `<div class="row ${selectedFlotaVeh&&selectedFlotaVeh.id===v.id?'selected':''}" onclick="selectFlotaVehiculo(${v.id})">
+      <div><div class="title">${escapeHtml(v.patente||'-')}</div><div class="sub">${escapeHtml(v.tipo_vehiculo||'Vehículo')}</div></div>
+      <div><div class="title">${escapeHtml([v.marca,v.modelo].filter(Boolean).join(' ')||'-')}</div><div class="sub">${escapeHtml(v.observacion||'')}</div></div>
+      <div>${docsOk}/3 vigentes<div class="sub">Permiso · RT · SOAP</div></div>
+      <div>${escapeHtml(pago)}<div class="sub">Vence: ${escapeHtml(pagoVenc)}</div></div>
+      <div>${flotaStatusBadge(critic)}</div>
+    </div>`;
+  }).join('')||'<div class="notice">Sin vehículos registrados.</div>';
+  renderFlotaVehDetail();
+}
+function selectFlotaVehiculo(id){selectedFlotaVeh=flotaVehiculos.find(v=>v.id===id);renderFlotaVehiculos()}
+function renderFlotaVehDetail(){
+  const box=qs('flotaVehDetail'); if(!box)return;
+  const v=selectedFlotaVeh;
+  if(!v){box.innerHTML='<h2>Ficha de vehículo</h2><p>Selecciona un vehículo.</p>';return}
+  const pagoVenc=v.medio_pago_no_aplica?'No aplica':(v.medio_pago_vencimiento||'Sin vencimiento');
+  const docCards=FLOTA_DOC_TYPES.map((tipo,idx)=>{
+    const d=getFlotaDoc(v.id,tipo); const st=flotaDocStatus(d); const dias=d?.fecha_vencimiento?flotaDaysLeft(d.fecha_vencimiento):null;
+    return `<div class="flota-doc-card"><div class="flota-doc-head"><div><b>${tipo}</b><div class="flota-small">Vence: ${d?.fecha_vencimiento||'Sin fecha'} ${dias!==null?`· ${dias} días`:''}</div></div>${flotaStatusBadge(st)}</div>
+      <div class="kv"><small>Archivo</small>${d?.archivo_url?`<a href="${d.archivo_url}" target="_blank">Ver documento</a>`:'Sin archivo cargado'}</div>
+      <div class="form"><input id="flotaDocFile_${idx}" type="file" accept=".pdf,.doc,.docx,.jpg,.jpeg,.png,.webp,image/*"/><input id="flotaDocDue_${idx}" type="date" value="${d?.fecha_vencimiento||''}"/></div>
+      <div class="actions"><button class="primary" data-action="subir_archivos" onclick="uploadFlotaDoc(${v.id},${idx})">${d?.archivo_url?'Actualizar':'Cargar'} documento</button></div>
+      <div id="flotaDocMsg_${idx}"></div></div>`;
+  }).join('');
+  box.innerHTML=`<h2>${escapeHtml(v.patente||'Vehículo')}</h2>
+    <div class="kv"><small>Vehículo</small>${escapeHtml([v.marca,v.modelo,v.tipo_vehiculo].filter(Boolean).join(' · ')||'-')}</div>
+    <div class="kv"><small>Medio de pago</small>${escapeHtml(v.medio_pago||'-')} · Vencimiento: ${escapeHtml(pagoVenc)}</div>
+    <div class="kv"><small>Observación</small>${escapeHtml(v.observacion||'-')}</div>
+    <div class="actions"><button class="secondary" data-action="editar" onclick="openFlotaVehiculoModal(${v.id})">Editar vehículo</button></div>
+    <hr><h3>Documentación del vehículo</h3><div class="flota-doc-grid">${docCards}</div>`;
+}
+function resetFlotaVehiculoForm(){
+  editandoFlotaVeh=null;
+  ['flotaPatente','flotaMarca','flotaModelo','flotaTipoVehiculo','flotaPagoVencimiento','flotaObservacion'].forEach(id=>{const e=qs(id);if(e)e.value=''});
+  if(qs('flotaMedioPago'))flotaMedioPago.value=''; if(qs('flotaPagoNoAplica'))flotaPagoNoAplica.checked=false;
+  toggleFlotaPagoNoAplica(); if(qs('flotaVehMsg'))flotaVehMsg.innerHTML=''; if(qs('flotaVehiculoModalTitle'))flotaVehiculoModalTitle.textContent='Nuevo vehículo';
+}
+function toggleFlotaPagoNoAplica(){const no=qs('flotaPagoNoAplica')?.checked; if(qs('flotaPagoVencimiento')){flotaPagoVencimiento.disabled=!!no;if(no)flotaPagoVencimiento.value=''}}
+function openFlotaVehiculoModal(id=null){
+  if(id&&!requireAction('editar','No tienes permiso para editar vehículos.'))return;
+  if(!id&&!requireAction('crear','No tienes permiso para crear vehículos.'))return;
+  resetFlotaVehiculoForm();
+  if(id){const v=flotaVehiculos.find(x=>x.id===id); if(v){editandoFlotaVeh=id;flotaPatente.value=v.patente||'';flotaMarca.value=v.marca||'';flotaModelo.value=v.modelo||'';flotaTipoVehiculo.value=v.tipo_vehiculo||'';flotaMedioPago.value=v.medio_pago||'';flotaPagoNoAplica.checked=!!v.medio_pago_no_aplica;flotaPagoVencimiento.value=v.medio_pago_vencimiento||'';flotaObservacion.value=v.observacion||'';flotaVehiculoModalTitle.textContent='Editar vehículo';toggleFlotaPagoNoAplica();}}
+  flotaVehiculoModal.classList.add('open');
+}
+function closeFlotaVehiculoModal(){flotaVehiculoModal.classList.remove('open')}
+async function saveFlotaVehiculo(){
+  if(!requireAction(editandoFlotaVeh?'editar':'crear',editandoFlotaVeh?'No tienes permiso para editar vehículos.':'No tienes permiso para crear vehículos.'))return;
+  const payload={patente:flotaPatente.value.trim().toUpperCase(),marca:flotaMarca.value.trim(),modelo:flotaModelo.value.trim(),tipo_vehiculo:flotaTipoVehiculo.value.trim(),medio_pago:flotaMedioPago.value,medio_pago_no_aplica:flotaPagoNoAplica.checked,medio_pago_vencimiento:flotaPagoNoAplica.checked?null:(flotaPagoVencimiento.value||null),observacion:flotaObservacion.value.trim(),updated_at:new Date().toISOString()};
+  if(!payload.patente){flotaVehMsg.innerHTML='<div class="notice error">Ingresa la patente.</div>';return}
+  const res=editandoFlotaVeh?await client.from('flota_vehiculos').update(payload).eq('id',editandoFlotaVeh).select().single():await client.from('flota_vehiculos').insert(payload).select().single();
+  if(res.error){flotaVehMsg.innerHTML='<div class="notice error">'+res.error.message+'</div>';return}
+  selectedFlotaVeh=res.data;closeFlotaVehiculoModal();await loadFlota();
+}
+async function uploadFlotaDoc(vehiculoId,idx){
+  if(!requireAction('subir_archivos','No tienes permiso para subir documentos de flota.'))return;
+  const tipo=FLOTA_DOC_TYPES[idx],file=qs(`flotaDocFile_${idx}`)?.files[0],due=qs(`flotaDocDue_${idx}`)?.value;
+  const msg=qs(`flotaDocMsg_${idx}`); const current=getFlotaDoc(vehiculoId,tipo);
+  if(!due){msg.innerHTML='<div class="notice error">Ingresa fecha de vencimiento.</div>';return}
+  if(!file&&!current){msg.innerHTML='<div class="notice error">Selecciona un archivo.</div>';return}
+  let payload={vehiculo_id:vehiculoId,tipo_documento:tipo,fecha_vencimiento:due,updated_at:new Date().toISOString()};
+  if(file){const path=`flota/vehiculos/${vehiculoId}/${idx}_${Date.now()}_${safeFileName(file.name)}`;const up=await client.storage.from(bucket).upload(path,file,{upsert:true});if(up.error){msg.innerHTML='<div class="notice error">'+up.error.message+'</div>';return}payload.archivo_url=client.storage.from(bucket).getPublicUrl(path).data.publicUrl;payload.archivo_nombre=file.name;payload.archivo_tipo=file.type||'';payload.archivo_size=file.size||0;}
+  else{payload.archivo_url=current.archivo_url;payload.archivo_nombre=current.archivo_nombre;payload.archivo_tipo=current.archivo_tipo;payload.archivo_size=current.archivo_size;}
+  const res=await client.from('flota_documentos_vehiculo').upsert(payload,{onConflict:'vehiculo_id,tipo_documento'}).select().single();
+  if(res.error){msg.innerHTML='<div class="notice error">'+res.error.message+'</div>';return}
+  msg.innerHTML='<div class="notice ok">Documento guardado.</div>';await loadFlota();selectedFlotaVeh=flotaVehiculos.find(v=>v.id===vehiculoId)||selectedFlotaVeh;renderFlotaVehDetail();
+}
+function renderFlotaConductores(){
+  if(!qs('flotaCondRows'))return;
+  const q=(qs('flotaCondSearch')?.value||'').toLowerCase(),f=qs('flotaCondFilter')?.value||'Todos';
+  const list=flotaConductores.filter(c=>(f==='Todos'||(c.estado||'Activo')===f)&&`${c.nombre||''} ${c.rut||''} ${c.tipo_licencia||''}`.toLowerCase().includes(q));
+  flotaCondRows.innerHTML=list.map(c=>{const count=flotaConductorDocs.filter(d=>Number(d.conductor_id)===Number(c.id)).length;return `<div class="row ${selectedFlotaCond&&selectedFlotaCond.id===c.id?'selected':''}" onclick="selectFlotaConductor(${c.id})"><div><div class="title">${escapeHtml(c.nombre||'-')}</div><div class="sub">${escapeHtml(c.estado||'Activo')}</div></div><div>${escapeHtml(c.rut||'-')}</div><div>${escapeHtml(c.tipo_licencia||'-')}</div><div>${count} respaldo(s)</div></div>`}).join('')||'<div class="notice">Sin conductores registrados.</div>';
+  renderFlotaCondDetail();
+}
+function selectFlotaConductor(id){selectedFlotaCond=flotaConductores.find(c=>c.id===id);renderFlotaConductores()}
+function renderFlotaCondDetail(){
+  const box=qs('flotaCondDetail'); if(!box)return;
+  const c=selectedFlotaCond; if(!c){box.innerHTML='<h2>Ficha de conductor</h2><p>Selecciona un conductor.</p>';return}
+  const docs=flotaConductorDocs.filter(d=>Number(d.conductor_id)===Number(c.id));
+  box.innerHTML=`<h2>${escapeHtml(c.nombre||'Conductor')}</h2><span class="badge ${(c.estado||'Activo')==='Activo'?'b-aprobado':'b-rechazado'}">${escapeHtml(c.estado||'Activo')}</span>
+    <div class="kv"><small>RUT</small>${escapeHtml(c.rut||'-')}</div><div class="kv"><small>Tipo licencia</small>${escapeHtml(c.tipo_licencia||'-')}</div><div class="kv"><small>Observación</small>${escapeHtml(c.observacion||'-')}</div>
+    <div class="actions"><button class="secondary" data-action="editar" onclick="openFlotaConductorModal(${c.id})">Editar conductor</button></div>
+    <hr><h3>Respaldos del conductor</h3><div class="form"><input id="condDocTipo" placeholder="Tipo de documento / respaldo"/><input id="condDocFiles" type="file" multiple accept=".pdf,.doc,.docx,.jpg,.jpeg,.png,.webp,image/*"/><button class="primary" data-action="subir_archivos" onclick="uploadFlotaConductorDocs(${c.id})">Subir respaldo</button><div id="condDocMsg"></div></div>
+    <div class="timeline" style="margin-top:14px">${docs.map(d=>`<div class="item"><h4>${escapeHtml(d.tipo_documento||'Respaldo')}</h4><small>${fmt(d.created_at)} · ${escapeHtml(d.archivo_nombre||'')}</small><p>${d.archivo_url?`<a href="${d.archivo_url}" target="_blank">Ver archivo</a>`:''}</p></div>`).join('')||'<p class="muted">Sin respaldos cargados.</p>'}</div>`;
+}
+function resetFlotaConductorForm(){editandoFlotaCond=null;['flotaCondNombre','flotaCondRut','flotaCondLicencia','flotaCondObservacion'].forEach(id=>{const e=qs(id);if(e)e.value=''});if(qs('flotaCondEstado'))flotaCondEstado.value='Activo';if(qs('flotaCondMsg'))flotaCondMsg.innerHTML='';if(qs('flotaConductorModalTitle'))flotaConductorModalTitle.textContent='Nuevo conductor'}
+function openFlotaConductorModal(id=null){
+  if(id&&!requireAction('editar','No tienes permiso para editar conductores.'))return;
+  if(!id&&!requireAction('crear','No tienes permiso para crear conductores.'))return;
+  resetFlotaConductorForm();
+  if(id){const c=flotaConductores.find(x=>x.id===id);if(c){editandoFlotaCond=id;flotaCondNombre.value=c.nombre||'';flotaCondRut.value=c.rut||'';flotaCondLicencia.value=c.tipo_licencia||'';flotaCondEstado.value=c.estado||'Activo';flotaCondObservacion.value=c.observacion||'';flotaConductorModalTitle.textContent='Editar conductor';}}
+  flotaConductorModal.classList.add('open');
+}
+function closeFlotaConductorModal(){flotaConductorModal.classList.remove('open')}
+async function saveFlotaConductor(){
+  if(!requireAction(editandoFlotaCond?'editar':'crear',editandoFlotaCond?'No tienes permiso para editar conductores.':'No tienes permiso para crear conductores.'))return;
+  const payload={nombre:flotaCondNombre.value.trim(),rut:flotaCondRut.value.trim(),tipo_licencia:flotaCondLicencia.value.trim(),estado:flotaCondEstado.value,observacion:flotaCondObservacion.value.trim(),updated_at:new Date().toISOString()};
+  if(!payload.nombre||!payload.rut){flotaCondMsg.innerHTML='<div class="notice error">Falta nombre o RUT.</div>';return}
+  const res=editandoFlotaCond?await client.from('flota_conductores').update(payload).eq('id',editandoFlotaCond).select().single():await client.from('flota_conductores').insert(payload).select().single();
+  if(res.error){flotaCondMsg.innerHTML='<div class="notice error">'+res.error.message+'</div>';return}
+  selectedFlotaCond=res.data;closeFlotaConductorModal();await loadFlota();showFlotaSub('conductores');
+}
+async function uploadFlotaConductorDocs(conductorId){
+  if(!requireAction('subir_archivos','No tienes permiso para subir documentos de conductores.'))return;
+  const tipo=(qs('condDocTipo')?.value||'Respaldo conductor').trim(); const files=[...(qs('condDocFiles')?.files||[])];
+  if(!files.length){condDocMsg.innerHTML='<div class="notice error">Selecciona al menos un archivo.</div>';return}
+  const rows=[];
+  for(const file of files){const path=`flota/conductores/${conductorId}/${Date.now()}_${safeFileName(file.name)}`;const up=await client.storage.from(bucket).upload(path,file,{upsert:true});if(up.error){condDocMsg.innerHTML='<div class="notice error">'+up.error.message+'</div>';return}rows.push({conductor_id:conductorId,tipo_documento:tipo,archivo_url:client.storage.from(bucket).getPublicUrl(path).data.publicUrl,archivo_nombre:file.name,archivo_tipo:file.type||'',archivo_size:file.size||0,uploaded_by:currentUser?.nombre||currentUser?.usuario||'Usuario'});}
+  const res=await client.from('flota_documentos_conductor').insert(rows);
+  if(res.error){condDocMsg.innerHTML='<div class="notice error">'+res.error.message+'</div>';return}
+  condDocMsg.innerHTML='<div class="notice ok">Respaldo cargado.</div>';await loadFlota();selectedFlotaCond=flotaConductores.find(c=>c.id===conductorId)||selectedFlotaCond;showFlotaSub('conductores');renderFlotaCondDetail();
+}
+
 function resetUsuarioForm(){
   window.editandoUsuarioConfig=null;
   usrUsuario.value='';
@@ -1652,7 +1987,7 @@ function resetUsuarioForm(){
   usrRol.value='Consulta';
   [
     platWeb,platAdminMobile,platDesempenoMobile,platTicketMobile,
-    permSEC,permBitacora,permVNA,permEstafas,permFormatos,permDesempeno,permTicket,permUsuarios,permNomina,permHistorialAnotaciones,
+    permSEC,permBitacora,permVNA,permEstafas,permFormatos,permFlota,permDesempeno,permTicket,permUsuarios,permNomina,permHistorialAnotaciones,
     actCrear,actEditar,actEliminar,actDesactivar,actSubirArchivos,actCambiarEstado
   ].forEach(x=>x.checked=false);
   usrMsg.innerHTML='';
@@ -1681,6 +2016,7 @@ function permisosFromForm(){
   if(permVNA.checked)modulos.push('vna');
   if(permEstafas.checked)modulos.push('estafas');
   if(permFormatos.checked)modulos.push('formatos');
+  if(permFlota.checked)modulos.push('flota');
   if(permDesempeno.checked)modulos.push('desempeno');
   if(permTicket.checked)modulos.push('ticket_atendedor');
   if(permUsuarios.checked)modulos.push('usuarios');
@@ -1710,6 +2046,7 @@ function setPermisosForm(p){
   permVNA.checked=!!p.modulos.vna;
   permEstafas.checked=!!p.modulos.estafas;
   permFormatos.checked=!!p.modulos.formatos;
+  permFlota.checked=!!p.modulos.flota;
   permDesempeno.checked=!!p.modulos.desempeno;
   permTicket.checked=!!p.modulos.ticket_atendedor;
   permUsuarios.checked=!!p.modulos.usuarios;
@@ -1775,6 +2112,7 @@ function renderUsuarioDetail(){
     ['Ventas No Abonadas',modulos.vna],
     ['Estafas / Perros muertos',modulos.estafas],
     ['Formatos EDS',modulos.formatos],
+    ['Flota',modulos.flota],
     ['Desempeño AT',modulos.desempeno],
     ['Ticket Atendedor',modulos.ticket_atendedor],
     ['Usuarios y Permisos',modulos.usuarios],
@@ -2704,6 +3042,7 @@ function applyModulePermissions(){
     ['nav-ticketat','ticket_atendedor'],
     ['nav-estafas','estafas'],
     ['nav-formatos','formatos'],
+    ['nav-flota','flota'],
     ['nav-usuarios','usuarios']
   ];
   map.forEach(([id,mod])=>{
