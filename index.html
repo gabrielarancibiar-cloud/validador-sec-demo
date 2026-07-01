@@ -371,7 +371,7 @@ body:before{
 
 
 /* Módulo Flota */
-.flota-vehiculos .thead,.flota-vehiculos .row{grid-template-columns:130px 1fr 230px 170px 160px}
+.flota-vehiculos .thead,.flota-vehiculos .row{grid-template-columns:130px 1fr 230px 160px}
 .flota-conductores .thead,.flota-conductores .row{grid-template-columns:1fr 150px 170px 170px}
 .flota-doc-grid{display:grid;gap:12px;margin-top:12px}
 .flota-doc-card{border:1px solid rgba(148,163,184,.28);border-radius:18px;background:rgba(248,251,255,.82);padding:14px}
@@ -380,6 +380,10 @@ body:before{
 .flota-alert strong{color:#7c2d12}
 .flota-ok{background:#ecfdf5;border-color:#bbf7d0;color:#166534}
 .flota-small{font-size:12px;color:#64748b;font-weight:800;margin-top:4px}
+
+/* Alerta visual en menú Flota */
+.nav-modern #nav-flota.flota-nav-vencido{background:#dc2626!important;border-color:#b91c1c!important;color:#fff!important;box-shadow:0 10px 26px rgba(220,38,38,.22)!important}
+.nav-modern #nav-flota.flota-nav-porvencer{background:#facc15!important;border-color:#eab308!important;color:#7c2d12!important;box-shadow:0 10px 26px rgba(250,204,21,.22)!important}
 @media(max-width:1050px){.flota-vehiculos .row,.flota-conductores .row{grid-template-columns:1fr}}
 
 /* Filtro mensual historial de desempeño */
@@ -644,7 +648,7 @@ body:before{
       <div class="card">
         <h2>Vehículos registrados</h2>
         <div class="toolbar two">
-          <input id="flotaVehSearch" oninput="renderFlotaVehiculos()" placeholder="Buscar por patente, marca, modelo o medio de pago"/>
+          <input id="flotaVehSearch" oninput="renderFlotaVehiculos()" placeholder="Buscar por patente, marca o modelo"/>
           <select id="flotaVehFilter" onchange="renderFlotaVehiculos()">
             <option>Todos</option>
             <option>Vigente</option>
@@ -654,7 +658,7 @@ body:before{
           </select>
         </div>
         <div class="table flota-vehiculos">
-          <div class="thead"><div>Patente</div><div>Vehículo</div><div>Documentación</div><div>Medio pago</div><div>Alerta</div></div>
+          <div class="thead"><div>Patente</div><div>Vehículo</div><div>Documentación</div><div>Alerta</div></div>
           <div id="flotaVehRows"></div>
         </div>
       </div>
@@ -1846,13 +1850,22 @@ function renderFlotaAlerts(){
   });
   if(alertas.length){box.classList.remove('hidden','flota-ok');box.innerHTML='<strong>Alertas de documentación:</strong><br>'+alertas.slice(0,8).join('<br>')+(alertas.length>8?`<br>+ ${alertas.length-8} alertas adicionales`:'' );}
   else{box.classList.remove('hidden');box.classList.add('flota-ok');box.innerHTML='<strong>Sin vencimientos críticos:</strong> no hay documentos vencidos o por vencer dentro de 30 días.';}
+  updateFlotaNavAlert();
+}
+function updateFlotaNavAlert(){
+  const btn=qs('nav-flota'); if(!btn)return;
+  btn.classList.remove('flota-nav-vencido','flota-nav-porvencer');
+  const statuses=[];
+  flotaVehiculos.forEach(v=>FLOTA_DOC_TYPES.forEach(t=>statuses.push(flotaDocStatus(getFlotaDoc(v.id,t)))));
+  if(statuses.includes('Vencido'))btn.classList.add('flota-nav-vencido');
+  else if(statuses.includes('Por vencer'))btn.classList.add('flota-nav-porvencer');
 }
 function renderFlotaVehiculos(){
   if(!qs('flotaVehRows'))return;
   const q=(qs('flotaVehSearch')?.value||'').toLowerCase();
   const f=qs('flotaVehFilter')?.value||'Todos';
   const list=flotaVehiculos.filter(v=>{
-    const txt=`${v.patente||''} ${v.marca||''} ${v.modelo||''} ${v.tipo_vehiculo||''} ${v.medio_pago||''}`.toLowerCase();
+    const txt=`${v.patente||''} ${v.marca||''} ${v.modelo||''} ${v.tipo_vehiculo||''}`.toLowerCase();
     const statuses=FLOTA_DOC_TYPES.map(t=>flotaDocStatus(getFlotaDoc(v.id,t)));
     const vencido=statuses.includes('Vencido'), porvencer=statuses.includes('Por vencer'), incompleto=statuses.includes('No cargado')||statuses.includes('En Proceso');
     const vigente=statuses.every(s=>s==='Vigente');
@@ -1863,13 +1876,10 @@ function renderFlotaVehiculos(){
     const statuses=FLOTA_DOC_TYPES.map(t=>flotaDocStatus(getFlotaDoc(v.id,t)));
     const critic=statuses.includes('Vencido')?'Vencido':(statuses.includes('Por vencer')?'Por vencer':(statuses.includes('No cargado')?'Incompleto':'Vigente'));
     const docsOk=statuses.filter(s=>s==='Vigente').length;
-    const pago=v.medio_pago||'Sin medio';
-    const pagoVenc=v.medio_pago_no_aplica?'No aplica':(v.medio_pago_vencimiento||'Sin vencimiento');
     return `<div class="row ${selectedFlotaVeh&&selectedFlotaVeh.id===v.id?'selected':''}" onclick="selectFlotaVehiculo(${v.id})">
       <div><div class="title">${escapeHtml(v.patente||'-')}</div><div class="sub">${escapeHtml(v.tipo_vehiculo||'Vehículo')}</div></div>
       <div><div class="title">${escapeHtml([v.marca,v.modelo].filter(Boolean).join(' ')||'-')}</div><div class="sub">${escapeHtml(v.observacion||'')}</div></div>
       <div>${docsOk}/3 vigentes<div class="sub">Permiso · RT · SOAP</div></div>
-      <div>${escapeHtml(pago)}<div class="sub">Vence: ${escapeHtml(pagoVenc)}</div></div>
       <div>${flotaStatusBadge(critic)}</div>
     </div>`;
   }).join('')||'<div class="notice">Sin vehículos registrados.</div>';
