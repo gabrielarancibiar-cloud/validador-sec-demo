@@ -86,11 +86,12 @@ function applyModulePermissions(){
 function applyActionPermissions(){
   document.querySelectorAll('[data-action]').forEach(el=>{
     const action=el.getAttribute('data-action');
-    el.style.display=canActionPerm(action)?'':'none';
+    const mod=getActionModuleFromElement(el);
+    el.style.display=canActionPerm(action,mod)?'':'none';
   });
 }
 
-window.addEventListener('load',()=>restoreLocalSession());
+window.addEventListener('load',()=>{try{setupPermModuleListeners()}catch(e){};restoreLocalSession();});
 </script>
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js">
 setInterval(()=>{try{if(currentUser&&document.getElementById('app')&&!document.getElementById('app').classList.contains('hidden')){loadTicketAt();}}catch(e){}},60000);
@@ -135,11 +136,12 @@ function applyModulePermissions(){
 function applyActionPermissions(){
   document.querySelectorAll('[data-action]').forEach(el=>{
     const action=el.getAttribute('data-action');
-    el.style.display=canActionPerm(action)?'':'none';
+    const mod=getActionModuleFromElement(el);
+    el.style.display=canActionPerm(action,mod)?'':'none';
   });
 }
 
-window.addEventListener('load',()=>restoreLocalSession());
+window.addEventListener('load',()=>{try{setupPermModuleListeners()}catch(e){};restoreLocalSession();});
 </script>
 <style>
 :root{
@@ -390,6 +392,17 @@ body:before{
 
 /* Filtro mensual historial de desempeño */
 @media(max-width:1050px){#atHistorialView .toolbar{grid-template-columns:1fr!important}}
+
+
+/* Permisos por módulo */
+.perm-module-actions{display:grid;grid-template-columns:repeat(auto-fit,minmax(290px,1fr));gap:12px;margin-top:12px}
+.perm-module-card{border:1px solid #dbe7f3;border-radius:18px;background:#f8fbff;padding:14px}
+.perm-module-card.disabled{opacity:.45;filter:grayscale(.25)}
+.perm-module-title{font-weight:950;color:#062b63;margin-bottom:10px}
+.perm-action-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px 10px}
+.perm-action-grid label{font-weight:800;color:#0b2f5b}
+.perm-help{margin:8px 0 0;color:#64748b;font-weight:800;font-size:13px}
+
 </style>
 </head>
 <body>
@@ -740,14 +753,14 @@ body:before{
       <label><input id="permHistorialAnotaciones" type="checkbox"> Historial de Anotaciones</label>
     </div>
 
-    <h3>Nivel 3 · Acciones</h3>
+    <h3>Nivel 3 · Acciones por módulo</h3>
     <div class="card" style="box-shadow:none">
-      <label><input id="actCrear" type="checkbox"> Crear registros</label><br>
-      <label><input id="actEditar" type="checkbox"> Editar registros</label><br>
-      <label><input id="actEliminar" type="checkbox"> Eliminar registros</label><br>
-      <label><input id="actDesactivar" type="checkbox"> Desactivar trabajadores / usuarios</label><br>
-      <label><input id="actSubirArchivos" type="checkbox"> Subir archivos</label><br>
-      <label><input id="actCambiarEstado" type="checkbox"> Cambiar estados</label>
+      <p class="perm-help">Cada módulo puede tener sus propias acciones activas. Ejemplo: Flota puede crear y subir archivos, pero no eliminar.</p>
+      <div class="actions" style="margin:12px 0">
+        <button type="button" class="secondary" onclick="marcarAccionesModulo(true)">Marcar acciones visibles</button>
+        <button type="button" class="secondary" onclick="marcarAccionesModulo(false)">Limpiar acciones</button>
+      </div>
+      <div id="accionesModuloGrid" class="perm-module-actions"></div>
     </div>
 
     <div class="actions">
@@ -1045,7 +1058,7 @@ function enterApp(){try{localStorage.setItem('valepac_web_session',JSON.stringif
 
 function normalizePermisos(p){
   p=p||{};
-  const norm={plataformas:{},modulos:{},acciones:{}};
+  const norm={plataformas:{},modulos:{},acciones:{},acciones_modulo:{}};
 
   if(Array.isArray(p.plataformas)){
     p.plataformas.forEach(x=>norm.plataformas[x]=true);
@@ -1065,6 +1078,17 @@ function normalizePermisos(p){
     norm.acciones=p.acciones||{};
   }
 
+  const rawAccionesModulo=p.acciones_modulo||p.accionesPorModulo||p.acciones_modulos||{};
+  Object.entries(rawAccionesModulo||{}).forEach(([mod,acts])=>{
+    const key=normalizarModuloPermiso(mod);
+    norm.acciones_modulo[key]=norm.acciones_modulo[key]||{};
+    if(Array.isArray(acts)){
+      acts.forEach(a=>norm.acciones_modulo[key][a]=true);
+    }else if(acts&&typeof acts==='object'){
+      Object.entries(acts).forEach(([a,v])=>{if(v)norm.acciones_modulo[key][a]=true;});
+    }
+  });
+
   // Compatibilidad con permisos antiguos planos
   ['dashboard_kpi','accesos_rapidos','sec','bitacora','vna','estafas','formatos','flota','desempeno','ticket_atendedor','ticket','usuarios','nomina','historial_anotaciones'].forEach(k=>{
     if(p[k]===true)norm.modulos[k]=true;
@@ -1074,8 +1098,15 @@ function normalizePermisos(p){
   });
 
   if(norm.modulos.ticket===true)norm.modulos.ticket_atendedor=true;
+  if(norm.acciones_modulo.ticket)norm.acciones_modulo.ticket_atendedor=norm.acciones_modulo.ticket;
 
   return norm;
+}
+
+function normalizarModuloPermiso(mod){
+  const map={ticket:'ticket_atendedor',ticketat:'ticket_atendedor',at:'desempeno',sec:'sec',bitacora:'bitacora',vna:'vna',estafas:'estafas',formatos:'formatos',flota:'flota',usuarios:'usuarios',nomina:'nomina',desempeno:'desempeno',historial_anotaciones:'historial_anotaciones'};
+  const k=String(mod||'').trim();
+  return map[k]||k;
 }
 
 function hasPermInObject(permisos,nivel,clave){
@@ -1086,25 +1117,60 @@ function hasPermInObject(permisos,nivel,clave){
 function canModule(mod){
   if(!currentUser)return false;
   if(currentUser.usuario==='gabrielarancibia')return true;
-  const key=mod==='ticket'?'ticket_atendedor':mod;
+  const key=normalizarModuloPermiso(mod);
   return hasPermInObject(currentUser.permisos,'modulos',key);
 }
 
-function canActionPerm(action){
-  if(!currentUser)return false;
-  if(currentUser.usuario==='gabrielarancibia')return true;
-  return hasPermInObject(currentUser.permisos,'acciones',action);
+function accionesModuloExiste(permisos){
+  permisos=normalizePermisos(permisos||{});
+  return Object.keys(permisos.acciones_modulo||{}).length>0;
 }
 
-function requireAction(action,msg){
-  if(canActionPerm(action))return true;
-  alert(msg||'No tienes permiso para realizar esta acción.');
+function getCurrentActionModule(){
+  const active=document.querySelector('.section.active');
+  const id=active?active.id:'';
+  if(id==='ticketat')return 'ticket_atendedor';
+  if(id==='at'){
+    const nom=document.getElementById('atNominaView');
+    if(nom&&!nom.classList.contains('hidden'))return 'nomina';
+    return 'desempeno';
+  }
+  return normalizarModuloPermiso(id);
+}
+
+function getActionModuleFromElement(el){
+  const explicit=el?.getAttribute?.('data-action-module');
+  if(explicit)return normalizarModuloPermiso(explicit);
+  const section=el?.closest?.('.section');
+  if(!section)return getCurrentActionModule();
+  if(section.id==='ticketat')return 'ticket_atendedor';
+  if(section.id==='at'){
+    if(el.closest('#atNominaView'))return 'nomina';
+    return 'desempeno';
+  }
+  return normalizarModuloPermiso(section.id);
+}
+
+function canActionPerm(action,moduleKey=null){
+  if(!currentUser)return false;
+  if(currentUser.usuario==='gabrielarancibia')return true;
+  const permisos=normalizePermisos(currentUser.permisos||{});
+  const mod=normalizarModuloPermiso(moduleKey||getCurrentActionModule());
+  const scoped=permisos.acciones_modulo||{};
+  if(mod&&scoped[mod])return !!scoped[mod][action];
+  if(accionesModuloExiste(permisos)&&mod)return false;
+  return !!(permisos.acciones&&permisos.acciones[action]);
+}
+
+function requireAction(action,msg,moduleKey=null){
+  if(canActionPerm(action,moduleKey))return true;
+  alert(msg||'No tienes permiso para realizar esta acción en este módulo.');
   return false;
 }
 
-function requireFileAction(file,msg){
+function requireFileAction(file,msg,moduleKey=null){
   if(!file)return true;
-  return requireAction('subir_archivos',msg||'No tienes permiso para subir archivos.');
+  return requireAction('subir_archivos',msg||'No tienes permiso para subir archivos en este módulo.',moduleKey);
 }
 
 
@@ -2016,6 +2082,96 @@ async function uploadFlotaConductorDocs(conductorId){
   condDocMsg.innerHTML='<div class="notice ok">Respaldo cargado.</div>';await loadFlota();selectedFlotaCond=flotaConductores.find(c=>c.id===conductorId)||selectedFlotaCond;showFlotaSub('conductores');renderFlotaCondDetail();
 }
 
+const PERM_MODULE_ACTIONS=[
+  ['sec','Validador Documental SEC'],
+  ['bitacora','Bitácora Estación'],
+  ['vna','Ventas No Abonadas'],
+  ['estafas','Estafas / Perros muertos'],
+  ['formatos','Formatos EDS'],
+  ['flota','Flota'],
+  ['desempeno','Desempeño AT'],
+  ['ticket_atendedor','Ticket Atendedor'],
+  ['usuarios','Usuarios y Permisos'],
+  ['nomina','Nómina'],
+  ['historial_anotaciones','Historial de Anotaciones']
+];
+const PERM_ACTIONS=[
+  ['crear','Crear'],
+  ['editar','Editar'],
+  ['eliminar','Eliminar'],
+  ['desactivar','Desactivar'],
+  ['subir_archivos','Subir archivos'],
+  ['cambiar_estado','Cambiar estados']
+];
+const MODULE_CHECKBOX_MAP={sec:'permSEC',bitacora:'permBitacora',vna:'permVNA',estafas:'permEstafas',formatos:'permFormatos',flota:'permFlota',desempeno:'permDesempeno',ticket_atendedor:'permTicket',usuarios:'permUsuarios',nomina:'permNomina',historial_anotaciones:'permHistorialAnotaciones'};
+
+function renderAccionesModuloControls(){
+  const box=document.getElementById('accionesModuloGrid');
+  if(!box)return;
+  box.innerHTML=PERM_MODULE_ACTIONS.map(([mod,label])=>{
+    const moduleInput=document.getElementById(MODULE_CHECKBOX_MAP[mod]);
+    const enabled=moduleInput?moduleInput.checked:true;
+    return `<div class="perm-module-card ${enabled?'':'disabled'}" data-perm-module-card="${mod}">
+      <div class="perm-module-title">${label}</div>
+      <div class="perm-action-grid">
+        ${PERM_ACTIONS.map(([act,actLabel])=>`<label><input type="checkbox" data-module-action="${mod}" data-action-key="${act}" ${enabled?'':'disabled'}> ${actLabel}</label>`).join('')}
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function refreshAccionesModuloEnabled(){
+  PERM_MODULE_ACTIONS.forEach(([mod])=>{
+    const moduleInput=document.getElementById(MODULE_CHECKBOX_MAP[mod]);
+    const enabled=moduleInput?moduleInput.checked:true;
+    const card=document.querySelector(`[data-perm-module-card="${mod}"]`);
+    if(card)card.classList.toggle('disabled',!enabled);
+    document.querySelectorAll(`#accionesModuloGrid input[data-module-action="${mod}"]`).forEach(ch=>{ch.disabled=!enabled;if(!enabled)ch.checked=false;});
+  });
+}
+
+function accionesModuloFromForm(modulosPermitidos){
+  const allowed=new Set(modulosPermitidos||[]);
+  const out={};
+  const union=new Set();
+  document.querySelectorAll('#accionesModuloGrid input[data-module-action]:checked').forEach(ch=>{
+    const mod=normalizarModuloPermiso(ch.getAttribute('data-module-action'));
+    const act=ch.getAttribute('data-action-key');
+    if(!allowed.has(mod))return;
+    out[mod]=out[mod]||[];
+    out[mod].push(act);
+    union.add(act);
+  });
+  return {acciones_modulo:out,acciones:[...union]};
+}
+
+function setAccionesModuloForm(permisos){
+  renderAccionesModuloControls();
+  permisos=normalizePermisos(permisos||{});
+  const hasScoped=accionesModuloExiste(permisos);
+  document.querySelectorAll('#accionesModuloGrid input[data-module-action]').forEach(ch=>{
+    const mod=normalizarModuloPermiso(ch.getAttribute('data-module-action'));
+    const act=ch.getAttribute('data-action-key');
+    ch.checked=hasScoped?!!(permisos.acciones_modulo[mod]&&permisos.acciones_modulo[mod][act]):!!(permisos.acciones&&permisos.acciones[act]);
+  });
+  refreshAccionesModuloEnabled();
+}
+
+function marcarAccionesModulo(value){
+  document.querySelectorAll('#accionesModuloGrid input[data-module-action]:not(:disabled)').forEach(ch=>ch.checked=!!value);
+}
+
+function setupPermModuleListeners(){
+  Object.values(MODULE_CHECKBOX_MAP).forEach(id=>{
+    const el=document.getElementById(id);
+    if(el&&!el.dataset.moduleActionListener){
+      el.dataset.moduleActionListener='1';
+      el.addEventListener('change',refreshAccionesModuloEnabled);
+    }
+  });
+  renderAccionesModuloControls();
+}
+
 function resetUsuarioForm(){
   window.editandoUsuarioConfig=null;
   usrUsuario.value='';
@@ -2025,9 +2181,10 @@ function resetUsuarioForm(){
   usrRol.value='Consulta';
   [
     platWeb,platAdminMobile,platDesempenoMobile,platTicketMobile,
-    permDashboardKpi,permAccesosRapidos,permSEC,permBitacora,permVNA,permEstafas,permFormatos,permFlota,permDesempeno,permTicket,permUsuarios,permNomina,permHistorialAnotaciones,
-    actCrear,actEditar,actEliminar,actDesactivar,actSubirArchivos,actCambiarEstado
-  ].forEach(x=>x.checked=false);
+    permDashboardKpi,permAccesosRapidos,permSEC,permBitacora,permVNA,permEstafas,permFormatos,permFlota,permDesempeno,permTicket,permUsuarios,permNomina,permHistorialAnotaciones
+  ].forEach(x=>{if(x)x.checked=false});
+  renderAccionesModuloControls();
+  document.querySelectorAll('#accionesModuloGrid input[type="checkbox"]').forEach(x=>x.checked=false);
   usrMsg.innerHTML='';
   const h=usuarioFormCard.querySelector('h2');
   if(h)h.textContent='Crear usuario';
@@ -2042,7 +2199,6 @@ function toggleUsuarioForm(){
 function permisosFromForm(){
   const plataformas=[];
   const modulos=[];
-  const acciones=[];
 
   if(platWeb.checked)plataformas.push('web');
   if(platAdminMobile.checked)plataformas.push('admin_mobile');
@@ -2063,14 +2219,8 @@ function permisosFromForm(){
   if(permNomina.checked)modulos.push('nomina');
   if(permHistorialAnotaciones.checked)modulos.push('historial_anotaciones');
 
-  if(actCrear.checked)acciones.push('crear');
-  if(actEditar.checked)acciones.push('editar');
-  if(actEliminar.checked)acciones.push('eliminar');
-  if(actDesactivar.checked)acciones.push('desactivar');
-  if(actSubirArchivos.checked)acciones.push('subir_archivos');
-  if(actCambiarEstado.checked)acciones.push('cambiar_estado');
-
-  return {plataformas,modulos,acciones};
+  const accionesData=accionesModuloFromForm(modulos);
+  return {plataformas,modulos,acciones:accionesData.acciones,acciones_modulo:accionesData.acciones_modulo};
 }
 
 function setPermisosForm(p){
@@ -2095,12 +2245,7 @@ function setPermisosForm(p){
   permNomina.checked=!!p.modulos.nomina;
   permHistorialAnotaciones.checked=!!p.modulos.historial_anotaciones;
 
-  actCrear.checked=!!p.acciones.crear;
-  actEditar.checked=!!p.acciones.editar;
-  actEliminar.checked=!!p.acciones.eliminar;
-  actDesactivar.checked=!!p.acciones.desactivar;
-  actSubirArchivos.checked=!!p.acciones.subir_archivos;
-  actCambiarEstado.checked=!!p.acciones.cambiar_estado;
+  setAccionesModuloForm(p);
 }
 
 async function loadUsuariosConfig(){
@@ -2135,8 +2280,11 @@ function renderUsuarioDetail(){
   const plataformas=p.plataformas;
   const modulos=p.modulos;
   const acciones=p.acciones;
+  const accionesModulo=p.acciones_modulo||{};
 
   const block=(title,arr)=>`<h3>${title}</h3>${arr.map(x=>`<div class="kv"><small>${x[0]}</small>${x[1]?'✅ Permitido':'❌ Sin acceso'}</div>`).join('')}`;
+  const actionLabels=Object.fromEntries(PERM_ACTIONS);
+  const moduleActionBlock=()=>`<h3>Nivel 3 · Acciones por módulo</h3>${PERM_MODULE_ACTIONS.filter(([mod])=>modulos[mod]).map(([mod,label])=>{const acts=accionesModulo[mod]||{};const txt=PERM_ACTIONS.filter(([a])=>acts[a]).map(([a])=>actionLabels[a]).join(', ')||'Sin acciones';return `<div class="kv"><small>${label}</small>${txt}</div>`}).join('')||'<div class="kv"><small>Acciones</small>Sin módulos operativos</div>'}`;
 
   usrDetail.innerHTML=`<h2>${u.nombre||u.usuario}</h2>
   <div class="kv"><small>Usuario</small>${u.usuario}</div>
@@ -2163,14 +2311,7 @@ function renderUsuarioDetail(){
     ['Nómina',modulos.nomina],
     ['Historial Anotaciones',modulos.historial_anotaciones]
   ])}
-  ${block('Nivel 3 · Acciones',[
-    ['Crear',acciones.crear],
-    ['Editar',acciones.editar],
-    ['Eliminar',acciones.eliminar],
-    ['Desactivar',acciones.desactivar],
-    ['Subir archivos',acciones.subir_archivos],
-    ['Cambiar estado',acciones.cambiar_estado]
-  ])}
+  ${moduleActionBlock()}
   <div class="actions">
     <button class="secondary" data-action="editar" onclick="editUsuarioConfig(${u.id})">Editar permisos</button>
     <button class="secondary" style="color:#991b1b;border-color:#fecaca" data-action="desactivar" onclick="toggleUsuarioEstado(${u.id})">${u.estado==='Activo'?'Desactivar':'Activar'} usuario</button>
@@ -3109,10 +3250,11 @@ function applyModulePermissions(){
 function applyActionPermissions(){
   document.querySelectorAll('[data-action]').forEach(el=>{
     const action=el.getAttribute('data-action');
-    el.style.display=canActionPerm(action)?'':'none';
+    const mod=getActionModuleFromElement(el);
+    el.style.display=canActionPerm(action,mod)?'':'none';
   });
 }
 
-window.addEventListener('load',()=>restoreLocalSession());
+window.addEventListener('load',()=>{try{setupPermModuleListeners()}catch(e){};restoreLocalSession();});
 </script>
 </body></html>
