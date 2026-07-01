@@ -1792,7 +1792,7 @@ function downloadFormato(id){
 /* ===============================
    Módulo Flota
 ================================ */
-const FLOTA_DOC_TYPES=['Permiso de circulación','Revisión técnica','Seguro SOAP'];
+const FLOTA_DOC_TYPES=['Permiso de circulación','Revisión técnica','Seguro SOAP','TCT'];
 function qs(id){return document.getElementById(id)}
 function escapeHtml(v){return String(v??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[m]))}
 function flotaDaysLeft(dateStr){return daysLeft(dateStr)}
@@ -1879,7 +1879,7 @@ function renderFlotaVehiculos(){
     return `<div class="row ${selectedFlotaVeh&&selectedFlotaVeh.id===v.id?'selected':''}" onclick="selectFlotaVehiculo(${v.id})">
       <div><div class="title">${escapeHtml(v.patente||'-')}</div><div class="sub">${escapeHtml(v.tipo_vehiculo||'Vehículo')}</div></div>
       <div><div class="title">${escapeHtml([v.marca,v.modelo].filter(Boolean).join(' ')||'-')}</div><div class="sub">${escapeHtml(v.observacion||'')}</div></div>
-      <div>${docsOk}/3 vigentes<div class="sub">Permiso · RT · SOAP</div></div>
+      <div>${docsOk}/${FLOTA_DOC_TYPES.length} vigentes<div class="sub">Permiso · RT · SOAP · TCT</div></div>
       <div>${flotaStatusBadge(critic)}</div>
     </div>`;
   }).join('')||'<div class="notice">Sin vehículos registrados.</div>';
@@ -1891,20 +1891,31 @@ function renderFlotaVehDetail(){
   const v=selectedFlotaVeh;
   if(!v){box.innerHTML='<h2>Ficha de vehículo</h2><p>Selecciona un vehículo.</p>';return}
   const pagoVenc=v.medio_pago_no_aplica?'No aplica':(v.medio_pago_vencimiento||'Sin vencimiento');
-  const docCards=FLOTA_DOC_TYPES.map((tipo,idx)=>{
-    const d=getFlotaDoc(v.id,tipo); const st=flotaDocStatus(d); const dias=d?.fecha_vencimiento?flotaDaysLeft(d.fecha_vencimiento):null;
-    return `<div class="flota-doc-card"><div class="flota-doc-head"><div><b>${tipo}</b><div class="flota-small">Vence: ${d?.fecha_vencimiento||'Sin fecha'} ${dias!==null?`· ${dias} días`:''}</div></div>${flotaStatusBadge(st)}</div>
-      <div class="kv"><small>Archivo</small>${d?.archivo_url?`<a href="${d.archivo_url}" target="_blank">Ver documento</a>`:'Sin archivo cargado'}</div>
-      <div class="form"><input id="flotaDocFile_${idx}" type="file" accept=".pdf,.doc,.docx,.jpg,.jpeg,.png,.webp,image/*"/><input id="flotaDocDue_${idx}" type="date" value="${d?.fecha_vencimiento||''}"/></div>
-      <div class="actions"><button class="primary" data-action="subir_archivos" onclick="uploadFlotaDoc(${v.id},${idx})">${d?.archivo_url?'Actualizar':'Cargar'} documento</button></div>
-      <div id="flotaDocMsg_${idx}"></div></div>`;
-  }).join('');
+  window.selectedFlotaDocTipo = window.selectedFlotaDocTipo || FLOTA_DOC_TYPES[0];
+  if(!FLOTA_DOC_TYPES.includes(window.selectedFlotaDocTipo))window.selectedFlotaDocTipo=FLOTA_DOC_TYPES[0];
+  const idx=FLOTA_DOC_TYPES.indexOf(window.selectedFlotaDocTipo);
+  const tipo=window.selectedFlotaDocTipo;
+  const d=getFlotaDoc(v.id,tipo);
+  const st=flotaDocStatus(d);
+  const dias=d?.fecha_vencimiento?flotaDaysLeft(d.fecha_vencimiento):null;
+  const docSelector=`<select id="flotaDocSelector" onchange="window.selectedFlotaDocTipo=this.value;renderFlotaVehDetail()">
+    ${FLOTA_DOC_TYPES.map(t=>`<option value="${escapeHtml(t)}" ${t===tipo?'selected':''}>${escapeHtml(t)}</option>`).join('')}
+  </select>`;
+  const docPanel=`<div class="flota-doc-card">
+    <div class="flota-doc-head"><div><b>${escapeHtml(tipo)}</b><div class="flota-small">Vence: ${d?.fecha_vencimiento||'Sin fecha'} ${dias!==null?`· ${dias} días`:''}</div></div>${flotaStatusBadge(st)}</div>
+    <div class="kv"><small>Archivo</small>${d?.archivo_url?`<a href="${d.archivo_url}" target="_blank">Ver documento</a>`:'Sin archivo cargado'}</div>
+    <div class="form"><input id="flotaDocFile_${idx}" type="file" accept=".pdf,.doc,.docx,.jpg,.jpeg,.png,.webp,image/*"/><input id="flotaDocDue_${idx}" type="date" value="${d?.fecha_vencimiento||''}"/></div>
+    <div class="actions"><button class="primary" data-action="subir_archivos" onclick="uploadFlotaDoc(${v.id},${idx})">${d?.archivo_url?'Actualizar':'Cargar'} documento</button></div>
+    <div id="flotaDocMsg_${idx}"></div>
+  </div>`;
   box.innerHTML=`<h2>${escapeHtml(v.patente||'Vehículo')}</h2>
     <div class="kv"><small>Vehículo</small>${escapeHtml([v.marca,v.modelo,v.tipo_vehiculo].filter(Boolean).join(' · ')||'-')}</div>
     <div class="kv"><small>Medio de pago</small>${escapeHtml(v.medio_pago||'-')} · Vencimiento: ${escapeHtml(pagoVenc)}</div>
     <div class="kv"><small>Observación</small>${escapeHtml(v.observacion||'-')}</div>
     <div class="actions"><button class="secondary" data-action="editar" onclick="openFlotaVehiculoModal(${v.id})">Editar vehículo</button></div>
-    <hr><h3>Documentación del vehículo</h3><div class="flota-doc-grid">${docCards}</div>`;
+    <hr><h3>Documentación del vehículo</h3>
+    <div class="form" style="margin:10px 0 12px">${docSelector}</div>
+    <div class="flota-doc-grid">${docPanel}</div>`;
 }
 function resetFlotaVehiculoForm(){
   editandoFlotaVeh=null;
