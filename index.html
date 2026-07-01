@@ -81,6 +81,7 @@ function applyModulePermissions(){
     const visible=[...configGroup.querySelectorAll('.dropdown button')].some(b=>b.style.display!=='none');
     configGroup.style.display=visible?'block':'none';
   }
+  try{if(typeof applyDashboardPermissions==='function')applyDashboardPermissions()}catch(e){}
 }
 function applyActionPermissions(){
   document.querySelectorAll('[data-action]').forEach(el=>{
@@ -129,6 +130,7 @@ function applyModulePermissions(){
     const visible=[...configGroup.querySelectorAll('.dropdown button')].some(b=>b.style.display!=='none');
     configGroup.style.display=visible?'block':'none';
   }
+  try{if(typeof applyDashboardPermissions==='function')applyDashboardPermissions()}catch(e){}
 }
 function applyActionPermissions(){
   document.querySelectorAll('[data-action]').forEach(el=>{
@@ -432,16 +434,16 @@ body:before{
   <div class="dashboard-hero">
     <h1>Bienvenido, <span id="dashUserName">Usuario</span></h1>
     <p id="dashUserRole">Rol</p>
-    <div class="dashboard-stats">
-      <div class="dash-card"><div class="dash-icon">▣</div><div><h3 id="dashDocs">0</h3><p>Documentos SEC</p></div></div>
-      <div class="dash-card"><div class="dash-icon">☷</div><div><h3 id="dashBits">0</h3><p>Bitácoras</p></div></div>
-      <div class="dash-card"><div class="dash-icon">⌁</div><div><h3 id="dashVnaAprobado">$0</h3><p>VNA recuperadas</p><small class="dash-sub">Total registrado: <b id="dashVnaTotalMonto">$0</b></small></div></div>
-      <div class="dash-card"><div class="dash-icon">◆</div><div><h3 id="dashTickets">0</h3><p>Tickets Atendedor</p></div></div>
+    <div id="dashboardKpiBlock" class="dashboard-stats">
+      <div class="dash-card" data-modulo="sec"><div class="dash-icon">▣</div><div><h3 id="dashDocs">0</h3><p>Documentos SEC</p></div></div>
+      <div class="dash-card" data-modulo="bitacora"><div class="dash-icon">☷</div><div><h3 id="dashBits">0</h3><p>Bitácoras</p></div></div>
+      <div class="dash-card" data-modulo="vna"><div class="dash-icon">⌁</div><div><h3 id="dashVnaAprobado">$0</h3><p>VNA recuperadas</p><small class="dash-sub">Total registrado: <b id="dashVnaTotalMonto">$0</b></small></div></div>
+      <div class="dash-card" data-modulo="ticket_atendedor"><div class="dash-icon">◆</div><div><h3 id="dashTickets">0</h3><p>Tickets Atendedor</p></div></div>
       <div class="dash-card" data-modulo="estafas"><div class="dash-icon">⚠</div><div><h3 id="dashEstafasMonto">$0</h3><p>Monto Estafas</p></div></div>
     </div>
     <hr>
-    <h2>Accesos rápidos</h2>
-    <div class="quick-grid">
+    <h2 id="dashboardQuickTitle">Accesos rápidos</h2>
+    <div id="dashboardQuickBlock" class="quick-grid">
       <button data-modulo="sec" onclick="showModule('sec')"><span>🛡</span>SEC</button>
       <button data-modulo="bitacora" onclick="showModule('bitacora')"><span>☷</span>Bitácora</button>
       <button data-modulo="vna" onclick="showModule('vna')"><span>⌁</span>VNA</button>
@@ -627,7 +629,7 @@ body:before{
   <div class="topbar">
     <div>
       <h1>Flota</h1>
-      <p>Control documental de vehículos, medios de pago y conductores asociados a la operación.</p>
+      <p>Control documental de vehículos y conductores asociados a la operación.</p>
     </div>
     <div class="actions">
       <button class="secondary" onclick="loadFlota()">Actualizar</button>
@@ -723,6 +725,8 @@ body:before{
 
     <h3>Nivel 2 · Módulos</h3>
     <div class="card" style="box-shadow:none">
+      <label><input id="permDashboardKpi" type="checkbox"> Visualizar KPI del dashboard</label><br>
+      <label><input id="permAccesosRapidos" type="checkbox"> Visualizar accesos rápidos</label><br>
       <label><input id="permSEC" type="checkbox"> Validador Documental SEC</label><br>
       <label><input id="permBitacora" type="checkbox"> Bitácora Estación</label><br>
       <label><input id="permVNA" type="checkbox"> Ventas No Abonadas</label><br>
@@ -856,23 +860,13 @@ body:before{
 <div id="flotaVehiculoModal" class="modal">
   <div class="modal-box">
     <h2 id="flotaVehiculoModalTitle">Nuevo vehículo</h2>
-    <div class="form three">
+    <div class="form two">
       <input id="flotaPatente" placeholder="Patente vehículo"/>
       <input id="flotaMarca" placeholder="Marca"/>
       <input id="flotaModelo" placeholder="Modelo"/>
       <input id="flotaTipoVehiculo" placeholder="Tipo de vehículo"/>
-      <select id="flotaMedioPago">
-        <option value="">Medio de pago</option>
-        <option>Crédito</option>
-        <option>TCT</option>
-        <option>Cupón</option>
-        <option>App Empresa</option>
-        <option>Otro</option>
-      </select>
-      <input id="flotaPagoVencimiento" type="date" title="Vencimiento medio de pago"/>
     </div>
-    <label style="display:block;margin-top:10px"><input id="flotaPagoNoAplica" type="checkbox" onchange="toggleFlotaPagoNoAplica()"> Vencimiento de medio de pago no aplica</label>
-    <div class="form"><textarea id="flotaObservacion" placeholder="Observación del vehículo / medio de pago"></textarea></div>
+    <div class="form"><textarea id="flotaObservacion" placeholder="Observación del vehículo"></textarea></div>
     <div class="actions">
       <button class="primary" data-action="crear" onclick="saveFlotaVehiculo()">Guardar vehículo</button>
       <button class="secondary" onclick="closeFlotaVehiculoModal()">Cancelar</button>
@@ -1072,7 +1066,7 @@ function normalizePermisos(p){
   }
 
   // Compatibilidad con permisos antiguos planos
-  ['sec','bitacora','vna','estafas','formatos','flota','desempeno','ticket_atendedor','ticket','usuarios','nomina','historial_anotaciones'].forEach(k=>{
+  ['dashboard_kpi','accesos_rapidos','sec','bitacora','vna','estafas','formatos','flota','desempeno','ticket_atendedor','ticket','usuarios','nomina','historial_anotaciones'].forEach(k=>{
     if(p[k]===true)norm.modulos[k]=true;
   });
   ['crear','editar','eliminar','desactivar','subir_archivos','cambiar_estado'].forEach(k=>{
@@ -1114,6 +1108,31 @@ function requireFileAction(file,msg){
 }
 
 
+function applyDashboardPermissions(){
+  const kpiBlock=document.getElementById('dashboardKpiBlock');
+  const quickTitle=document.getElementById('dashboardQuickTitle');
+  const quickBlock=document.getElementById('dashboardQuickBlock');
+  const showKpi=canModule('dashboard_kpi');
+  const showQuick=canModule('accesos_rapidos');
+
+  if(kpiBlock){
+    kpiBlock.style.display=showKpi?'grid':'none';
+    kpiBlock.querySelectorAll('[data-modulo]').forEach(el=>{
+      const mod=el.getAttribute('data-modulo');
+      el.style.display=(showKpi&&canModule(mod))?'flex':'none';
+    });
+  }
+
+  if(quickTitle)quickTitle.style.display=showQuick?'':'none';
+  if(quickBlock){
+    quickBlock.style.display=showQuick?'grid':'none';
+    quickBlock.querySelectorAll('[data-modulo]').forEach(el=>{
+      const mod=el.getAttribute('data-modulo');
+      el.style.display=(showQuick&&canModule(mod))?'':'none';
+    });
+  }
+}
+
 function startPermissionObserver(){
   if(window.__valepacPermObserver)return;
   window.__valepacPermObserver=new MutationObserver(()=>{try{applyActionPermissions()}catch(e){}});
@@ -1128,6 +1147,7 @@ function applyPermissions(){
   updateSessionVisual();
 
   applyModulePermissions();
+  applyDashboardPermissions();
   applyActionPermissions();
   startPermissionObserver();
 
@@ -1162,6 +1182,7 @@ function showModule(m){
     const home=document.getElementById('inicio'); if(home)home.classList.add('active');
     document.querySelectorAll('.nav button').forEach(b=>b.classList.remove('active'));
     const ni=document.getElementById('nav-inicio'); if(ni)ni.classList.add('active');
+    applyDashboardPermissions();
     loadDashboard();
     return;
   }
@@ -1890,7 +1911,6 @@ function renderFlotaVehDetail(){
   const box=qs('flotaVehDetail'); if(!box)return;
   const v=selectedFlotaVeh;
   if(!v){box.innerHTML='<h2>Ficha de vehículo</h2><p>Selecciona un vehículo.</p>';return}
-  const pagoVenc=v.medio_pago_no_aplica?'No aplica':(v.medio_pago_vencimiento||'Sin vencimiento');
   window.selectedFlotaDocTipo = window.selectedFlotaDocTipo || FLOTA_DOC_TYPES[0];
   if(!FLOTA_DOC_TYPES.includes(window.selectedFlotaDocTipo))window.selectedFlotaDocTipo=FLOTA_DOC_TYPES[0];
   const idx=FLOTA_DOC_TYPES.indexOf(window.selectedFlotaDocTipo);
@@ -1910,7 +1930,6 @@ function renderFlotaVehDetail(){
   </div>`;
   box.innerHTML=`<h2>${escapeHtml(v.patente||'Vehículo')}</h2>
     <div class="kv"><small>Vehículo</small>${escapeHtml([v.marca,v.modelo,v.tipo_vehiculo].filter(Boolean).join(' · ')||'-')}</div>
-    <div class="kv"><small>Medio de pago</small>${escapeHtml(v.medio_pago||'-')} · Vencimiento: ${escapeHtml(pagoVenc)}</div>
     <div class="kv"><small>Observación</small>${escapeHtml(v.observacion||'-')}</div>
     <div class="actions"><button class="secondary" data-action="editar" onclick="openFlotaVehiculoModal(${v.id})">Editar vehículo</button></div>
     <hr><h3>Documentación del vehículo</h3>
@@ -1919,22 +1938,20 @@ function renderFlotaVehDetail(){
 }
 function resetFlotaVehiculoForm(){
   editandoFlotaVeh=null;
-  ['flotaPatente','flotaMarca','flotaModelo','flotaTipoVehiculo','flotaPagoVencimiento','flotaObservacion'].forEach(id=>{const e=qs(id);if(e)e.value=''});
-  if(qs('flotaMedioPago'))flotaMedioPago.value=''; if(qs('flotaPagoNoAplica'))flotaPagoNoAplica.checked=false;
-  toggleFlotaPagoNoAplica(); if(qs('flotaVehMsg'))flotaVehMsg.innerHTML=''; if(qs('flotaVehiculoModalTitle'))flotaVehiculoModalTitle.textContent='Nuevo vehículo';
+  ['flotaPatente','flotaMarca','flotaModelo','flotaTipoVehiculo','flotaObservacion'].forEach(id=>{const e=qs(id);if(e)e.value=''});
+  if(qs('flotaVehMsg'))flotaVehMsg.innerHTML=''; if(qs('flotaVehiculoModalTitle'))flotaVehiculoModalTitle.textContent='Nuevo vehículo';
 }
-function toggleFlotaPagoNoAplica(){const no=qs('flotaPagoNoAplica')?.checked; if(qs('flotaPagoVencimiento')){flotaPagoVencimiento.disabled=!!no;if(no)flotaPagoVencimiento.value=''}}
 function openFlotaVehiculoModal(id=null){
   if(id&&!requireAction('editar','No tienes permiso para editar vehículos.'))return;
   if(!id&&!requireAction('crear','No tienes permiso para crear vehículos.'))return;
   resetFlotaVehiculoForm();
-  if(id){const v=flotaVehiculos.find(x=>x.id===id); if(v){editandoFlotaVeh=id;flotaPatente.value=v.patente||'';flotaMarca.value=v.marca||'';flotaModelo.value=v.modelo||'';flotaTipoVehiculo.value=v.tipo_vehiculo||'';flotaMedioPago.value=v.medio_pago||'';flotaPagoNoAplica.checked=!!v.medio_pago_no_aplica;flotaPagoVencimiento.value=v.medio_pago_vencimiento||'';flotaObservacion.value=v.observacion||'';flotaVehiculoModalTitle.textContent='Editar vehículo';toggleFlotaPagoNoAplica();}}
+  if(id){const v=flotaVehiculos.find(x=>x.id===id); if(v){editandoFlotaVeh=id;flotaPatente.value=v.patente||'';flotaMarca.value=v.marca||'';flotaModelo.value=v.modelo||'';flotaTipoVehiculo.value=v.tipo_vehiculo||'';flotaObservacion.value=v.observacion||'';flotaVehiculoModalTitle.textContent='Editar vehículo';}}
   flotaVehiculoModal.classList.add('open');
 }
 function closeFlotaVehiculoModal(){flotaVehiculoModal.classList.remove('open')}
 async function saveFlotaVehiculo(){
   if(!requireAction(editandoFlotaVeh?'editar':'crear',editandoFlotaVeh?'No tienes permiso para editar vehículos.':'No tienes permiso para crear vehículos.'))return;
-  const payload={patente:flotaPatente.value.trim().toUpperCase(),marca:flotaMarca.value.trim(),modelo:flotaModelo.value.trim(),tipo_vehiculo:flotaTipoVehiculo.value.trim(),medio_pago:flotaMedioPago.value,medio_pago_no_aplica:flotaPagoNoAplica.checked,medio_pago_vencimiento:flotaPagoNoAplica.checked?null:(flotaPagoVencimiento.value||null),observacion:flotaObservacion.value.trim(),updated_at:new Date().toISOString()};
+  const payload={patente:flotaPatente.value.trim().toUpperCase(),marca:flotaMarca.value.trim(),modelo:flotaModelo.value.trim(),tipo_vehiculo:flotaTipoVehiculo.value.trim(),observacion:flotaObservacion.value.trim(),updated_at:new Date().toISOString()};
   if(!payload.patente){flotaVehMsg.innerHTML='<div class="notice error">Ingresa la patente.</div>';return}
   const res=editandoFlotaVeh?await client.from('flota_vehiculos').update(payload).eq('id',editandoFlotaVeh).select().single():await client.from('flota_vehiculos').insert(payload).select().single();
   if(res.error){flotaVehMsg.innerHTML='<div class="notice error">'+res.error.message+'</div>';return}
@@ -2008,7 +2025,7 @@ function resetUsuarioForm(){
   usrRol.value='Consulta';
   [
     platWeb,platAdminMobile,platDesempenoMobile,platTicketMobile,
-    permSEC,permBitacora,permVNA,permEstafas,permFormatos,permFlota,permDesempeno,permTicket,permUsuarios,permNomina,permHistorialAnotaciones,
+    permDashboardKpi,permAccesosRapidos,permSEC,permBitacora,permVNA,permEstafas,permFormatos,permFlota,permDesempeno,permTicket,permUsuarios,permNomina,permHistorialAnotaciones,
     actCrear,actEditar,actEliminar,actDesactivar,actSubirArchivos,actCambiarEstado
   ].forEach(x=>x.checked=false);
   usrMsg.innerHTML='';
@@ -2032,6 +2049,8 @@ function permisosFromForm(){
   if(platDesempenoMobile.checked)plataformas.push('desempeno_mobile');
   if(platTicketMobile.checked)plataformas.push('ticket_mobile');
 
+  if(permDashboardKpi.checked)modulos.push('dashboard_kpi');
+  if(permAccesosRapidos.checked)modulos.push('accesos_rapidos');
   if(permSEC.checked)modulos.push('sec');
   if(permBitacora.checked)modulos.push('bitacora');
   if(permVNA.checked)modulos.push('vna');
@@ -2062,6 +2081,8 @@ function setPermisosForm(p){
   platDesempenoMobile.checked=!!p.plataformas.desempeno_mobile;
   platTicketMobile.checked=!!p.plataformas.ticket_mobile;
 
+  permDashboardKpi.checked=!!p.modulos.dashboard_kpi;
+  permAccesosRapidos.checked=!!p.modulos.accesos_rapidos;
   permSEC.checked=!!p.modulos.sec;
   permBitacora.checked=!!p.modulos.bitacora;
   permVNA.checked=!!p.modulos.vna;
@@ -2128,6 +2149,8 @@ function renderUsuarioDetail(){
     ['Ticket Atendedor Mobile',plataformas.ticket_mobile]
   ])}
   ${block('Nivel 2 · Módulos',[
+    ['Visualizar KPI dashboard',modulos.dashboard_kpi],
+    ['Visualizar accesos rápidos',modulos.accesos_rapidos],
     ['Validador SEC',modulos.sec],
     ['Bitácora',modulos.bitacora],
     ['Ventas No Abonadas',modulos.vna],
@@ -3081,6 +3104,7 @@ function applyModulePermissions(){
     const visible=[...configGroup.querySelectorAll('.dropdown button')].some(b=>b.style.display!=='none');
     configGroup.style.display=visible?'block':'none';
   }
+  try{if(typeof applyDashboardPermissions==='function')applyDashboardPermissions()}catch(e){}
 }
 function applyActionPermissions(){
   document.querySelectorAll('[data-action]').forEach(el=>{
