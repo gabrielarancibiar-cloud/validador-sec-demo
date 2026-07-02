@@ -51,6 +51,7 @@ function applyModulePermissions(){
     ['nav-vna','vna'],
     ['nav-ticketat','ticket_atendedor'],
     ['nav-estafas','estafas'],
+    ['nav-contaminaciones','contaminaciones'],
     ['nav-formatos','formatos'],
     ['nav-flota','flota']
   ];
@@ -112,6 +113,7 @@ function applyModulePermissions(){
     ['nav-vna','vna'],
     ['nav-ticketat','ticket_atendedor'],
     ['nav-estafas','estafas'],
+    ['nav-contaminaciones','contaminaciones'],
     ['nav-formatos','formatos'],
     ['nav-flota','flota'],
     ['nav-usuarios','usuarios']
@@ -355,6 +357,15 @@ body:before{
 .estafa-detail-photo{max-width:100%;border-radius:18px;border:1px solid rgba(148,163,184,.28);box-shadow:0 12px 30px rgba(15,23,42,.08)}
 @media(max-width:1050px){.estafas .row{grid-template-columns:1fr}}
 
+/* Módulo Contaminaciones */
+.contaminaciones .thead,.contaminaciones .row{grid-template-columns:130px 1fr 1fr 1fr 170px 140px}
+.cont-gastos .thead,.cont-gastos .row{grid-template-columns:1.2fr 150px 1.7fr 95px}
+.gasto-editor-row{display:grid;grid-template-columns:1.2fr 150px 1.7fr 46px;gap:10px;align-items:center;margin-bottom:10px}
+.gasto-editor-row input{width:100%;padding:12px;border:1px solid #c9d9e8;border-radius:14px;background:white;color:#002f5e}
+.gasto-total-box{display:flex;justify-content:space-between;align-items:center;border-top:1px solid #dbe7f3;margin-top:14px;padding-top:14px;font-weight:950;color:#062b63}
+@media(max-width:1050px){.contaminaciones .row,.cont-gastos .row,.gasto-editor-row{grid-template-columns:1fr}}
+
+
 
 /* KPI VNA: monto recuperado principal + total registrado */
 .dashboard-stats{grid-template-columns:repeat(auto-fit,minmax(260px,1fr))!important}
@@ -429,6 +440,7 @@ body:before{
   <button id="nav-ticketat" data-modulo="ticket_atendedor" onclick="showModule('ticketat')">Ticket Atendedor <span id="ticketNotifBadge" class="notif-badge hidden">0</span></button>
 
   <button id="nav-estafas" data-modulo="estafas" onclick="showModule('estafas')">Estafas</button>
+  <button id="nav-contaminaciones" data-modulo="contaminaciones" onclick="showModule('contaminaciones')">Contaminaciones</button>
 
   <button id="nav-formatos" data-modulo="formatos" onclick="showModule('formatos')">Formatos</button>
   <button id="nav-flota" data-modulo="flota" onclick="showModule('flota')">Flota</button>
@@ -463,6 +475,7 @@ body:before{
       <button data-modulo="desempeno" onclick="showModule('at')"><span>◔</span>Desempeño</button>
       <button data-modulo="ticket_atendedor" onclick="showModule('ticketat')"><span>◆</span>Ticket<br>Atendedor</button>
       <button data-modulo="estafas" onclick="showModule('estafas')"><span>⚠</span>Estafas<br>Perros muertos</button>
+      <button data-modulo="contaminaciones" onclick="showModule('contaminaciones')"><span>⛽</span>Contaminaciones</button>
       <button data-modulo="formatos" onclick="showModule('formatos')"><span>▤</span>Formatos<br>EDS</button>
       <button data-modulo="flota" onclick="showModule('flota')"><span>🚚</span>Flota<br>Documental</button>
       <button data-modulo="nomina" onclick="showModule('at');setTimeout(()=>showAtSub('nomina'),100)"><span>👥</span>Nómina</button>
@@ -595,6 +608,40 @@ body:before{
     </div>
     <div class="card detail" id="estafaDetail">
       <h2>Ficha de caso</h2>
+      <p>Selecciona un caso.</p>
+    </div>
+  </div>
+</section>
+
+
+<section id="contaminaciones" class="section">
+  <div class="topbar">
+    <div>
+      <h1>Contaminaciones</h1>
+      <p>Registro de siniestros por carga de combustible o aditivo incorrecto.</p>
+    </div>
+    <button class="primary" data-action="crear" onclick="openContaminacionModal()">Agregar caso</button>
+  </div>
+
+  <div class="grid content">
+    <div class="card">
+      <h2>Historial de casos</h2>
+      <div class="toolbar two">
+        <input id="contSearch" oninput="renderContaminaciones()" placeholder="Buscar por fecha, atendedor, vehículo o cliente"/>
+        <select id="contFilter" onchange="renderContaminaciones()">
+          <option>Todos</option>
+          <option>Ingresado</option>
+          <option>En revisión</option>
+          <option>Cerrado</option>
+        </select>
+      </div>
+      <div class="table contaminaciones">
+        <div class="thead"><div>Fecha</div><div>Atendedor</div><div>Vehículo</div><div>Cliente</div><div>Total neto siniestro</div><div>Detalle</div></div>
+        <div id="contRows"></div>
+      </div>
+    </div>
+    <div class="card detail" id="contDetail">
+      <h2>Ficha de contaminación</h2>
       <p>Selecciona un caso.</p>
     </div>
   </div>
@@ -744,6 +791,7 @@ body:before{
       <label><input id="permBitacora" type="checkbox"> Bitácora Estación</label><br>
       <label><input id="permVNA" type="checkbox"> Ventas No Abonadas</label><br>
       <label><input id="permEstafas" type="checkbox"> Estafas / Perros muertos</label><br>
+      <label><input id="permContaminaciones" type="checkbox"> Contaminaciones</label><br>
       <label><input id="permFormatos" type="checkbox"> Formatos EDS</label><br>
       <label><input id="permFlota" type="checkbox"> Flota</label><br>
       <label><input id="permDesempeno" type="checkbox"> Desempeño AT</label><br>
@@ -839,6 +887,51 @@ body:before{
 
 
 
+<div id="contaminacionModal" class="modal">
+  <div class="modal-box">
+    <h2 id="contModalTitle">Agregar caso · Contaminación</h2>
+    <div class="form two">
+      <input id="contFecha" type="datetime-local"/>
+      <select id="contAtendedor"></select>
+      <input id="contVehiculo" placeholder="Vehículo / patente / descripción"/>
+      <input id="contCliente" placeholder="Cliente"/>
+      <select id="contEstado">
+        <option>Ingresado</option>
+        <option>En revisión</option>
+        <option>Cerrado</option>
+      </select>
+    </div>
+    <div class="form"><textarea id="contObservacion" placeholder="Observación general del caso"></textarea></div>
+    <div class="actions">
+      <button class="primary" data-action="crear" onclick="saveContaminacionCase()">Guardar caso</button>
+      <button class="secondary" onclick="closeContaminacionModal()">Cancelar</button>
+    </div>
+    <div id="contMsg"></div>
+  </div>
+</div>
+
+<div id="contaminacionDetalleModal" class="modal">
+  <div class="modal-box">
+    <h2 id="contDetalleTitle">Detalle de gastos</h2>
+    <p class="muted">Agrega una línea por cada gasto asociado al siniestro. El total neto se calcula automáticamente y queda visible en el historial principal.</p>
+    <div id="contDetalleResumen" class="kv"></div>
+    <div class="actions">
+      <button class="secondary" type="button" onclick="addContGastoRow()">+ Agregar línea</button>
+    </div>
+    <div class="table cont-gastos" style="margin-top:12px">
+      <div class="thead"><div>Item gasto</div><div>Neto</div><div>Observación</div><div></div></div>
+      <div id="contGastosEditor"></div>
+    </div>
+    <div class="gasto-total-box"><span>Total gasto neto</span><span id="contGastoTotal">$0</span></div>
+    <div class="actions">
+      <button class="primary" data-action="editar" onclick="saveContaminacionGastos()">Guardar detalle</button>
+      <button class="secondary" onclick="closeContaminacionDetalleModal()">Cerrar</button>
+    </div>
+    <div id="contGastoMsg"></div>
+  </div>
+</div>
+
+
 <div id="formatoModal" class="modal">
   <div class="modal-box">
     <h2 id="formatoModalTitle">Cargar formato EDS</h2>
@@ -910,7 +1003,7 @@ body:before{
 <script>
 const SUPABASE_URL='https://emyskqnsyspzjrguycjk.supabase.co';
 const SUPABASE_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVteXNrcW5zeXNwempyZ3V5Y2prIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzk5MDg5NDcsImV4cCI6MjA5NTQ4NDk0N30.bLCSwgLCop1Gg4rCbunFe4YCP_KHxIIFGF28vR0XD-0';
-const client=supabase.createClient(SUPABASE_URL,SUPABASE_KEY);const bucket='documentos-sec';let docs=[],secFilesByDoc={},bits=[],bitHist=[],vnas=[],history=[],estafas=[],estafaHist=[],selectedEstafa=null,editandoEstafa=null,formatos=[],selectedFormato=null,flotaVehiculos=[],flotaDocs=[],flotaConductores=[],flotaConductorDocs=[],selectedFlotaVeh=null,selectedFlotaCond=null,editandoFlotaVeh=null,editandoFlotaCond=null,atendedores=[],atNotes=[],atNoteHist=[],ticketsAt=[],ticketAtHist=[],selectedDoc=null,selectedBit=null,selectedVna=null,selectedAt=null,selectedNote=null,selectedTicketAt=null,editandoAtendedor=null,currentUser=null,usuariosConfig=[],selectedUsuario=null;
+const client=supabase.createClient(SUPABASE_URL,SUPABASE_KEY);const bucket='documentos-sec';let docs=[],secFilesByDoc={},bits=[],bitHist=[],vnas=[],history=[],estafas=[],estafaHist=[],selectedEstafa=null,editandoEstafa=null,contaminaciones=[],contaminacionGastos=[],selectedContaminacion=null,editandoContaminacion=null,currentContaminacionDetalle=null,formatos=[],selectedFormato=null,flotaVehiculos=[],flotaDocs=[],flotaConductores=[],flotaConductorDocs=[],selectedFlotaVeh=null,selectedFlotaCond=null,editandoFlotaVeh=null,editandoFlotaCond=null,atendedores=[],atNotes=[],atNoteHist=[],ticketsAt=[],ticketAtHist=[],selectedDoc=null,selectedBit=null,selectedVna=null,selectedAt=null,selectedNote=null,selectedTicketAt=null,editandoAtendedor=null,currentUser=null,usuariosConfig=[],selectedUsuario=null;
 
 function roleLabel(){
   const r=String(currentUser?.rol||'Usuario').trim();
@@ -1090,7 +1183,7 @@ function normalizePermisos(p){
   });
 
   // Compatibilidad con permisos antiguos planos
-  ['dashboard_kpi','accesos_rapidos','sec','bitacora','vna','estafas','formatos','flota','desempeno','ticket_atendedor','ticket','usuarios','nomina','historial_anotaciones'].forEach(k=>{
+  ['dashboard_kpi','accesos_rapidos','sec','bitacora','vna','estafas','contaminaciones','formatos','flota','desempeno','ticket_atendedor','ticket','usuarios','nomina','historial_anotaciones'].forEach(k=>{
     if(p[k]===true)norm.modulos[k]=true;
   });
   ['crear','editar','eliminar','desactivar','subir_archivos','cambiar_estado'].forEach(k=>{
@@ -1104,7 +1197,7 @@ function normalizePermisos(p){
 }
 
 function normalizarModuloPermiso(mod){
-  const map={ticket:'ticket_atendedor',ticketat:'ticket_atendedor',at:'desempeno',sec:'sec',bitacora:'bitacora',vna:'vna',estafas:'estafas',formatos:'formatos',flota:'flota',usuarios:'usuarios',nomina:'nomina',desempeno:'desempeno',historial_anotaciones:'historial_anotaciones'};
+  const map={ticket:'ticket_atendedor',ticketat:'ticket_atendedor',at:'desempeno',sec:'sec',bitacora:'bitacora',vna:'vna',estafas:'estafas',contaminaciones:'contaminaciones',formatos:'formatos',flota:'flota',usuarios:'usuarios',nomina:'nomina',desempeno:'desempeno',historial_anotaciones:'historial_anotaciones'};
   const k=String(mod||'').trim();
   return map[k]||k;
 }
@@ -1224,6 +1317,7 @@ function applyPermissions(){
     ['at','desempeno'],
     ['ticketat','ticket_atendedor'],
     ['estafas','estafas'],
+    ['contaminaciones','contaminaciones'],
     ['formatos','formatos'],
     ['flota','flota'],
     ['usuarios','usuarios']
@@ -1252,7 +1346,7 @@ function showModule(m){
     loadDashboard();
     return;
   }
-  const mapPerm={sec:'sec',bitacora:'bitacora',vna:'vna',estafas:'estafas',formatos:'formatos',flota:'flota',at:'desempeno',ticketat:'ticket_atendedor',formatos:'formatos',usuarios:'usuarios'};
+  const mapPerm={sec:'sec',bitacora:'bitacora',vna:'vna',estafas:'estafas',contaminaciones:'contaminaciones',formatos:'formatos',flota:'flota',at:'desempeno',ticketat:'ticket_atendedor',formatos:'formatos',usuarios:'usuarios'};
   const perm=mapPerm[m]||m;
 
   if(!canModule(perm)){
@@ -1278,12 +1372,13 @@ function showModule(m){
   if(m==='bitacora')loadBitacora();
   if(m==='vna')loadVna();
   if(m==='estafas')loadEstafas();
+  if(m==='contaminaciones')loadContaminaciones();
   if(m==='formatos')loadFormatos();
   if(m==='flota')loadFlota();
   if(m==='at')loadDesempeno();
   if(m==='ticketat')loadTicketAt();
   if(m==='usuarios')loadUsuariosConfig();
-}async function loadAll(){await loadDashboard();await loadDocuments();await loadBitacora();await loadVna();await loadEstafas();await loadFormatos();await loadFlota();await loadDesempeno()}function fmt(d){if(!d)return '-';return new Date(d).toLocaleString('es-CL',{dateStyle:'short',timeStyle:'short'})}
+}async function loadAll(){await loadDashboard();await loadDocuments();await loadBitacora();await loadVna();await loadEstafas();await loadContaminaciones();await loadFormatos();await loadFlota();await loadDesempeno()}function fmt(d){if(!d)return '-';return new Date(d).toLocaleString('es-CL',{dateStyle:'short',timeStyle:'short'})}
 function fmtAt(d){if(!d)return '-';const dt=new Date(d);if(isNaN(dt))return '-';dt.setHours(dt.getHours()+4);return dt.toLocaleString('es-CL',{dateStyle:'short',timeStyle:'short'})}
 function tiempoEmpresa(fechaIngreso){
   if(!fechaIngreso)return 'Sin fecha de ingreso';
@@ -1707,6 +1802,192 @@ async function saveEstafaCase(){
   await selectEstafa(data.id);
 }
 
+
+/* ===============================
+   Módulo Contaminaciones
+================================ */
+async function loadContaminaciones(){
+  if(!document.getElementById('contRows'))return;
+  const {data,error}=await client.from('contaminaciones_casos').select('*').order('fecha',{ascending:false});
+  if(error){
+    contRows.innerHTML='<div class="notice error">Error cargando Contaminaciones. Ejecuta primero el SQL del módulo. Detalle: '+error.message+'</div>';
+    return;
+  }
+  contaminaciones=data||[];
+  if(!selectedContaminacion)selectedContaminacion=contaminaciones[0]||null;
+  renderContaminaciones();
+}
+
+function renderContaminaciones(){
+  if(!document.getElementById('contRows'))return;
+  const q=(document.getElementById('contSearch')?.value||'').toLowerCase();
+  const f=document.getElementById('contFilter')?.value||'Todos';
+  const list=contaminaciones.filter(c=>(f==='Todos'||c.estado===f)&&`${c.fecha||''} ${c.atendedor_nombre||''} ${c.vehiculo||''} ${c.cliente||''} ${c.estado||''}`.toLowerCase().includes(q));
+  contRows.innerHTML=list.map(c=>`<div class="row ${selectedContaminacion&&selectedContaminacion.id===c.id?'selected':''}" onclick="selectContaminacion(${c.id})">
+    <div>${fmt(c.fecha)}</div>
+    <div><div class="title">${escapeHtml(c.atendedor_nombre||'-')}</div><div class="sub">${escapeHtml(c.estado||'Ingresado')}</div></div>
+    <div>${escapeHtml(c.vehiculo||'-')}</div>
+    <div>${escapeHtml(c.cliente||'-')}</div>
+    <div><b>${money(c.total_neto_siniestro)}</b></div>
+    <div><button class="secondary" onclick="event.stopPropagation();openContaminacionDetalle(${c.id})">Ver detalle</button></div>
+  </div>`).join('')||'<div class="notice">Sin casos de contaminación registrados.</div>';
+  renderContaminacionDetail();
+  try{applyActionPermissions()}catch(e){}
+}
+
+async function selectContaminacion(id){
+  selectedContaminacion=contaminaciones.find(c=>Number(c.id)===Number(id))||null;
+  await loadContaminacionGastos(id);
+  renderContaminaciones();
+}
+
+async function loadContaminacionGastos(id){
+  if(!id){contaminacionGastos=[];return}
+  const {data,error}=await client.from('contaminaciones_gastos').select('*').eq('caso_id',id).order('id',{ascending:true});
+  contaminacionGastos=error?[]:(data||[]);
+}
+
+function renderContaminacionDetail(){
+  const box=document.getElementById('contDetail'); if(!box)return;
+  const c=selectedContaminacion;
+  if(!c){box.innerHTML='<h2>Ficha de contaminación</h2><p>Selecciona un caso.</p>';return}
+  box.innerHTML=`<h2>${escapeHtml(c.vehiculo||'Caso de contaminación')}</h2>
+    ${badge(c.estado||'Ingresado')}
+    <div class="kv"><small>Fecha</small>${fmt(c.fecha)}</div>
+    <div class="kv"><small>Atendedor</small>${escapeHtml(c.atendedor_nombre||'-')}</div>
+    <div class="kv"><small>Cliente</small>${escapeHtml(c.cliente||'-')}</div>
+    <div class="kv"><small>Total neto siniestro</small><b>${money(c.total_neto_siniestro)}</b></div>
+    <div class="kv"><small>Observación general</small>${escapeHtml(c.observacion_general||'-')}</div>
+    <div class="actions">
+      <button class="primary" data-action="editar" onclick="openContaminacionDetalle(${c.id})">Detalle de gastos</button>
+      <button class="secondary" data-action="editar" onclick="openContaminacionModal(${c.id})">Editar caso</button>
+    </div>`;
+}
+
+async function fillContaminacionAtendedores(){
+  if(!document.getElementById('contAtendedor'))return;
+  await loadAtendedores();
+  contAtendedor.innerHTML='<option value="">Seleccionar atendedor</option>'+atendedores.filter(a=>(a.estado||'Activo')==='Activo').map(a=>`<option value="${a.id}" data-nombre="${escapeHtml(a.nombre||'')}">${escapeHtml(a.nombre||'')} · ${escapeHtml(a.rut||'')}</option>`).join('');
+}
+
+async function openContaminacionModal(id=null){
+  const isEdit=!!id;
+  if(!requireAction(isEdit?'editar':'crear',isEdit?'No tienes permiso para editar casos de contaminación.':'No tienes permiso para crear casos de contaminación.'))return;
+  await fillContaminacionAtendedores();
+  editandoContaminacion=null;
+  contMsg.innerHTML='';
+  contFecha.value='';contAtendedor.value='';contVehiculo.value='';contCliente.value='';contEstado.value='Ingresado';contObservacion.value='';
+  contModalTitle.textContent='Agregar caso · Contaminación';
+  if(id){
+    const c=contaminaciones.find(x=>Number(x.id)===Number(id));
+    if(c){
+      editandoContaminacion=id;
+      contModalTitle.textContent='Editar caso · Contaminación';
+      contFecha.value=c.fecha?String(c.fecha).slice(0,16):'';
+      contAtendedor.value=c.atendedor_id||'';
+      contVehiculo.value=c.vehiculo||'';
+      contCliente.value=c.cliente||'';
+      contEstado.value=c.estado||'Ingresado';
+      contObservacion.value=c.observacion_general||'';
+    }
+  }
+  contaminacionModal.classList.add('open');
+}
+
+function closeContaminacionModal(){contaminacionModal.classList.remove('open')}
+
+async function saveContaminacionCase(){
+  const isEdit=!!editandoContaminacion;
+  if(!requireAction(isEdit?'editar':'crear',isEdit?'No tienes permiso para editar casos de contaminación.':'No tienes permiso para crear casos de contaminación.'))return;
+  const opt=contAtendedor.options[contAtendedor.selectedIndex];
+  const payload={
+    fecha:contFecha.value||new Date().toISOString(),
+    atendedor_id:contAtendedor.value||null,
+    atendedor_nombre:opt?(opt.getAttribute('data-nombre')||opt.textContent.split(' · ')[0]):'',
+    vehiculo:contVehiculo.value.trim(),
+    cliente:contCliente.value.trim(),
+    estado:contEstado.value,
+    observacion_general:contObservacion.value.trim(),
+    updated_at:new Date().toISOString()
+  };
+  if(!payload.atendedor_id||!payload.vehiculo||!payload.cliente){contMsg.innerHTML='<div class="notice error">Falta atendedor, vehículo o cliente.</div>';return}
+  const res=isEdit?await client.from('contaminaciones_casos').update(payload).eq('id',editandoContaminacion).select().single():await client.from('contaminaciones_casos').insert(payload).select().single();
+  if(res.error){contMsg.innerHTML='<div class="notice error">'+res.error.message+'</div>';return}
+  selectedContaminacion=res.data;
+  closeContaminacionModal();
+  await loadContaminaciones();
+  await selectContaminacion(res.data.id);
+}
+
+async function openContaminacionDetalle(id){
+  const c=contaminaciones.find(x=>Number(x.id)===Number(id));
+  if(!c)return;
+  currentContaminacionDetalle=id;
+  selectedContaminacion=c;
+  await loadContaminacionGastos(id);
+  contDetalleTitle.textContent='Detalle de gastos · '+(c.vehiculo||'Contaminación');
+  contDetalleResumen.innerHTML=`<small>Resumen del caso</small>${fmt(c.fecha)} · ${escapeHtml(c.atendedor_nombre||'-')} · ${escapeHtml(c.cliente||'-')}`;
+  renderContGastosEditor();
+  contaminacionDetalleModal.classList.add('open');
+}
+
+function closeContaminacionDetalleModal(){contaminacionDetalleModal.classList.remove('open')}
+
+function addContGastoRow(item='',neto='',observacion=''){
+  const box=document.getElementById('contGastosEditor'); if(!box)return;
+  const row=document.createElement('div');
+  row.className='gasto-editor-row';
+  row.innerHTML=`<input class="cont-item" placeholder="Item gasto" value="${escapeHtml(item)}" oninput="calcContGastoTotal()"/>
+    <input class="cont-neto" type="number" placeholder="Neto" value="${neto||''}" oninput="calcContGastoTotal()"/>
+    <input class="cont-obs" placeholder="Observación" value="${escapeHtml(observacion)}"/>
+    <button type="button" class="secondary" onclick="this.closest('.gasto-editor-row').remove();calcContGastoTotal()">×</button>`;
+  box.appendChild(row);
+  calcContGastoTotal();
+}
+
+function renderContGastosEditor(){
+  const box=document.getElementById('contGastosEditor'); if(!box)return;
+  box.innerHTML='';
+  if(contaminacionGastos.length){
+    contaminacionGastos.forEach(g=>addContGastoRow(g.item_gasto||'',g.neto||'',g.observacion||''));
+  }else{
+    addContGastoRow();
+  }
+  calcContGastoTotal();
+}
+
+function calcContGastoTotal(){
+  const total=[...document.querySelectorAll('#contGastosEditor .cont-neto')].reduce((acc,input)=>acc+(Number(input.value)||0),0);
+  const el=document.getElementById('contGastoTotal'); if(el)el.textContent=money(total);
+  return total;
+}
+
+async function saveContaminacionGastos(){
+  if(!currentContaminacionDetalle)return;
+  if(!requireAction('editar','No tienes permiso para editar el detalle de gastos.','contaminaciones'))return;
+  const rows=[...document.querySelectorAll('#contGastosEditor .gasto-editor-row')].map(r=>({
+    caso_id:currentContaminacionDetalle,
+    item_gasto:(r.querySelector('.cont-item')?.value||'').trim(),
+    neto:Number(r.querySelector('.cont-neto')?.value)||0,
+    observacion:(r.querySelector('.cont-obs')?.value||'').trim()
+  })).filter(r=>r.item_gasto||r.neto||r.observacion);
+  if(rows.some(r=>!r.item_gasto)){contGastoMsg.innerHTML='<div class="notice error">Cada línea debe tener item gasto.</div>';return}
+  contGastoMsg.innerHTML='<div class="notice">Guardando detalle...</div>';
+  const del=await client.from('contaminaciones_gastos').delete().eq('caso_id',currentContaminacionDetalle);
+  if(del.error){contGastoMsg.innerHTML='<div class="notice error">'+del.error.message+'</div>';return}
+  if(rows.length){
+    const ins=await client.from('contaminaciones_gastos').insert(rows);
+    if(ins.error){contGastoMsg.innerHTML='<div class="notice error">'+ins.error.message+'</div>';return}
+  }else{
+    await client.from('contaminaciones_casos').update({total_neto_siniestro:0,updated_at:new Date().toISOString()}).eq('id',currentContaminacionDetalle);
+  }
+  contGastoMsg.innerHTML='<div class="notice ok">Detalle guardado. Total actualizado automáticamente.</div>';
+  await loadContaminaciones();
+  await selectContaminacion(currentContaminacionDetalle);
+  const c=contaminaciones.find(x=>Number(x.id)===Number(currentContaminacionDetalle));
+  if(c){contDetalleResumen.innerHTML=`<small>Resumen del caso</small>${fmt(c.fecha)} · ${escapeHtml(c.atendedor_nombre||'-')} · ${escapeHtml(c.cliente||'-')}`;}
+}
+
 function showAtSub(view){const hist=document.getElementById('atHistorialView'),nom=document.getElementById('atNominaView');hist.classList.toggle('hidden',view!=='historial');nom.classList.toggle('hidden',view!=='nomina');tabAtHist.classList.toggle('active',view==='historial');tabAtNom.classList.toggle('active',view==='nomina');if(view==='nomina')loadAtendedores();else loadAtNotes()}function openNomina(){showAtSub('nomina')}function toggleAtForm(){const opening=atFormCard.classList.contains('hidden');if(opening)resetAtForm();atFormCard.classList.toggle('hidden')}function toggleAtNoteForm(){const opening=atNoteFormCard.classList.contains('hidden');if(opening)resetAtNoteForm();atNoteFormCard.classList.toggle('hidden');fillNoteWorkers()}async function loadDesempeno(){await loadAtendedores();await loadAtNotes();showAtSub('historial')}function fillNoteWorkers(){if(!document.getElementById('noteTrabajador'))return;noteTrabajador.innerHTML='<option value="">Seleccionar trabajador</option>'+atendedores.filter(a=>(a.estado||'Activo')==='Activo').map(a=>`<option value="${a.id}">${a.nombre} · ${a.rut}</option>`).join('')}async function loadAtNotes(){const {data,error}=await client.from('anotaciones_desempeno_at').select('*, atendedores_nomina(nombre,rut,foto_url)').order('fecha_anotacion',{ascending:false});if(error){noteRows.innerHTML='<div class="notice error">Error cargando anotaciones: '+error.message+'</div>';return}atNotes=data||[];if(!selectedNote)selectedNote=atNotes[0];if(selectedNote)await loadAtNoteHist(selectedNote.id);populateNoteMonthFilter();renderAtNotes()}async function loadAtNoteHist(id){if(!id){atNoteHist=[];return}const {data,error}=await client.from('historial_anotaciones_desempeno_at').select('*').eq('anotacion_id',id).order('created_at',{ascending:false});atNoteHist=error?[]:(data||[])}function correctedNoteDate(d){if(!d)return null;const dt=new Date(d);if(isNaN(dt))return null;dt.setHours(dt.getHours()+4);return dt}function noteMonthKey(d){const dt=correctedNoteDate(d);if(!dt)return '';return dt.getFullYear()+'-'+String(dt.getMonth()+1).padStart(2,'0')}function noteMonthLabel(key){const meses=['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];const [y,m]=String(key).split('-');const idx=(parseInt(m,10)||1)-1;return (meses[idx]||m)+' '+y}function populateNoteMonthFilter(){const sel=document.getElementById('noteMonthFilter');if(!sel)return;const current=sel.value||'Todos';const keys=[...new Set(atNotes.map(n=>noteMonthKey(n.fecha_anotacion)).filter(Boolean))].sort().reverse();sel.innerHTML='<option value="Todos">Todos los meses</option>'+keys.map(k=>`<option value="${k}">${noteMonthLabel(k)}</option>`).join('');sel.value=keys.includes(current)?current:'Todos'}function renderAtNotes(){let q=(noteSearch?.value||'').toLowerCase(),f=(noteFilter?.value||'Todos'),mf=(document.getElementById('noteMonthFilter')?.value||'Todos');let list=atNotes.filter(n=>(f==='Todos'||n.tipo===f)&&(mf==='Todos'||noteMonthKey(n.fecha_anotacion)===mf)&&`${n.titulo||''} ${n.detalle||''} ${n.categoria||''} ${n.responsable||''} ${n.atendedores_nomina?.nombre||''} ${n.atendedores_nomina?.rut||''}`.toLowerCase().includes(q));noteRows.innerHTML=list.map(n=>`<div class="row ${selectedNote&&selectedNote.id===n.id?'selected':''}" onclick="selectAtNote(${n.id})"><div>${fmtAt(n.fecha_anotacion)}</div><div><div class="title">${n.atendedores_nomina?.nombre||'Trabajador no asignado'}</div><div class="sub">${n.titulo||'-'} · ${n.categoria||'-'}</div></div><div>${badge(n.tipo)}</div><div>${n.responsable||'-'}</div></div>`).join('')||'<div class="notice">Sin anotaciones registradas.</div>';renderAtNoteDetail()}async function selectAtNote(id){selectedNote=atNotes.find(n=>n.id===id);await loadAtNoteHist(id);renderAtNotes()}function renderAtNoteDetail(){const n=selectedNote;if(!n){noteDetail.innerHTML='<h2>Ficha de anotación</h2><p>Selecciona una anotación.</p>';return}noteDetail.innerHTML=`<h2>${n.titulo||'Anotación'}</h2>${badge(n.tipo)}<div class="kv"><small>Trabajador</small>${n.atendedores_nomina?.nombre||'-'} · ${n.atendedores_nomina?.rut||'-'}</div><div class="kv"><small>Fecha / Responsable</small>${fmtAt(n.fecha_anotacion)} · ${n.responsable||'-'}</div><div class="kv"><small>Categoría</small>${n.categoria||'-'}</div><div class="kv"><small>Detalle</small>${n.detalle||'-'}</div><div class="kv"><small>Acción / Seguimiento</small>${n.accion||'-'}</div><div class="kv"><small>Respaldo inicial</small>${n.archivo_url?`<a href="${n.archivo_url}" target="_blank">Ver archivo</a>`:'Sin archivo'}</div><div class="notice">Registro creado: ${fmt(n.created_at)}. Este histórico queda disponible para auditoría futura.</div><hr><h3>Respaldo adicional / Apelación</h3>${n.tipo==='Negativa'?`<div class="actions"><button class="primary" data-action="editar" onclick="appealAtNote(${n.id})">Apelación · Cambiar a Neutra</button></div>`:''}<div class="form"><input id="noteHistAccion" placeholder="Título del respaldo / avance"/><textarea id="noteHistComentario" placeholder="Comentario adicional para respaldar esta anotación"></textarea><input id="noteHistArchivo" type="file" accept=".jpg,.jpeg,.png,.webp,.pdf,image/*,.xlsx,.xls"/><button class="primary" data-action="crear" onclick="addAtNoteSupport(${n.id})">Agregar respaldo</button><div id="noteHistMsg"></div></div><hr><h3>Historial de respaldos</h3><div class="timeline">${atNoteHist.map(h=>`<div class="item"><h4>${h.accion||'Respaldo adicional'}</h4><small>${fmt(h.created_at)} · ${h.usuario||'-'}</small><p>${h.comentario||''}</p>${h.archivo_url?`<a href="${h.archivo_url}" target="_blank">Ver archivo</a>`:''}</div>`).join('')||'<p class="muted">Sin respaldos adicionales.</p>'}</div>`}async function addAtNoteSupport(id){if(!requireAction('crear','No tienes permiso para agregar respaldos.'))return;const accion=(noteHistAccion.value||'Respaldo adicional').trim();const comentario=(noteHistComentario.value||'').trim();const file=noteHistArchivo.files[0];if(file&&!requireAction('subir_archivos','No tienes permiso para subir archivos.'))return;if(!comentario&&!file){noteHistMsg.innerHTML='<div class="notice error">Ingresa comentario o archivo.</div>';return}let archivo_url=null,archivo_nombre=null;if(file){const path=`desempeno-at/anotaciones/respaldo/${id}/${Date.now()}_${safeFileName(file.name)}`;const up=await client.storage.from(bucket).upload(path,file,{upsert:true});if(up.error){noteHistMsg.innerHTML='<div class="notice error">No se pudo subir archivo: '+up.error.message+'</div>';return}archivo_url=client.storage.from(bucket).getPublicUrl(path).data.publicUrl;archivo_nombre=file.name}const {error}=await client.from('historial_anotaciones_desempeno_at').insert({anotacion_id:id,accion,usuario:currentUser?.nombre||'Usuario',comentario,archivo_url,archivo_nombre});if(error){noteHistMsg.innerHTML='<div class="notice error">'+error.message+'</div>';return}noteHistMsg.innerHTML='<div class="notice ok">Respaldo agregado correctamente.</div>';noteHistAccion.value='';noteHistComentario.value='';noteHistArchivo.value='';await loadAtNoteHist(id);renderAtNoteDetail()}
 async function appealAtNote(id){
   const n=atNotes.find(x=>x.id===id);
@@ -2113,6 +2394,7 @@ const PERM_MODULE_ACTIONS=[
   ['bitacora','Bitácora Estación'],
   ['vna','Ventas No Abonadas'],
   ['estafas','Estafas / Perros muertos'],
+  ['contaminaciones','Contaminaciones'],
   ['formatos','Formatos EDS'],
   ['flota','Flota'],
   ['desempeno','Desempeño AT'],
@@ -2129,7 +2411,7 @@ const PERM_ACTIONS=[
   ['subir_archivos','Subir archivos'],
   ['cambiar_estado','Cambiar estados']
 ];
-const MODULE_CHECKBOX_MAP={sec:'permSEC',bitacora:'permBitacora',vna:'permVNA',estafas:'permEstafas',formatos:'permFormatos',flota:'permFlota',desempeno:'permDesempeno',ticket_atendedor:'permTicket',usuarios:'permUsuarios',nomina:'permNomina',historial_anotaciones:'permHistorialAnotaciones'};
+const MODULE_CHECKBOX_MAP={sec:'permSEC',bitacora:'permBitacora',vna:'permVNA',estafas:'permEstafas',contaminaciones:'permContaminaciones',formatos:'permFormatos',flota:'permFlota',desempeno:'permDesempeno',ticket_atendedor:'permTicket',usuarios:'permUsuarios',nomina:'permNomina',historial_anotaciones:'permHistorialAnotaciones'};
 
 function renderAccionesModuloControls(){
   const box=document.getElementById('accionesModuloGrid');
@@ -2207,7 +2489,7 @@ function resetUsuarioForm(){
   usrRol.value='Consulta';
   [
     platWeb,platAdminMobile,platDesempenoMobile,platTicketMobile,
-    permDashboardKpi,permAccesosRapidos,permSEC,permBitacora,permVNA,permEstafas,permFormatos,permFlota,permDesempeno,permTicket,permUsuarios,permNomina,permHistorialAnotaciones
+    permDashboardKpi,permAccesosRapidos,permSEC,permBitacora,permVNA,permEstafas,permContaminaciones,permFormatos,permFlota,permDesempeno,permTicket,permUsuarios,permNomina,permHistorialAnotaciones
   ].forEach(x=>{if(x)x.checked=false});
   renderAccionesModuloControls();
   document.querySelectorAll('#accionesModuloGrid input[type="checkbox"]').forEach(x=>x.checked=false);
@@ -2237,6 +2519,7 @@ function permisosFromForm(){
   if(permBitacora.checked)modulos.push('bitacora');
   if(permVNA.checked)modulos.push('vna');
   if(permEstafas.checked)modulos.push('estafas');
+  if(permContaminaciones.checked)modulos.push('contaminaciones');
   if(permFormatos.checked)modulos.push('formatos');
   if(permFlota.checked)modulos.push('flota');
   if(permDesempeno.checked)modulos.push('desempeno');
@@ -2263,6 +2546,7 @@ function setPermisosForm(p){
   permBitacora.checked=!!p.modulos.bitacora;
   permVNA.checked=!!p.modulos.vna;
   permEstafas.checked=!!p.modulos.estafas;
+  permContaminaciones.checked=!!p.modulos.contaminaciones;
   permFormatos.checked=!!p.modulos.formatos;
   permFlota.checked=!!p.modulos.flota;
   permDesempeno.checked=!!p.modulos.desempeno;
@@ -2329,6 +2613,7 @@ function renderUsuarioDetail(){
     ['Bitácora',modulos.bitacora],
     ['Ventas No Abonadas',modulos.vna],
     ['Estafas / Perros muertos',modulos.estafas],
+    ['Contaminaciones',modulos.contaminaciones],
     ['Formatos EDS',modulos.formatos],
     ['Flota',modulos.flota],
     ['Desempeño AT',modulos.desempeno],
@@ -3252,6 +3537,7 @@ function applyModulePermissions(){
     ['nav-vna','vna'],
     ['nav-ticketat','ticket_atendedor'],
     ['nav-estafas','estafas'],
+    ['nav-contaminaciones','contaminaciones'],
     ['nav-formatos','formatos'],
     ['nav-flota','flota'],
     ['nav-usuarios','usuarios']
