@@ -395,6 +395,10 @@ body:before{
 .flota-alert strong{color:#7c2d12}
 .flota-ok{background:#ecfdf5;border-color:#bbf7d0;color:#166534}
 .flota-small{font-size:12px;color:#64748b;font-weight:800;margin-top:4px}
+.flota-ai-box{margin-top:10px;border:1px solid #bfdbfe;background:linear-gradient(135deg,#eff6ff,#ffffff);border-radius:16px;padding:12px;color:#0b2f5b;font-weight:800}
+.flota-ai-box b{color:#062b63}
+.flota-ai-box .ai-date{font-size:18px;color:#2563eb;font-weight:950}
+.flota-ai-box .ai-low{color:#9a3412}
 
 /* Alerta visual en menú Flota */
 .nav-modern #nav-flota.flota-nav-vencido{background:#dc2626!important;border-color:#b91c1c!important;color:#fff!important;box-shadow:0 10px 26px rgba(220,38,38,.22)!important}
@@ -2276,7 +2280,7 @@ function renderFlotaVehDetail(){
     <div class="flota-doc-head"><div><b>${escapeHtml(tipo)}</b><div class="flota-small">${d?.no_aplica?'Este documento no aplica para el vehículo.':`Vence: ${d?.fecha_vencimiento||'Sin fecha'} ${dias!==null?`· ${dias} días`:''}`}</div></div>${flotaStatusBadge(st)}</div>
     <div class="kv"><small>Archivo</small>${d?.archivo_url?`<a href="${d.archivo_url}" target="_blank">Ver documento</a>`:(d?.no_aplica?'No aplica':'Sin archivo cargado')}</div>
     <div class="form"><input id="flotaDocFile_${idx}" type="file" accept=".pdf,.doc,.docx,.jpg,.jpeg,.png,.webp,image/*"/><input id="flotaDocDue_${idx}" type="date" value="${d?.fecha_vencimiento||''}" ${d?.no_aplica?'disabled':''}/></div>
-    <div class="actions"><button class="primary" data-action="subir_archivos" onclick="uploadFlotaDoc(${v.id},${idx})">${d?.archivo_url?'Actualizar':'Cargar'} documento</button>${tctNoAplicaAction}</div>
+    <div class="actions"><button class="secondary" data-action="subir_archivos" onclick="analizarVencimientoFlotaDoc(${v.id},${idx})" ${d?.no_aplica?'disabled':''}>Analizar vencimiento con IA</button><button class="primary" data-action="subir_archivos" onclick="uploadFlotaDoc(${v.id},${idx})">${d?.archivo_url?'Actualizar':'Cargar'} documento</button>${tctNoAplicaAction}</div>
     <div id="flotaDocMsg_${idx}"></div>
   </div>`;
   box.innerHTML=`<h2>${escapeHtml(v.patente||'Vehículo')}</h2>
@@ -2308,6 +2312,58 @@ async function saveFlotaVehiculo(){
   if(res.error){flotaVehMsg.innerHTML='<div class="notice error">'+res.error.message+'</div>';return}
   selectedFlotaVeh=res.data;closeFlotaVehiculoModal();await loadFlota();
 }
+
+function readFileAsDataURL(file){
+  return new Promise((resolve,reject)=>{
+    const reader=new FileReader();
+    reader.onload=()=>resolve(reader.result);
+    reader.onerror=()=>reject(reader.error||new Error('No se pudo leer el archivo.'));
+    reader.readAsDataURL(file);
+  });
+}
+
+function renderFlotaAiResult(idx,data){
+  const msg=qs(`flotaDocMsg_${idx}`);
+  if(!msg)return;
+  const confianza=String(data.confianza||'baja').toLowerCase();
+  const fecha=data.fecha_vencimiento||'';
+  const fechas=Array.isArray(data.fechas_encontradas)?data.fechas_encontradas:[];
+  const fechasHtml=fechas.length?`<div style="margin-top:8px"><b>Fechas encontradas:</b><br>${fechas.slice(0,5).map(f=>`• ${escapeHtml(f.fecha||'')} ${f.texto?`· ${escapeHtml(f.texto)}`:''}`).join('<br>')}</div>`:'';
+  if(fecha){
+    const input=qs(`flotaDocDue_${idx}`);
+    if(input&&!input.disabled)input.value=fecha;
+    msg.innerHTML=`<div class="flota-ai-box"><div><b>IA asistida:</b> vencimiento sugerido</div><div class="ai-date">${escapeHtml(fecha)}</div><div>Confianza: <b class="${confianza==='baja'?'ai-low':''}">${escapeHtml(data.confianza||'baja')}</b></div><div style="margin-top:6px">${escapeHtml(data.fundamento||'Revisa la fecha sugerida antes de actualizar el documento.')}</div>${fechasHtml}<div class="sub" style="margin-top:8px">La fecha fue copiada al campo de vencimiento. Debes revisar y presionar “Actualizar documento” para guardar.</div></div>`;
+  }else{
+    msg.innerHTML=`<div class="notice error"><b>IA asistida:</b> no se detectó una fecha de vencimiento confiable.<br>${escapeHtml(data.fundamento||'Ingresa la fecha manualmente.')}${fechasHtml}</div>`;
+  }
+}
+
+async function analizarVencimientoFlotaDoc(vehiculoId,idx){
+  if(!requireAction('subir_archivos','No tienes permiso para analizar/subir documentos de flota.'))return;
+  const tipo=FLOTA_DOC_TYPES[idx];
+  const file=qs(`flotaDocFile_${idx}`)?.files[0];
+  const msg=qs(`flotaDocMsg_${idx}`);
+  if(!msg)return;
+  if(!file){msg.innerHTML='<div class="notice error">Selecciona un archivo antes de analizar con IA.</div>';return}
+  const maxBytes=8*1024*1024;
+  if(file.size>maxBytes){msg.innerHTML='<div class="notice error">El archivo supera 8 MB. Comprime el PDF/foto o carga una versión más liviana para análisis IA.</div>';return}
+  msg.innerHTML='<div class="notice">Analizando vencimiento con IA... No cierres esta ventana.</div>';
+  try{
+    const dataUrl=await readFileAsDataURL(file);
+    const resp=await fetch('/api/analizar-vencimiento',{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({fileName:file.name,mimeType:file.type||'application/octet-stream',dataUrl,tipoDocumento:tipo,patente:selectedFlotaVeh?.patente||'',vehiculoId})
+    });
+    const data=await resp.json().catch(()=>({error:'Respuesta inválida del servicio IA.'}));
+    if(!resp.ok){msg.innerHTML=`<div class="notice error">No se pudo analizar con IA: ${escapeHtml(data.error||resp.statusText||'Error desconocido')}</div>`;return}
+    renderFlotaAiResult(idx,data);
+  }catch(err){
+    console.error(err);
+    msg.innerHTML='<div class="notice error">No se pudo conectar con el analizador IA. Revisa que exista /api/analizar-vencimiento y la variable OPENAI_API_KEY en Vercel.</div>';
+  }
+}
+
 async function uploadFlotaDoc(vehiculoId,idx){
   if(!requireAction('subir_archivos','No tienes permiso para subir documentos de flota.'))return;
   const tipo=FLOTA_DOC_TYPES[idx],file=qs(`flotaDocFile_${idx}`)?.files[0],due=qs(`flotaDocDue_${idx}`)?.value;
