@@ -302,6 +302,9 @@
       renderAll();
     } finally {
       setLoading(false);
+      // Vuelve a pintar la tabla cuando termina la consulta inicial.
+      // Sin esta línea quedaba visible "Cargando registros…" hasta cambiar de página.
+      renderAll();
     }
   }
 
