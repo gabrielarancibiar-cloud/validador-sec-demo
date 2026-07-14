@@ -1,0 +1,244 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="theme-color" content="#0c1f3f" />
+  <title>Facturas Copec | VALEPAC</title>
+  <link rel="stylesheet" href="./facturas-copec.css" />
+</head>
+<body>
+  <main class="fc-app">
+    <header class="fc-header">
+      <div>
+        <a class="fc-back" href="/">← Volver a VALEPAC</a>
+        <p class="fc-eyebrow">OPERACIONES · EDS 40098</p>
+        <h1>Facturas Copec</h1>
+        <p class="fc-subtitle">Carga el Excel descargado del portal y completa la validación administrativa de cada factura.</p>
+      </div>
+      <div class="fc-header-actions">
+        <span id="backendBadge" class="fc-badge fc-badge--neutral">Comprobando conexión</span>
+        <button id="btnExportar" class="fc-btn fc-btn--secondary" type="button">Exportar registro</button>
+        <button id="btnRecargar" class="fc-btn fc-btn--secondary" type="button">Actualizar</button>
+      </div>
+    </header>
+
+    <section id="setupAlert" class="fc-alert fc-alert--warning" hidden>
+      <strong>Falta conectar Supabase.</strong>
+      Complete <code>facturas-copec/config.js</code> o exponga el cliente existente como <code>window.supabaseClient</code>.
+      Para probar sin guardar en Supabase, abra esta página agregando <code>?demo=1</code> al final de la URL.
+    </section>
+
+    <section class="fc-import-panel">
+      <div id="dropZone" class="fc-dropzone" tabindex="0" role="button" aria-label="Seleccionar archivo Excel">
+        <input id="excelInput" type="file" accept=".xlsx,.xls" hidden />
+        <div class="fc-drop-icon">⇧</div>
+        <div>
+          <h2>Cargar archivo del portal</h2>
+          <p>Arrastra el Excel aquí o selecciónalo desde el computador.</p>
+          <small>Se importan solamente filas cuyo Tipo Movimiento sea exactamente “Factura”.</small>
+        </div>
+        <button id="btnSeleccionar" class="fc-btn fc-btn--primary" type="button">Seleccionar Excel</button>
+      </div>
+      <div id="fileStatus" class="fc-file-status" hidden></div>
+    </section>
+
+    <section class="fc-kpis" aria-label="Resumen de facturas">
+      <article class="fc-kpi">
+        <span>Total facturas</span>
+        <strong id="kpiTotal">0</strong>
+        <small>Registros cargados</small>
+      </article>
+      <article class="fc-kpi">
+        <span>Pendientes de revisión</span>
+        <strong id="kpiPendientes">0</strong>
+        <small>Falta validar inclusión</small>
+      </article>
+      <article class="fc-kpi">
+        <span>Pendientes de pago</span>
+        <strong id="kpiPago">0</strong>
+        <small>Incluidas sin pago completo</small>
+      </article>
+      <article class="fc-kpi">
+        <span>Pagadas</span>
+        <strong id="kpiPagadas">0</strong>
+        <small>Pago registrado</small>
+      </article>
+      <article class="fc-kpi fc-kpi--money">
+        <span>Monto total</span>
+        <strong id="kpiMonto">$0</strong>
+        <small>Suma de cargos</small>
+      </article>
+    </section>
+
+    <section class="fc-card">
+      <div class="fc-card-header">
+        <div>
+          <p class="fc-eyebrow">REGISTRO</p>
+          <h2>Facturas importadas</h2>
+        </div>
+        <span id="resultCount" class="fc-result-count">0 resultados</span>
+      </div>
+
+      <div class="fc-filters">
+        <label class="fc-field fc-field--wide">
+          <span>Buscar</span>
+          <input id="filterSearch" type="search" placeholder="N.º factura, línea, pago o grupo de costo" />
+        </label>
+        <label class="fc-field">
+          <span>Estado</span>
+          <select id="filterEstado">
+            <option value="">Todos</option>
+            <option>Pendiente de revisión</option>
+            <option>No corresponde</option>
+            <option>Pendiente de pago</option>
+            <option>Pago incompleto</option>
+            <option>Pagada</option>
+          </select>
+        </label>
+        <label class="fc-field">
+          <span>Corresponde incluir</span>
+          <select id="filterIncluir">
+            <option value="">Todos</option>
+            <option value="pendiente">Pendiente</option>
+            <option value="si">Sí</option>
+            <option value="no">No</option>
+          </select>
+        </label>
+        <label class="fc-field">
+          <span>Línea de producto</span>
+          <select id="filterLinea"><option value="">Todas</option></select>
+        </label>
+        <label class="fc-field">
+          <span>Desde</span>
+          <input id="filterDesde" type="date" />
+        </label>
+        <label class="fc-field">
+          <span>Hasta</span>
+          <input id="filterHasta" type="date" />
+        </label>
+        <button id="btnLimpiarFiltros" class="fc-btn fc-btn--ghost" type="button">Limpiar filtros</button>
+      </div>
+
+      <div class="fc-table-wrap">
+        <table class="fc-table">
+          <thead>
+            <tr>
+              <th>Fecha</th>
+              <th>Días vencidos</th>
+              <th>EDS</th>
+              <th>Línea</th>
+              <th>N.º factura</th>
+              <th class="fc-align-right">Monto</th>
+              <th>Corresponde incluir</th>
+              <th>Fecha pago</th>
+              <th>N.º pago</th>
+              <th>Método</th>
+              <th>Grupo de costo</th>
+              <th>Estado</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody id="invoiceRows">
+            <tr><td colspan="13" class="fc-empty">Cargando registros…</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="fc-pagination">
+        <button id="btnPrev" class="fc-btn fc-btn--ghost" type="button">Anterior</button>
+        <span id="pageInfo">Página 1 de 1</span>
+        <button id="btnNext" class="fc-btn fc-btn--ghost" type="button">Siguiente</button>
+      </div>
+    </section>
+  </main>
+
+  <dialog id="previewDialog" class="fc-dialog">
+    <form method="dialog" class="fc-dialog-card fc-dialog-card--wide">
+      <div class="fc-dialog-header">
+        <div>
+          <p class="fc-eyebrow">VISTA PREVIA</p>
+          <h2>Confirmar importación</h2>
+        </div>
+        <button class="fc-icon-btn" value="cancel" aria-label="Cerrar">×</button>
+      </div>
+      <div id="previewSummary" class="fc-preview-summary"></div>
+      <div class="fc-preview-table-wrap">
+        <table class="fc-table fc-table--compact">
+          <thead><tr><th>Fecha</th><th>EDS</th><th>Línea</th><th>N.º factura</th><th class="fc-align-right">Monto</th></tr></thead>
+          <tbody id="previewRows"></tbody>
+        </table>
+      </div>
+      <div class="fc-dialog-actions">
+        <button class="fc-btn fc-btn--ghost" value="cancel">Cancelar</button>
+        <button id="btnConfirmarImportacion" class="fc-btn fc-btn--primary" type="button">Importar facturas</button>
+      </div>
+    </form>
+  </dialog>
+
+  <dialog id="editDialog" class="fc-dialog">
+    <form id="editForm" class="fc-dialog-card">
+      <div class="fc-dialog-header">
+        <div>
+          <p class="fc-eyebrow">VALIDACIÓN ADMINISTRATIVA</p>
+          <h2 id="editTitle">Factura</h2>
+        </div>
+        <button id="btnCerrarEdicion" class="fc-icon-btn" type="button" aria-label="Cerrar">×</button>
+      </div>
+
+      <div id="editInvoiceInfo" class="fc-invoice-info"></div>
+
+      <div class="fc-form-grid">
+        <label class="fc-field">
+          <span>Corresponde incluir *</span>
+          <select id="editIncluir" required>
+            <option value="pendiente">Pendiente</option>
+            <option value="si">Sí</option>
+            <option value="no">No</option>
+          </select>
+        </label>
+        <label class="fc-field">
+          <span>Fecha de pago</span>
+          <input id="editFechaPago" type="date" />
+        </label>
+        <label class="fc-field">
+          <span>N.º de pago</span>
+          <input id="editNumeroPago" type="text" maxlength="100" placeholder="Ej.: 123456" />
+        </label>
+        <label class="fc-field">
+          <span>Método de pago</span>
+          <select id="editMetodoPago">
+            <option value="">Seleccionar</option>
+            <option>Transferencia</option>
+            <option>PAC</option>
+            <option>Cheque</option>
+            <option>Compensación</option>
+            <option>Tarjeta</option>
+            <option>Otro</option>
+          </select>
+        </label>
+        <label class="fc-field fc-field--full">
+          <span>Grupo de costo</span>
+          <input id="editGrupoCosto" type="text" maxlength="150" list="gruposCostoList" placeholder="Escriba o seleccione un grupo" />
+          <datalist id="gruposCostoList"></datalist>
+        </label>
+        <label class="fc-field fc-field--full">
+          <span>Observaciones</span>
+          <textarea id="editObservaciones" rows="4" maxlength="1000" placeholder="Detalle de la validación, diferencia o respaldo"></textarea>
+        </label>
+      </div>
+
+      <div class="fc-dialog-actions">
+        <button id="btnCancelarEdicion" class="fc-btn fc-btn--ghost" type="button">Cancelar</button>
+        <button id="btnGuardarEdicion" class="fc-btn fc-btn--primary" type="submit">Guardar cambios</button>
+      </div>
+    </form>
+  </dialog>
+
+  <div id="toast" class="fc-toast" role="status" aria-live="polite" hidden></div>
+
+  <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
+  <script src="./config.js"></script>
+  <script src="./facturas-copec.js"></script>
+</body>
+</html>
