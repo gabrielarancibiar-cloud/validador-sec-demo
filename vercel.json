@@ -1,1 +1,14 @@
-{"buildCommand":"npm run build","outputDirectory":"dist"}
+{
+  "buildCommand": "npm run build && mkdir -p dist/facturas-copec && cp -R facturas-copec/. dist/facturas-copec/",
+  "outputDirectory": "dist",
+  "rewrites": [
+    {
+      "source": "/facturas-copec",
+      "destination": "/facturas-copec/index.html"
+    },
+    {
+      "source": "/facturas-copec/",
+      "destination": "/facturas-copec/index.html"
+    }
+  ]
+}
