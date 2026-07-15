@@ -9,6 +9,7 @@
     tableName: "facturas_copec",
     importRpc: "importar_facturas_copec",
     updateRpc: "actualizar_factura_copec",
+    bulkUpdateRpc: "actualizar_facturas_copec_masivo",
     pageSize: 50,
     maxRows: 10000,
     allowDemoMode: true
@@ -49,7 +50,8 @@
     previewMeta: null,
     currentEditId: null,
     page: 1,
-    loading: false
+    loading: false,
+    selectedIds: new Set()
   };
 
   class RestBackend {
@@ -104,6 +106,20 @@
         })
       });
     }
+
+    async bulkUpdate(ids, values, userName) {
+      return this.request(`/rest/v1/rpc/${CONFIG.bulkUpdateRpc}`, {
+        method: "POST",
+        body: JSON.stringify({
+          p_ids: ids,
+          p_actualizar_corresponde: !!values.updateCorresponde,
+          p_corresponde_incluir: values.corresponde_incluir || null,
+          p_actualizar_grupo_costo: !!values.updateGrupoCosto,
+          p_grupo_costo: values.grupo_costo,
+          p_usuario_nombre: userName || null
+        })
+      });
+    }
   }
 
   class SupabaseBackend {
@@ -137,6 +153,19 @@
         p_metodo_pago: values.metodo_pago || null,
         p_grupo_costo: values.grupo_costo || null,
         p_observaciones: values.observaciones || null,
+        p_usuario_nombre: userName || null
+      });
+      if (error) throw error;
+      return data;
+    }
+
+    async bulkUpdate(ids, values, userName) {
+      const { data, error } = await this.client.rpc(CONFIG.bulkUpdateRpc, {
+        p_ids: ids,
+        p_actualizar_corresponde: !!values.updateCorresponde,
+        p_corresponde_incluir: values.corresponde_incluir || null,
+        p_actualizar_grupo_costo: !!values.updateGrupoCosto,
+        p_grupo_costo: values.grupo_costo,
         p_usuario_nombre: userName || null
       });
       if (error) throw error;
@@ -196,6 +225,25 @@
       this.write(rows);
       return rows[index];
     }
+
+    async bulkUpdate(ids, values, userName) {
+      const selected = new Set(ids.map(String));
+      const rows = this.read();
+      let updated = 0;
+      rows.forEach((row, index) => {
+        if (!selected.has(String(row.id))) return;
+        const patch = {
+          actualizado_en: new Date().toISOString(),
+          usuario_ultima_actualizacion: userName || null
+        };
+        if (values.updateCorresponde) patch.corresponde_incluir = values.corresponde_incluir;
+        if (values.updateGrupoCosto) patch.grupo_costo = values.grupo_costo || null;
+        rows[index] = Object.assign({}, row, patch);
+        updated += 1;
+      });
+      this.write(rows);
+      return { actualizadas: updated };
+    }
   }
 
   document.addEventListener("DOMContentLoaded", init);
@@ -212,7 +260,8 @@
       "backendBadge", "setupAlert", "btnExportar", "btnRecargar", "dropZone", "excelInput", "btnSeleccionar", "fileStatus",
       "kpiTotal", "kpiPendientes", "kpiPago", "kpiPagadas", "kpiMonto", "resultCount", "filterSearch", "filterEstado",
       "filterIncluir", "filterVigencia", "filterLinea", "filterDesde", "filterHasta", "btnLimpiarFiltros", "invoiceRows", "btnPrev", "btnNext",
-      "pageInfo", "previewDialog", "previewSummary", "previewRows", "btnConfirmarImportacion", "editDialog", "editForm", "editTitle",
+      "selectPageCheckbox", "selectionBar", "selectionCount", "btnSelectFiltered", "btnClearSelection", "bulkUpdateIncluir", "bulkIncluir",
+      "bulkUpdateGrupo", "bulkGrupoCosto", "btnApplyBulk", "pageInfo", "previewDialog", "previewSummary", "previewRows", "btnConfirmarImportacion", "editDialog", "editForm", "editTitle",
       "editInvoiceInfo", "editIncluir", "editFechaPago", "editNumeroPago", "editMetodoPago", "editGrupoCosto", "gruposCostoList",
       "editObservaciones", "btnCerrarEdicion", "btnCancelarEdicion", "btnGuardarEdicion", "toast"
     ].forEach(id => { dom[id] = document.getElementById(id); });
@@ -242,6 +291,18 @@
       .forEach(input => input.addEventListener(input.tagName === "INPUT" && input.type === "search" ? "input" : "change", applyFilters));
     dom.btnPrev.addEventListener("click", () => changePage(-1));
     dom.btnNext.addEventListener("click", () => changePage(1));
+    dom.selectPageCheckbox.addEventListener("change", () => selectCurrentPage(dom.selectPageCheckbox.checked));
+    dom.btnSelectFiltered.addEventListener("click", selectAllFiltered);
+    dom.btnClearSelection.addEventListener("click", clearSelection);
+    dom.bulkUpdateIncluir.addEventListener("change", syncBulkControls);
+    dom.bulkUpdateGrupo.addEventListener("change", syncBulkControls);
+    dom.bulkIncluir.addEventListener("change", () => { dom.bulkUpdateIncluir.checked = true; syncBulkControls(); });
+    dom.bulkGrupoCosto.addEventListener("input", syncBulkControls);
+    dom.btnApplyBulk.addEventListener("click", applyBulkUpdate);
+    dom.invoiceRows.addEventListener("change", event => {
+      const checkbox = event.target.closest("[data-select-id]");
+      if (checkbox) toggleSelection(checkbox.dataset.selectId, checkbox.checked);
+    });
     dom.invoiceRows.addEventListener("click", event => {
       const button = event.target.closest("[data-edit-id]");
       if (button) openEdit(button.dataset.editId);
@@ -296,6 +357,7 @@
     try {
       const rows = await state.backend.list();
       state.records = (Array.isArray(rows) ? rows : []).map(normalizeDbRecord).sort(sortInvoices);
+      state.selectedIds.clear();
       state.page = 1;
       rebuildSelectOptions();
       applyFilters();
@@ -540,6 +602,7 @@
   }
 
   function applyFilters() {
+    state.selectedIds.clear();
     const search = normalizeText(dom.filterSearch.value);
     const estado = dom.filterEstado.value;
     const incluir = dom.filterIncluir.value;
@@ -579,6 +642,7 @@
     renderKpis();
     renderTable();
     renderPagination();
+    renderSelectionControls();
     dom.resultCount.textContent = `${formatNumber(state.filtered.length)} resultado${state.filtered.length === 1 ? "" : "s"}`;
     dom.btnExportar.disabled = state.records.length === 0;
   }
@@ -605,24 +669,27 @@
 
   function renderTable() {
     if (state.loading) {
-      dom.invoiceRows.innerHTML = `<tr><td colspan="16" class="fc-empty">Cargando registros…</td></tr>`;
+      dom.invoiceRows.innerHTML = `<tr><td colspan="17" class="fc-empty">Cargando registros…</td></tr>`;
       return;
     }
     if (!state.filtered.length) {
       const message = state.backend ? "No hay facturas para mostrar." : "Conecte Supabase para cargar los registros.";
-      dom.invoiceRows.innerHTML = `<tr><td colspan="16" class="fc-empty">${message}</td></tr>`;
+      dom.invoiceRows.innerHTML = `<tr><td colspan="17" class="fc-empty">${message}</td></tr>`;
       return;
     }
 
-    const start = (state.page - 1) * CONFIG.pageSize;
-    const pageRows = state.filtered.slice(start, start + CONFIG.pageSize);
+    const pages = Math.max(1, Math.ceil(state.filtered.length / CONFIG.pageSize));
+    state.page = Math.min(pages, Math.max(1, state.page));
+    const pageRows = getCurrentPageRows();
     dom.invoiceRows.innerHTML = pageRows.map(row => {
       const status = calculateStatus(row);
       const includeValue = row.corresponde_incluir || "pendiente";
       const includeLabel = includeValue === "si" ? "Sí" : includeValue === "no" ? "No" : "Pendiente";
       const includeClass = includeValue === "si" ? "fc-status--yes" : includeValue === "no" ? "fc-status--no" : "fc-status--pending";
+      const selected = state.selectedIds.has(String(row.id));
       return `
-        <tr>
+        <tr class="${selected ? "is-selected" : ""}">
+          <td class="fc-select-cell"><input class="fc-row-check" type="checkbox" data-select-id="${escapeHtml(row.id)}" aria-label="Seleccionar factura ${escapeHtml(row.numero_documento)}" ${selected ? "checked" : ""} /></td>
           <td>${formatDate(row.fecha_movimiento)}</td>
           <td>${dueDateCell(row)}</td>
           <td>${formatTerm(row)}</td>
@@ -643,6 +710,11 @@
     }).join("");
   }
 
+  function getCurrentPageRows() {
+    const start = (state.page - 1) * CONFIG.pageSize;
+    return state.filtered.slice(start, start + CONFIG.pageSize);
+  }
+
   function renderPagination() {
     const pages = Math.max(1, Math.ceil(state.filtered.length / CONFIG.pageSize));
     if (state.page > pages) state.page = pages;
@@ -656,6 +728,115 @@
     state.page = Math.min(pages, Math.max(1, state.page + delta));
     renderTable();
     renderPagination();
+    renderSelectionControls();
+  }
+
+  function toggleSelection(id, checked) {
+    const key = String(id);
+    if (checked) state.selectedIds.add(key);
+    else state.selectedIds.delete(key);
+    renderTable();
+    renderSelectionControls();
+  }
+
+  function selectCurrentPage(checked) {
+    getCurrentPageRows().forEach(row => {
+      const key = String(row.id);
+      if (checked) state.selectedIds.add(key);
+      else state.selectedIds.delete(key);
+    });
+    renderTable();
+    renderSelectionControls();
+  }
+
+  function selectAllFiltered() {
+    state.filtered.forEach(row => state.selectedIds.add(String(row.id)));
+    renderTable();
+    renderSelectionControls();
+  }
+
+  function clearSelection() {
+    state.selectedIds.clear();
+    dom.bulkUpdateIncluir.checked = false;
+    dom.bulkUpdateGrupo.checked = false;
+    dom.bulkGrupoCosto.value = "";
+    renderTable();
+    renderSelectionControls();
+  }
+
+  function renderSelectionControls() {
+    const validIds = new Set(state.records.map(row => String(row.id)));
+    [...state.selectedIds].forEach(id => { if (!validIds.has(id)) state.selectedIds.delete(id); });
+    const count = state.selectedIds.size;
+    dom.selectionBar.hidden = count === 0;
+    dom.selectionCount.textContent = `${formatNumber(count)} factura${count === 1 ? "" : "s"} seleccionada${count === 1 ? "" : "s"}`;
+
+    const pageRows = getCurrentPageRows();
+    const pageSelected = pageRows.filter(row => state.selectedIds.has(String(row.id))).length;
+    dom.selectPageCheckbox.checked = pageRows.length > 0 && pageSelected === pageRows.length;
+    dom.selectPageCheckbox.indeterminate = pageSelected > 0 && pageSelected < pageRows.length;
+    dom.selectPageCheckbox.disabled = pageRows.length === 0;
+
+    const filteredSelected = state.filtered.filter(row => state.selectedIds.has(String(row.id))).length;
+    const allFiltered = state.filtered.length > 0 && filteredSelected === state.filtered.length;
+    dom.btnSelectFiltered.disabled = state.filtered.length === 0 || allFiltered;
+    dom.btnSelectFiltered.textContent = allFiltered
+      ? `Todos los ${formatNumber(state.filtered.length)} filtrados seleccionados`
+      : `Seleccionar los ${formatNumber(state.filtered.length)} filtrados`;
+    syncBulkControls();
+  }
+
+  function syncBulkControls() {
+    dom.bulkIncluir.disabled = !dom.bulkUpdateIncluir.checked;
+    dom.bulkGrupoCosto.disabled = !dom.bulkUpdateGrupo.checked;
+    dom.btnApplyBulk.disabled = state.selectedIds.size === 0 || (!dom.bulkUpdateIncluir.checked && !dom.bulkUpdateGrupo.checked);
+  }
+
+  async function applyBulkUpdate() {
+    if (!state.backend || !state.selectedIds.size) return;
+    const updateCorresponde = dom.bulkUpdateIncluir.checked;
+    const updateGrupoCosto = dom.bulkUpdateGrupo.checked;
+    if (!updateCorresponde && !updateGrupoCosto) {
+      showToast("Selecciona al menos un campo para modificar.", "error");
+      return;
+    }
+
+    const ids = [...state.selectedIds];
+    const grupo = cleanNullable(dom.bulkGrupoCosto.value);
+    const lines = [
+      `Actualizarás ${formatNumber(ids.length)} factura${ids.length === 1 ? "" : "s"}.`,
+      "",
+      `Corresponde incluir: ${updateCorresponde ? includeLabel(dom.bulkIncluir.value) : "Sin cambios"}`,
+      `Grupo de costo: ${updateGrupoCosto ? (grupo || "Limpiar campo") : "Sin cambios"}`,
+      "",
+      "¿Confirmar cambios masivos?"
+    ];
+    if (!window.confirm(lines.join("\n"))) return;
+
+    const originalText = dom.btnApplyBulk.textContent;
+    dom.btnApplyBulk.disabled = true;
+    dom.btnApplyBulk.textContent = "Aplicando…";
+    try {
+      const result = await state.backend.bulkUpdate(ids, {
+        updateCorresponde,
+        corresponde_incluir: dom.bulkIncluir.value,
+        updateGrupoCosto,
+        grupo_costo: grupo
+      }, getCurrentUserName());
+      const value = Array.isArray(result) ? (result[0] || {}) : (result || {});
+      const updated = Number(value.actualizadas ?? value.updated ?? ids.length);
+      showToast(`${formatNumber(updated)} factura${updated === 1 ? "" : "s"} actualizada${updated === 1 ? "" : "s"}.`, "success");
+      state.selectedIds.clear();
+      dom.bulkUpdateIncluir.checked = false;
+      dom.bulkUpdateGrupo.checked = false;
+      dom.bulkGrupoCosto.value = "";
+      await loadRecords();
+    } catch (error) {
+      showToast(`No se pudieron aplicar los cambios masivos: ${error.message}`, "error");
+    } finally {
+      dom.btnApplyBulk.textContent = originalText;
+      syncBulkControls();
+    }
   }
 
   function openEdit(id) {

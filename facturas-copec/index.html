@@ -135,10 +135,40 @@
         <button id="btnLimpiarFiltros" class="fc-btn fc-btn--ghost" type="button">Limpiar filtros</button>
       </div>
 
+
+      <div id="selectionBar" class="fc-bulk-bar" hidden>
+        <div class="fc-bulk-summary">
+          <strong id="selectionCount">0 facturas seleccionadas</strong>
+          <div class="fc-bulk-selection-actions">
+            <button id="btnSelectFiltered" class="fc-btn fc-btn--ghost fc-btn--small" type="button">Seleccionar todos los filtrados</button>
+            <button id="btnClearSelection" class="fc-btn fc-btn--ghost fc-btn--small" type="button">Limpiar selección</button>
+          </div>
+        </div>
+        <div class="fc-bulk-fields">
+          <label class="fc-bulk-option">
+            <input id="bulkUpdateIncluir" type="checkbox" />
+            <span>Modificar “Corresponde incluir”</span>
+          </label>
+          <select id="bulkIncluir" disabled>
+            <option value="pendiente">Pendiente</option>
+            <option value="si">Sí</option>
+            <option value="no">No</option>
+          </select>
+          <label class="fc-bulk-option">
+            <input id="bulkUpdateGrupo" type="checkbox" />
+            <span>Modificar grupo de costo</span>
+          </label>
+          <input id="bulkGrupoCosto" type="text" maxlength="150" list="gruposCostoList" placeholder="Escriba un grupo; vacío = limpiar" disabled />
+          <button id="btnApplyBulk" class="fc-btn fc-btn--primary" type="button" disabled>Aplicar cambios</button>
+        </div>
+        <small class="fc-bulk-help">La selección se mantiene al cambiar de página. Los cambios no alteran pagos, conciliación ni observaciones.</small>
+      </div>
+
       <div class="fc-table-wrap">
         <table class="fc-table">
           <thead>
             <tr>
+              <th class="fc-select-cell"><input id="selectPageCheckbox" class="fc-row-check" type="checkbox" aria-label="Seleccionar facturas de esta página" /></th>
               <th>Fecha emisión</th>
               <th>Fecha vencimiento</th>
               <th>Plazo</th>
@@ -158,7 +188,7 @@
             </tr>
           </thead>
           <tbody id="invoiceRows">
-            <tr><td colspan="16" class="fc-empty">Cargando registros…</td></tr>
+            <tr><td colspan="17" class="fc-empty">Cargando registros…</td></tr>
           </tbody>
         </table>
       </div>
