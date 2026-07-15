@@ -247,6 +247,7 @@
     dom.editForm.addEventListener("submit", saveEdit);
     dom.btnCerrarEdicion.addEventListener("click", closeEdit);
     dom.btnCancelarEdicion.addEventListener("click", closeEdit);
+    window.addEventListener("facturasCopec:reload", loadRecords);
   }
 
   function configureBackend() {
@@ -481,7 +482,7 @@
       const rowStatus = calculateStatus(row);
       const haystack = normalizeText([
         row.numero_documento, row.linea_producto, row.numero_pago, row.metodo_pago,
-        row.grupo_costo, row.observaciones, row.eds
+        row.grupo_costo, row.observaciones, row.eds, row.estado_conciliacion
       ].filter(Boolean).join(" "));
       if (search && !haystack.includes(search)) return false;
       if (estado && rowStatus !== estado) return false;
@@ -529,12 +530,12 @@
 
   function renderTable() {
     if (state.loading) {
-      dom.invoiceRows.innerHTML = `<tr><td colspan="13" class="fc-empty">Cargando registros…</td></tr>`;
+      dom.invoiceRows.innerHTML = `<tr><td colspan="14" class="fc-empty">Cargando registros…</td></tr>`;
       return;
     }
     if (!state.filtered.length) {
       const message = state.backend ? "No hay facturas para mostrar." : "Conecte Supabase para cargar los registros.";
-      dom.invoiceRows.innerHTML = `<tr><td colspan="13" class="fc-empty">${message}</td></tr>`;
+      dom.invoiceRows.innerHTML = `<tr><td colspan="14" class="fc-empty">${message}</td></tr>`;
       return;
     }
 
@@ -558,6 +559,7 @@
           <td>${escapeHtml(row.numero_pago || "—")}</td>
           <td>${escapeHtml(row.metodo_pago || "—")}</td>
           <td>${escapeHtml(row.grupo_costo || "—")}</td>
+          <td>${reconciliationBadge(row.estado_conciliacion)}</td>
           <td><span class="fc-status ${STATUS_CLASS[status] || "fc-status--pending"}">${escapeHtml(status)}</span></td>
           <td><button class="fc-row-action" type="button" data-edit-id="${escapeHtml(row.id)}">Editar</button></td>
         </tr>`;
@@ -588,7 +590,9 @@
       ["Fecha", formatDate(row.fecha_movimiento)],
       ["Línea", row.linea_producto || "—"],
       ["EDS", row.eds || "—"],
-      ["Monto", formatCurrency(row.cargos)]
+      ["Monto", formatCurrency(row.cargos)],
+      ["Conciliación", row.estado_conciliacion || "Pendiente"],
+      ["Monto conciliado", formatCurrency(row.monto_conciliado || 0)]
     ].map(([label, value]) => `<div><span>${escapeHtml(label)}</span><strong>${escapeHtml(value)}</strong></div>`).join("");
     dom.editIncluir.value = row.corresponde_incluir || "pendiente";
     dom.editFechaPago.value = row.fecha_pago || "";
@@ -664,17 +668,31 @@
       "Método de pago": row.metodo_pago || "",
       "Grupo de costo": row.grupo_costo || "",
       "Observaciones": row.observaciones || "",
-      "Estado": calculateStatus(row),
+      "Estado conciliación": row.estado_conciliacion || "Pendiente",
+      "Monto conciliado": numberValue(row.monto_conciliado),
+      "Diferencia conciliación": numberValue(row.diferencia_conciliacion),
+      "Estado administrativo": calculateStatus(row),
       "Última actualización": row.actualizado_en || ""
     }));
     const worksheet = XLSX.utils.json_to_sheet(data);
     worksheet["!cols"] = [
       { wch: 14 }, { wch: 13 }, { wch: 10 }, { wch: 18 }, { wch: 18 }, { wch: 18 }, { wch: 15 }, { wch: 15 }, { wch: 16 },
-      { wch: 20 }, { wch: 15 }, { wch: 18 }, { wch: 20 }, { wch: 22 }, { wch: 40 }, { wch: 22 }, { wch: 22 }
+      { wch: 20 }, { wch: 15 }, { wch: 18 }, { wch: 20 }, { wch: 22 }, { wch: 40 }, { wch: 22 }, { wch: 18 }, { wch: 18 }, { wch: 20 }, { wch: 22 }
     ];
     const workbook = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(workbook, worksheet, "Facturas Copec");
     XLSX.writeFile(workbook, `Facturas_Copec_${new Date().toISOString().slice(0, 10)}.xlsx`);
+  }
+
+  function reconciliationBadge(status) {
+    const value = String(status || "Pendiente");
+    const classes = {
+      "Conciliada": "fc-status--paid",
+      "Pago parcial": "fc-status--partial",
+      "Con diferencia": "fc-status--no",
+      "Pendiente": "fc-status--pending"
+    };
+    return `<span class="fc-status ${classes[value] || "fc-status--pending"}">${escapeHtml(value)}</span>`;
   }
 
   function calculateStatus(row) {
@@ -701,6 +719,9 @@
       cargos: numberValue(row.cargos),
       abonos: numberValue(row.abonos),
       saldo_portal: numberValue(row.saldo_portal),
+      monto_conciliado: numberValue(row.monto_conciliado),
+      diferencia_conciliacion: row.diferencia_conciliacion === null || row.diferencia_conciliacion === undefined ? null : numberValue(row.diferencia_conciliacion),
+      estado_conciliacion: stringValue(row.estado_conciliacion) || "Pendiente",
       corresponde_incluir: ["si", "no", "pendiente"].includes(row.corresponde_incluir) ? row.corresponde_incluir : "pendiente"
     });
   }
@@ -828,7 +849,7 @@
   function setLoading(loading, text = "") {
     state.loading = loading;
     dom.btnRecargar.disabled = loading;
-    if (loading && text) dom.invoiceRows.innerHTML = `<tr><td colspan="13" class="fc-empty">${escapeHtml(text)}</td></tr>`;
+    if (loading && text) dom.invoiceRows.innerHTML = `<tr><td colspan="14" class="fc-empty">${escapeHtml(text)}</td></tr>`;
   }
 
   let toastTimer = null;

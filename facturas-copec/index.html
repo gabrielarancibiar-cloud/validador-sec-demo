@@ -23,6 +23,12 @@
       </div>
     </header>
 
+    <nav class="fc-tabs" aria-label="Secciones de Facturas Copec">
+      <button id="tabFacturas" class="fc-tab active" type="button">Facturas</button>
+      <button id="tabPagos" class="fc-tab" type="button">Propuestas de pago</button>
+    </nav>
+
+    <div id="facturasView">
     <section id="setupAlert" class="fc-alert fc-alert--warning" hidden>
       <strong>Falta conectar Supabase.</strong>
       Complete <code>facturas-copec/config.js</code> o exponga el cliente existente como <code>window.supabaseClient</code>.
@@ -135,12 +141,13 @@
               <th>N.º pago</th>
               <th>Método</th>
               <th>Grupo de costo</th>
+              <th>Conciliación</th>
               <th>Estado</th>
               <th></th>
             </tr>
           </thead>
           <tbody id="invoiceRows">
-            <tr><td colspan="13" class="fc-empty">Cargando registros…</td></tr>
+            <tr><td colspan="14" class="fc-empty">Cargando registros…</td></tr>
           </tbody>
         </table>
       </div>
@@ -150,6 +157,70 @@
         <span id="pageInfo">Página 1 de 1</span>
         <button id="btnNext" class="fc-btn fc-btn--ghost" type="button">Siguiente</button>
       </div>
+    </section>
+    </div>
+
+    <section id="pagosView" hidden>
+      <section class="fc-payment-intro">
+        <div>
+          <p class="fc-eyebrow">PAGOS Y CONCILIACIÓN</p>
+          <h2>Propuestas de pago Copec</h2>
+          <p>Primero carga el Excel mensual de propuestas. Después selecciona los comprobantes PDF para completar y conciliar automáticamente sus facturas.</p>
+        </div>
+        <button id="btnReconcileAll" class="fc-btn fc-btn--secondary" type="button">Reconciliar nuevamente</button>
+      </section>
+
+      <section class="fc-payment-import-grid">
+        <article class="fc-import-card">
+          <div class="fc-import-card-icon">XLS</div>
+          <div>
+            <h3>1. Importar propuestas del mes</h3>
+            <p>Carga el Excel descargado desde Historial de pagos.</p>
+            <input id="paymentExcelInput" type="file" accept=".xlsx,.xls" hidden />
+            <button id="btnPaymentExcel" class="fc-btn fc-btn--primary" type="button">Seleccionar Excel</button>
+            <div id="paymentExcelStatus" class="fc-inline-status" hidden></div>
+          </div>
+        </article>
+        <article class="fc-import-card">
+          <div class="fc-import-card-icon">PDF</div>
+          <div>
+            <h3>2. Procesar comprobantes</h3>
+            <p>Selecciona uno o varios PDF. Gemini leerá sus movimientos y VALEPAC realizará la conciliación.</p>
+            <input id="paymentPdfInput" type="file" accept="application/pdf,.pdf" multiple hidden />
+            <button id="btnPaymentPdf" class="fc-btn fc-btn--primary" type="button">Seleccionar PDF</button>
+            <div id="paymentPdfStatus" class="fc-inline-status" hidden></div>
+            <small class="fc-help">Máximo 4 MB por PDF. El archivo original no se guarda; se registra la información extraída.</small>
+          </div>
+        </article>
+      </section>
+
+      <section class="fc-kpis" aria-label="Resumen de propuestas">
+        <article class="fc-kpi"><span>Total propuestas</span><strong id="payKpiTotal">0</strong><small>Registros del historial</small></article>
+        <article class="fc-kpi"><span>Sin comprobante</span><strong id="payKpiPendientes">0</strong><small>Falta procesar PDF</small></article>
+        <article class="fc-kpi"><span>Cuadradas</span><strong id="payKpiCuadradas">0</strong><small>Excel, PDF y detalle coinciden</small></article>
+        <article class="fc-kpi"><span>Por revisar</span><strong id="payKpiObservadas">0</strong><small>Diferencias o documentos faltantes</small></article>
+        <article class="fc-kpi fc-kpi--money"><span>Facturas conciliadas</span><strong id="payKpiFacturas">0</strong><small>Coincidencias automáticas</small></article>
+      </section>
+
+      <section class="fc-card">
+        <div class="fc-card-header">
+          <div><p class="fc-eyebrow">REGISTRO</p><h2>Historial de propuestas</h2></div>
+          <span id="paymentResultCount" class="fc-result-count">0 resultados</span>
+        </div>
+        <div class="fc-payment-filters">
+          <label class="fc-field fc-field--wide"><span>Buscar</span><input id="paymentSearch" type="search" placeholder="N.º propuesta, banco o método" /></label>
+          <label class="fc-field"><span>Conciliación</span><select id="paymentStatusFilter"><option value="">Todos</option><option>Pendiente de comprobante</option><option>Cuadrada</option><option>Cuadrada con observaciones</option><option>Descuadrada</option></select></label>
+          <label class="fc-field"><span>Tipo de operación</span><select id="paymentTypeFilter"><option value="">Todas</option></select></label>
+          <button id="btnClearPaymentFilters" class="fc-btn fc-btn--ghost" type="button">Limpiar filtros</button>
+        </div>
+        <div class="fc-table-wrap">
+          <table class="fc-table fc-payment-table">
+            <thead><tr><th>Fecha</th><th>Tipo operación</th><th>Banco</th><th>N.º propuesta</th><th class="fc-align-right">Monto</th><th>Estado portal</th><th>Comprobante</th><th>Conciliación</th><th></th></tr></thead>
+            <tbody id="paymentRows"><tr><td colspan="9" class="fc-empty">Cargando propuestas…</td></tr></tbody>
+          </table>
+        </div>
+        <div class="fc-pagination"><button id="paymentPrev" class="fc-btn fc-btn--ghost" type="button">Anterior</button><span id="paymentPageInfo">Página 1 de 1</span><button id="paymentNext" class="fc-btn fc-btn--ghost" type="button">Siguiente</button></div>
+      </section>
     </section>
   </main>
 
@@ -235,10 +306,29 @@
     </form>
   </dialog>
 
+  <dialog id="paymentPreviewDialog" class="fc-dialog">
+    <form method="dialog" class="fc-dialog-card fc-dialog-card--wide">
+      <div class="fc-dialog-header"><div><p class="fc-eyebrow">VISTA PREVIA</p><h2>Confirmar propuestas</h2></div><button class="fc-icon-btn" value="cancel" aria-label="Cerrar">×</button></div>
+      <div id="paymentPreviewSummary" class="fc-preview-summary"></div>
+      <div class="fc-preview-table-wrap"><table class="fc-table fc-table--compact"><thead><tr><th>Fecha</th><th>Tipo</th><th>N.º propuesta</th><th class="fc-align-right">Monto</th><th>Estado</th></tr></thead><tbody id="paymentPreviewRows"></tbody></table></div>
+      <div class="fc-dialog-actions"><button class="fc-btn fc-btn--ghost" value="cancel">Cancelar</button><button id="btnConfirmPaymentImport" class="fc-btn fc-btn--primary" type="button">Importar propuestas</button></div>
+    </form>
+  </dialog>
+
+  <dialog id="paymentDetailDialog" class="fc-dialog">
+    <div class="fc-dialog-card fc-dialog-card--detail">
+      <div class="fc-dialog-header"><div><p class="fc-eyebrow">DETALLE Y CONCILIACIÓN</p><h2 id="paymentDetailTitle">Propuesta</h2></div><button id="btnClosePaymentDetail" class="fc-icon-btn" type="button" aria-label="Cerrar">×</button></div>
+      <div id="paymentDetailSummary" class="fc-invoice-info fc-payment-summary"></div>
+      <div class="fc-preview-table-wrap"><table class="fc-table fc-table--compact"><thead><tr><th>#</th><th>Fecha</th><th>Tipo documento</th><th>N.º documento</th><th class="fc-align-right">Valor</th><th>Factura VALEPAC</th><th>Resultado</th></tr></thead><tbody id="paymentDetailRows"></tbody></table></div>
+      <div class="fc-dialog-actions"><button class="fc-btn fc-btn--primary" type="button" onclick="document.getElementById('paymentDetailDialog').close()">Cerrar</button></div>
+    </div>
+  </dialog>
+
   <div id="toast" class="fc-toast" role="status" aria-live="polite" hidden></div>
 
   <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
   <script src="./config.js"></script>
   <script src="./facturas-copec.js"></script>
+  <script src="./pagos-copec.js"></script>
 </body>
 </html>

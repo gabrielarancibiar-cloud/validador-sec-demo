@@ -150,3 +150,47 @@ button { cursor: pointer; }
   .fc-dialog-actions { flex-direction: column-reverse; }
   .fc-dialog-actions .fc-btn { width: 100%; }
 }
+
+/* ================================================================
+   PAGOS Y CONCILIACIÓN · VALEPAC
+================================================================ */
+.fc-tabs{display:flex;gap:8px;margin:4px 0 22px;border-bottom:1px solid var(--fc-border)}
+.fc-tab{border:0;background:transparent;color:var(--fc-muted);font-weight:900;font-size:15px;padding:14px 20px;border-bottom:3px solid transparent;cursor:pointer}
+.fc-tab:hover{color:var(--fc-blue)}
+.fc-tab.active{color:var(--fc-blue);border-bottom-color:var(--fc-blue)}
+.fc-payment-intro{display:flex;align-items:flex-end;justify-content:space-between;gap:24px;margin:4px 0 18px;padding:22px 24px;background:#fff;border:1px solid var(--fc-border);border-radius:18px;box-shadow:var(--fc-shadow)}
+.fc-payment-intro h2{margin:4px 0 6px;font-size:25px;color:var(--fc-blue)}
+.fc-payment-intro p:not(.fc-eyebrow){margin:0;color:var(--fc-muted);max-width:880px;line-height:1.55}
+.fc-payment-import-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:20px}
+.fc-import-card{display:grid;grid-template-columns:70px 1fr;gap:18px;align-items:start;background:#fff;border:1px solid var(--fc-border);border-radius:18px;padding:22px;box-shadow:var(--fc-shadow)}
+.fc-import-card-icon{width:62px;height:62px;border-radius:16px;background:#e9f2ff;color:var(--fc-blue);display:grid;place-items:center;font-weight:950;font-size:16px;letter-spacing:.5px}
+.fc-import-card h3{margin:1px 0 6px;color:var(--fc-blue);font-size:18px}
+.fc-import-card p{margin:0 0 14px;color:var(--fc-muted);line-height:1.45}
+.fc-inline-status{margin-top:12px;padding:10px 12px;border-radius:10px;background:#eef6ff;color:#194b84;font-weight:750;font-size:13px;line-height:1.4}
+.fc-inline-status.is-error{background:#fee2e2;color:#991b1b}
+.fc-help{display:block;margin-top:10px;color:var(--fc-muted);line-height:1.4}
+.fc-payment-filters{display:grid;grid-template-columns:minmax(260px,1.5fr) minmax(210px,1fr) minmax(210px,1fr) auto;gap:10px;padding:0 22px 18px;align-items:end}
+.fc-payment-table{min-width:1250px}
+.fc-payment-table th:nth-child(2){min-width:190px}
+.fc-payment-table th:nth-child(4){min-width:155px}
+.fc-payment-table th:nth-child(8){min-width:200px}
+.fc-money--negative{color:#b42318}
+.fc-status--neutral{background:#edf2f7;color:#475569;border-color:#dbe3ec}
+.fc-dialog-card--detail{width:min(1380px,96vw);max-height:92vh}
+.fc-payment-summary{grid-template-columns:repeat(4,minmax(150px,1fr));margin-bottom:18px}
+.fc-payment-summary div{min-height:74px}
+.fc-preview-table-wrap small{color:var(--fc-muted);font-weight:700}
+
+@media (max-width:1000px){
+  .fc-payment-import-grid{grid-template-columns:1fr}
+  .fc-payment-filters{grid-template-columns:1fr 1fr}
+  .fc-payment-summary{grid-template-columns:repeat(2,1fr)}
+}
+@media (max-width:680px){
+  .fc-tabs{overflow-x:auto}
+  .fc-tab{white-space:nowrap}
+  .fc-payment-intro{align-items:flex-start;flex-direction:column}
+  .fc-payment-filters{grid-template-columns:1fr}
+  .fc-import-card{grid-template-columns:1fr}
+  .fc-payment-summary{grid-template-columns:1fr}
+}
