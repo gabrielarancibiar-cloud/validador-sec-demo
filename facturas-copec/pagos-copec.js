@@ -90,7 +90,7 @@
     }
 
     async details(paymentId) {
-      const select = encodeURIComponent("*,facturas_copec(numero_documento,cargos,linea_producto,estado_conciliacion)");
+      const select = encodeURIComponent("*,facturas_copec(numero_documento,cargos,linea_producto,estado_conciliacion,fecha_vencimiento,vigente_portal,origen_historico,origen_vigente)");
       const order = encodeURIComponent("fila_orden.asc");
       return this.request(`/rest/v1/${CONFIG.paymentsDetailTableName}?select=${select}&pago_id=eq.${encodeURIComponent(paymentId)}&order=${order}`);
     }
@@ -497,7 +497,7 @@
       ["Saldo PDF", row.saldo_pdf === null || row.saldo_pdf === undefined ? "—" : formatCurrency(row.saldo_pdf)],
       ["Suma detalle", row.suma_detalle === null || row.suma_detalle === undefined ? "—" : formatCurrency(row.suma_detalle)],
       ["Estado", row.estado_conciliacion || "Pendiente"],
-      ["Facturas", `${formatNumber(row.facturas_conciliadas || 0)} conciliadas · ${formatNumber(row.facturas_no_encontradas || 0)} no encontradas`],
+      ["Facturas", `${formatNumber(row.facturas_conciliadas || 0)} conciliadas · ${formatNumber(row.facturas_no_encontradas || 0)} no encontradas · ${formatNumber(row.facturas_ambiguas || 0)} ambiguas`],
       ["Comprobante", row.comprobante_nombre || "Pendiente"]
     ];
     return values.map(([label, value]) => `<div><span>${escapeHtml(label)}</span><strong>${escapeHtml(value)}</strong></div>`).join("");
@@ -517,7 +517,7 @@
           <td>${escapeHtml(row.tipo_documento || "—")}</td>
           <td class="fc-document">${escapeHtml(row.numero_documento || "—")}</td>
           <td class="fc-money ${Number(row.valor) < 0 ? "fc-money--negative" : ""}">${formatCurrency(row.valor)}</td>
-          <td>${invoice ? `${escapeHtml(invoice.linea_producto || "Factura encontrada")}<br><small>${formatCurrency(invoice.cargos)}</small>` : "—"}</td>
+          <td>${invoice ? `${escapeHtml(invoice.linea_producto || "Factura encontrada")}<br><small>${formatCurrency(invoice.cargos)} · vence ${formatDate(invoice.fecha_vencimiento)}</small>` : "—"}</td>
           <td>${paymentDetailStatusBadge(row.estado_conciliacion)}</td>
         </tr>`;
     }).join("");
@@ -537,6 +537,7 @@
       facturas_conciliadas: Number(row.facturas_conciliadas || 0),
       facturas_no_encontradas: Number(row.facturas_no_encontradas || 0),
       facturas_con_diferencia: Number(row.facturas_con_diferencia || 0),
+      facturas_ambiguas: Number(row.facturas_ambiguas || 0),
       estado_conciliacion: row.estado_conciliacion || "Pendiente de comprobante"
     });
   }
@@ -563,7 +564,8 @@
       "Pago parcial": "fc-status--partial",
       "Con diferencia": "fc-status--no",
       "No encontrada": "fc-status--no",
-      "Movimiento compensatorio": "fc-status--neutral"
+      "Movimiento compensatorio": "fc-status--neutral",
+      "Coincidencia ambigua": "fc-status--no"
     };
     return `<span class="fc-status ${map[status] || "fc-status--pending"}">${escapeHtml(status || "Sin conciliar")}</span>`;
   }

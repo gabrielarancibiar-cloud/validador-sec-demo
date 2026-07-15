@@ -14,7 +14,7 @@
         <a class="fc-back" href="/">← Volver a VALEPAC</a>
         <p class="fc-eyebrow">OPERACIONES · EDS 40098</p>
         <h1>Facturas Copec</h1>
-        <p class="fc-subtitle">Carga el Excel descargado del portal y completa la validación administrativa de cada factura.</p>
+        <p class="fc-subtitle">Carga la cartola histórica y la cartola vigente del portal. VALEPAC unifica ambos formatos, conserva el historial y agrega los vencimientos.</p>
       </div>
       <div class="fc-header-actions">
         <span id="backendBadge" class="fc-badge fc-badge--neutral">Comprobando conexión</span>
@@ -37,12 +37,12 @@
 
     <section class="fc-import-panel">
       <div id="dropZone" class="fc-dropzone" tabindex="0" role="button" aria-label="Seleccionar archivo Excel">
-        <input id="excelInput" type="file" accept=".xlsx,.xls" hidden />
+        <input id="excelInput" type="file" accept=".xlsx,.xls" multiple hidden />
         <div class="fc-drop-icon">⇧</div>
         <div>
-          <h2>Cargar archivo del portal</h2>
-          <p>Arrastra el Excel aquí o selecciónalo desde el computador.</p>
-          <small>Se importan solamente filas cuyo Tipo Movimiento sea exactamente “Factura”.</small>
+          <h2>Cargar archivos del portal</h2>
+          <p>Selecciona la cartola histórica, la cartola vigente o ambas al mismo tiempo.</p>
+          <small>El sistema reconoce automáticamente cada formato. Solo importa filas “Factura” y conserva cuotas o vencimientos repetidos.</small>
         </div>
         <button id="btnSeleccionar" class="fc-btn fc-btn--primary" type="button">Seleccionar Excel</button>
       </div>
@@ -56,24 +56,24 @@
         <small>Registros cargados</small>
       </article>
       <article class="fc-kpi">
-        <span>Pendientes de revisión</span>
+        <span>Vigentes en portal</span>
         <strong id="kpiPendientes">0</strong>
-        <small>Falta validar inclusión</small>
+        <small>Presentes en la última cartola vigente</small>
       </article>
       <article class="fc-kpi">
-        <span>Pendientes de pago</span>
+        <span>Vencen en 30 días</span>
         <strong id="kpiPago">0</strong>
-        <small>Incluidas sin pago completo</small>
+        <small>Documentos vigentes próximos a vencer</small>
       </article>
       <article class="fc-kpi">
-        <span>Pagadas</span>
+        <span>Pagadas / conciliadas</span>
         <strong id="kpiPagadas">0</strong>
-        <small>Pago registrado</small>
+        <small>Pago manual o automático confirmado</small>
       </article>
       <article class="fc-kpi fc-kpi--money">
-        <span>Monto total</span>
+        <span>Monto vigente</span>
         <strong id="kpiMonto">$0</strong>
-        <small>Suma de cargos</small>
+        <small>Suma de cargos visibles en portal</small>
       </article>
     </section>
 
@@ -112,15 +112,24 @@
           </select>
         </label>
         <label class="fc-field">
+          <span>Vigencia portal</span>
+          <select id="filterVigencia">
+            <option value="">Todas</option>
+            <option>Vigente</option>
+            <option>Ya no vigente</option>
+            <option>Sin referencia</option>
+          </select>
+        </label>
+        <label class="fc-field">
           <span>Línea de producto</span>
           <select id="filterLinea"><option value="">Todas</option></select>
         </label>
         <label class="fc-field">
-          <span>Desde</span>
+          <span>Vence desde</span>
           <input id="filterDesde" type="date" />
         </label>
         <label class="fc-field">
-          <span>Hasta</span>
+          <span>Vence hasta</span>
           <input id="filterHasta" type="date" />
         </label>
         <button id="btnLimpiarFiltros" class="fc-btn fc-btn--ghost" type="button">Limpiar filtros</button>
@@ -130,24 +139,26 @@
         <table class="fc-table">
           <thead>
             <tr>
-              <th>Fecha</th>
-              <th>Días vencidos</th>
+              <th>Fecha emisión</th>
+              <th>Fecha vencimiento</th>
+              <th>Plazo</th>
               <th>EDS</th>
               <th>Línea</th>
               <th>N.º factura</th>
               <th class="fc-align-right">Monto</th>
+              <th>Vigencia portal</th>
               <th>Corresponde incluir</th>
               <th>Fecha pago</th>
               <th>N.º pago</th>
               <th>Método</th>
               <th>Grupo de costo</th>
               <th>Conciliación</th>
-              <th>Estado</th>
+              <th>Estado / origen</th>
               <th></th>
             </tr>
           </thead>
           <tbody id="invoiceRows">
-            <tr><td colspan="14" class="fc-empty">Cargando registros…</td></tr>
+            <tr><td colspan="16" class="fc-empty">Cargando registros…</td></tr>
           </tbody>
         </table>
       </div>
@@ -236,13 +247,13 @@
       <div id="previewSummary" class="fc-preview-summary"></div>
       <div class="fc-preview-table-wrap">
         <table class="fc-table fc-table--compact">
-          <thead><tr><th>Fecha</th><th>EDS</th><th>Línea</th><th>N.º factura</th><th class="fc-align-right">Monto</th></tr></thead>
+          <thead><tr><th>Fecha emisión</th><th>Vencimiento</th><th>Origen</th><th>Línea</th><th>N.º factura</th><th class="fc-align-right">Monto</th></tr></thead>
           <tbody id="previewRows"></tbody>
         </table>
       </div>
       <div class="fc-dialog-actions">
         <button class="fc-btn fc-btn--ghost" value="cancel">Cancelar</button>
-        <button id="btnConfirmarImportacion" class="fc-btn fc-btn--primary" type="button">Importar facturas</button>
+        <button id="btnConfirmarImportacion" class="fc-btn fc-btn--primary" type="button">Importar archivos</button>
       </div>
     </form>
   </dialog>
@@ -319,7 +330,7 @@
     <div class="fc-dialog-card fc-dialog-card--detail">
       <div class="fc-dialog-header"><div><p class="fc-eyebrow">DETALLE Y CONCILIACIÓN</p><h2 id="paymentDetailTitle">Propuesta</h2></div><button id="btnClosePaymentDetail" class="fc-icon-btn" type="button" aria-label="Cerrar">×</button></div>
       <div id="paymentDetailSummary" class="fc-invoice-info fc-payment-summary"></div>
-      <div class="fc-preview-table-wrap"><table class="fc-table fc-table--compact"><thead><tr><th>#</th><th>Fecha</th><th>Tipo documento</th><th>N.º documento</th><th class="fc-align-right">Valor</th><th>Factura VALEPAC</th><th>Resultado</th></tr></thead><tbody id="paymentDetailRows"></tbody></table></div>
+      <div class="fc-preview-table-wrap"><table class="fc-table fc-table--compact"><thead><tr><th>#</th><th>Vencimiento PDF</th><th>Tipo documento</th><th>N.º documento</th><th class="fc-align-right">Valor</th><th>Factura VALEPAC</th><th>Resultado</th></tr></thead><tbody id="paymentDetailRows"></tbody></table></div>
       <div class="fc-dialog-actions"><button class="fc-btn fc-btn--primary" type="button" onclick="document.getElementById('paymentDetailDialog').close()">Cerrar</button></div>
     </div>
   </dialog>

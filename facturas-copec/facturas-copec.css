@@ -194,3 +194,31 @@ button { cursor: pointer; }
   .fc-import-card{grid-template-columns:1fr}
   .fc-payment-summary{grid-template-columns:1fr}
 }
+
+/* ================================================================
+   CARTOLAS UNIFICADAS · HISTÓRICA + VIGENTE
+================================================================ */
+.fc-filters{grid-template-columns:minmax(250px,1.8fr) repeat(6,minmax(125px,1fr)) auto}
+.fc-table{min-width:2050px}
+.fc-preview-summary{grid-template-columns:repeat(5,minmax(130px,1fr))}
+.fc-origin-note{display:block;margin-top:5px;color:#7b8797;font-size:10px;font-weight:750;white-space:normal;line-height:1.25}
+.fc-due-note{display:block;margin-top:4px;font-size:10px;font-weight:850}
+.fc-due-note.is-late{color:#b42318}
+.fc-due-note.is-today{color:#9a3412}
+.fc-due-note.is-soon{color:#1d4f91}
+.fc-table td:nth-child(2),.fc-table td:nth-child(15){white-space:normal;min-width:135px}
+.fc-table th:nth-child(8){min-width:145px}
+.fc-table th:nth-child(15){min-width:165px}
+
+@media (max-width:1500px){
+  .fc-filters{grid-template-columns:repeat(4,minmax(150px,1fr))}
+  .fc-field--wide{grid-column:span 2}
+}
+@media (max-width:900px){
+  .fc-preview-summary{grid-template-columns:repeat(3,1fr)}
+}
+@media (max-width:760px){
+  .fc-filters{grid-template-columns:1fr}
+  .fc-field--wide{grid-column:auto}
+  .fc-preview-summary{grid-template-columns:1fr 1fr}
+}
