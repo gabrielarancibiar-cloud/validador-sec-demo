@@ -1,5 +1,5 @@
 {
-  "buildCommand": "npm run build && mkdir -p dist/facturas-copec && cp -R facturas-copec/. dist/facturas-copec/",
+  "buildCommand": "npm run build && mkdir -p dist/facturas-copec dist/calculo-combustible && cp -R facturas-copec/. dist/facturas-copec/ && cp -R calculo-combustible/. dist/calculo-combustible/",
   "outputDirectory": "dist",
   "rewrites": [
     {
@@ -9,6 +9,14 @@
     {
       "source": "/facturas-copec/",
       "destination": "/facturas-copec/index.html"
+    },
+    {
+      "source": "/calculo-combustible",
+      "destination": "/calculo-combustible/index.html"
+    },
+    {
+      "source": "/calculo-combustible/",
+      "destination": "/calculo-combustible/index.html"
     }
   ]
 }
