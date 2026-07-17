@@ -1,0 +1,238 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Cálculo de combustible · VALEPAC</title>
+  <link rel="stylesheet" href="./calculo-combustible.css">
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
+  <script src="./config.js"></script>
+</head>
+<body>
+  <header class="top-header">
+    <div>
+      <a class="back-link" href="/">← Volver a VALEPAC</a>
+      <div class="eyebrow">OPERACIONES · EDS 40098</div>
+      <h1>Cálculo de combustible</h1>
+      <p>Proyección de ventas y stock por tramos de 30 minutos.</p>
+    </div>
+    <div class="header-actions">
+      <span id="connectionBadge" class="badge neutral">Conectando...</span>
+      <button id="reloadBtn" class="btn secondary">Actualizar datos</button>
+      <button id="saveScenarioBtn" class="btn primary">Guardar escenario</button>
+    </div>
+  </header>
+
+  <main class="container">
+    <section class="card upload-card">
+      <div class="section-title-row">
+        <div>
+          <div class="eyebrow">CARGA DE DATOS</div>
+          <h2>Archivos operacionales</h2>
+          <p>El CSV se resume en intervalos de 30 minutos. La telemedición se guarda por estanque y horario.</p>
+        </div>
+      </div>
+      <div class="upload-grid">
+        <label class="drop-zone" for="salesFile">
+          <input id="salesFile" type="file" accept=".csv,text/csv" hidden>
+          <span class="drop-icon">⇧</span>
+          <span><strong>Cargar reporte de ventas CSV</strong><small id="salesFileName">Ningún archivo seleccionado</small></span>
+          <span class="btn primary fake-btn">Seleccionar CSV</span>
+        </label>
+        <label class="drop-zone" for="telemetryFile">
+          <input id="telemetryFile" type="file" accept=".xlsx,.xls" hidden>
+          <span class="drop-icon">▦</span>
+          <span><strong>Cargar reporte de telemedición</strong><small id="telemetryFileName">Ningún archivo seleccionado</small></span>
+          <span class="btn primary fake-btn">Seleccionar Excel</span>
+        </label>
+      </div>
+      <div class="progress-wrap hidden" id="progressWrap">
+        <div class="progress-bar"><div id="progressBar"></div></div>
+        <div id="progressText">Procesando...</div>
+      </div>
+      <div id="uploadMessage"></div>
+    </section>
+
+    <section class="card">
+      <div class="section-title-row">
+        <div>
+          <div class="eyebrow">ESCENARIO</div>
+          <h2>Rango de análisis y proyección</h2>
+          <p>Los horarios pueden cruzar de un día al siguiente sin restricciones.</p>
+        </div>
+        <button id="calculateBtn" class="btn primary large">Calcular proyección</button>
+      </div>
+
+      <div class="form-grid four">
+        <label>Producto
+          <select id="productSelect">
+            <option value="Diesel">Diesel</option>
+            <option value="Gasolina 93">Gasolina 93</option>
+            <option value="Gasolina 95">Gasolina 95 · solo venta</option>
+            <option value="Gasolina 97">Gasolina 97</option>
+            <option value="Bluemax">Bluemax</option>
+          </select>
+        </label>
+        <label>Inicio venta real
+          <input id="realStart" type="datetime-local">
+        </label>
+        <label>Hora de corte
+          <input id="cutoffDateTime" type="datetime-local">
+        </label>
+        <label>Fin de proyección
+          <input id="projectionEnd" type="datetime-local">
+        </label>
+      </div>
+
+      <div class="form-grid four">
+        <label>Modelo utilizado para stock
+          <select id="projectionModel">
+            <option value="base">Promedio histórico base</option>
+            <option value="adjusted" selected>Ajustado por tendencia del día</option>
+            <option value="manual">Ajuste manual</option>
+          </select>
+        </label>
+        <label>Ajuste manual
+          <div class="input-suffix"><input id="manualAdjustment" type="number" step="1" value="0"><span>%</span></div>
+        </label>
+        <label>Combustible programado no recibido
+          <div class="input-suffix"><input id="plannedFuel" type="number" min="0" step="1" value="0"><span>L</span></div>
+        </label>
+        <label>Carga pendiente TAE
+          <div class="input-suffix"><input id="pendingTae" type="number" min="0" step="1" value="0"><span>L</span></div>
+          <small>Se descuenta del stock proyectado.</small>
+        </label>
+      </div>
+
+      <div class="option-row">
+        <label class="check"><input id="excludePump9" type="checkbox" checked> Excluir surtidor 9 de la venta comercial</label>
+        <label class="check"><input id="use95Split" type="checkbox" checked> Distribuir Gasolina 95: 50% a G93 y 50% a G97</label>
+        <label class="check"><input id="includeBodegaInStock" type="checkbox" checked> Descontar Movimiento Bodega al sincronizar stock</label>
+      </div>
+
+      <div class="compare-layout">
+        <div>
+          <div class="subheading-row">
+            <div>
+              <h3>Fechas comparables</h3>
+              <p>Se aplican exactamente los mismos horarios relativos del día evaluado.</p>
+            </div>
+            <div class="compact-actions">
+              <button id="selectSuggestedBtn" class="btn secondary small">Seleccionar sugeridas</button>
+              <button id="clearComparablesBtn" class="btn ghost small">Limpiar</button>
+            </div>
+          </div>
+          <div id="comparableDates" class="date-check-grid"><div class="empty">Carga el CSV para ver fechas disponibles.</div></div>
+        </div>
+        <div class="info-panel">
+          <h3>Reglas del cálculo</h3>
+          <p><b>Venta:</b> todas las transacciones válidas, excepto Movimiento Bodega y —si está marcado— surtidor 9.</p>
+          <p><b>Gasolina 95:</b> para stock físico se reparte por mitades entre G93 y G97.</p>
+          <p><b>TAE pendiente:</b> se considera una salida futura adicional.</p>
+          <p><b>Intervalo:</b> 30 minutos.</p>
+        </div>
+      </div>
+      <div id="calculationMessage"></div>
+    </section>
+
+    <section class="kpi-grid" id="kpiGrid">
+      <article class="kpi"><span>Venta real acumulada</span><strong id="kpiActual">—</strong><small id="kpiActualRange">Sin cálculo</small></article>
+      <article class="kpi"><span>Promedio comparable</span><strong id="kpiComparable">—</strong><small>Mismo tramo transcurrido</small></article>
+      <article class="kpi"><span>Variación actual</span><strong id="kpiTrend">—</strong><small>Actual versus promedio</small></article>
+      <article class="kpi"><span>Proyección futura base</span><strong id="kpiFutureBase">—</strong><small>Promedio de comparables</small></article>
+      <article class="kpi"><span>Proyección futura ajustada</span><strong id="kpiFutureAdjusted">—</strong><small>Según tendencia del día</small></article>
+      <article class="kpi dark"><span>Stock al final del rango</span><strong id="kpiProjectedStock">—</strong><small id="kpiStockDate">Sin cálculo</small></article>
+    </section>
+
+    <section class="grid-two">
+      <article class="card">
+        <div class="section-title-row compact">
+          <div>
+            <div class="eyebrow">STOCK</div>
+            <h2>Telemedición sincronizada</h2>
+          </div>
+          <span id="telemetryStatusBadge" class="badge neutral">Sin telemedición</span>
+        </div>
+        <div class="stock-summary">
+          <div><span>Lectura seleccionada</span><strong id="stockSnapshot">—</strong></div>
+          <div><span>Stock telemedido</span><strong id="stockTelemetry">—</strong></div>
+          <div><span>Salidas hasta corte</span><strong id="stockOutflow">—</strong></div>
+          <div><span>Stock sincronizado</span><strong id="stockSynced">—</strong></div>
+          <div><span>Movimiento Bodega real</span><strong id="stockBodega">—</strong></div>
+          <div><span>Capacidad física</span><strong id="stockCapacity">—</strong></div>
+        </div>
+        <div id="telemetryWarnings"></div>
+        <div class="table-wrap small-table">
+          <table>
+            <thead><tr><th>Estanque</th><th>Capacidad</th><th>Volumen</th><th>Última lectura</th><th>Estado</th></tr></thead>
+            <tbody id="telemetryRows"><tr><td colspan="5" class="empty-cell">Sin datos.</td></tr></tbody>
+          </table>
+        </div>
+      </article>
+
+      <article class="card">
+        <div class="section-title-row compact">
+          <div>
+            <div class="eyebrow">RESUMEN</div>
+            <h2>Resultado del escenario</h2>
+          </div>
+        </div>
+        <div class="result-equation">
+          <div><span>Stock sincronizado</span><strong id="eqStock">—</strong></div>
+          <div class="plus"><span>+ Programado</span><strong id="eqPlanned">—</strong></div>
+          <div class="minus"><span>− Venta futura</span><strong id="eqFuture">—</strong></div>
+          <div class="minus"><span>− TAE pendiente</span><strong id="eqTae">—</strong></div>
+          <div class="total"><span>= Stock final</span><strong id="eqFinal">—</strong></div>
+        </div>
+        <div class="projection-comparison">
+          <div><span>Stock con modelo base</span><strong id="stockBaseResult">—</strong></div>
+          <div><span>Stock con modelo ajustado</span><strong id="stockAdjustedResult">—</strong></div>
+          <div><span>Capacidad libre al final</span><strong id="capacityFreeResult">—</strong></div>
+        </div>
+      </article>
+    </section>
+
+    <section class="card">
+      <div class="section-title-row compact">
+        <div>
+          <div class="eyebrow">CURVA</div>
+          <h2>Venta por intervalos de 30 minutos</h2>
+          <p>El tramo real se compara con cada fecha elegida; desde el corte se muestra la proyección.</p>
+        </div>
+      </div>
+      <div class="chart-wrap"><canvas id="salesChart"></canvas></div>
+    </section>
+
+    <section class="card">
+      <div class="section-title-row compact">
+        <div>
+          <div class="eyebrow">DETALLE</div>
+          <h2>Comparación por rango horario</h2>
+        </div>
+        <button id="exportDetailBtn" class="btn secondary">Exportar detalle CSV</button>
+      </div>
+      <div class="table-wrap">
+        <table id="detailTable">
+          <thead id="detailHead"><tr><th>Rango</th><th>Día evaluado</th><th>Promedio</th><th>Proyección</th></tr></thead>
+          <tbody id="detailRows"><tr><td colspan="4" class="empty-cell">Calcula un escenario para ver el detalle.</td></tr></tbody>
+        </table>
+      </div>
+    </section>
+
+    <section class="card">
+      <div class="section-title-row compact">
+        <div>
+          <div class="eyebrow">HISTORIAL</div>
+          <h2>Escenarios guardados</h2>
+        </div>
+      </div>
+      <div id="scenarioList" class="scenario-list"><div class="empty">No hay escenarios guardados.</div></div>
+    </section>
+  </main>
+
+  <script src="./calculo-combustible.js"></script>
+</body>
+</html>
