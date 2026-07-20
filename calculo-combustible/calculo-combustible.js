@@ -487,12 +487,21 @@
     const groups = groupTelemetrySnapshots(physicalProduct);
     if (!groups.length) return emptyTelemetry('No existen telemediciones para el producto seleccionado.');
 
-    let selected = [...groups].filter(g => g.date <= settings.cutoff).sort((a, b) => b.date - a.date)[0];
-    let afterCutoff = false;
-    if (!selected) {
-      selected = [...groups].sort((a, b) => a.date - b.date)[0];
-      afterCutoff = true;
-    }
+    // Regla operacional:
+    // 1) usar la telemedición exacta o posterior más cercana a la hora de corte;
+    // 2) solo si no existe una lectura posterior, usar la anterior más cercana.
+    const posteriorSnapshots = [...groups]
+      .filter(g => g.date >= settings.cutoff)
+      .sort((a, b) => a.date - b.date);
+
+    const previousSnapshots = [...groups]
+      .filter(g => g.date < settings.cutoff)
+      .sort((a, b) => b.date - a.date);
+
+    const selected = posteriorSnapshots[0] || previousSnapshots[0];
+    const afterCutoff = selected.date > settings.cutoff;
+    const exactCutoff = selected.date.getTime() === settings.cutoff.getTime();
+    const usedPreviousFallback = !posteriorSnapshots.length && !!previousSnapshots.length;
     const telemetryStock = sum(selected.rows.map(r => Number(r.volumen_litros) || 0));
     const capacityFromFile = sum(selected.rows.map(r => Number(r.capacidad_litros) || 0));
     const capacity = capacityFromFile || PRODUCT_CAPACITY[physicalProduct] || null;
@@ -512,7 +521,7 @@
     const warnings = [];
     const ageToCutoff = Math.abs(settings.cutoff - selected.date) / 3600000;
     if (ageToCutoff > 2) warnings.push(`La fotografía de telemedición está a ${ageToCutoff.toFixed(1)} horas de la hora de corte.`);
-    if (afterCutoff) warnings.push('No había telemedición anterior al corte; se utilizó la primera posterior y se reconstruyó el stock hacia atrás.');
+    if (usedPreviousFallback) warnings.push('No existía una telemedición posterior al corte; se utilizó la lectura anterior más cercana y se descontaron las salidas hasta la hora de corte.');
     selected.rows.forEach(r => {
       if (r.lectura_desactualizada) warnings.push(`${r.estanque}: última lectura desactualizada.`);
       if ((Number(r.volumen_litros) || 0) === 0 && r.readingDate && Math.abs(selected.date - r.readingDate) / 3600000 > 6) warnings.push(`${r.estanque}: volumen cero con lectura antigua; revisar sensor.`);
@@ -529,7 +538,12 @@
       syncedStock,
       capacity,
       warnings,
-      afterCutoff
+      afterCutoff,
+      exactCutoff,
+      usedPreviousFallback,
+      selectionRule: exactCutoff
+        ? 'exacta'
+        : (afterCutoff ? 'posterior_mas_cercana' : 'anterior_por_respaldo')
     };
   }
 
