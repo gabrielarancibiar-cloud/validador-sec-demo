@@ -99,7 +99,7 @@
           <div class="input-suffix"><input id="manualAdjustment" type="number" step="1" value="0" disabled><span>%</span></div>
           <small>Solo se habilita con Promedio histórico base.</small>
         </label>
-        <label>Combustible programado no recibido
+        <label>Stock por llegar
           <div class="input-suffix"><input id="plannedFuel" type="number" min="0" step="1" value="0"><span>L</span></div>
         </label>
         <label>Carga pendiente TAE
@@ -200,8 +200,8 @@
           </div>
         </div>
         <div class="result-equation">
-          <div><span>Stock sincronizado</span><strong id="eqStock">—</strong></div>
-          <div class="plus"><span>+ Programado</span><strong id="eqPlanned">—</strong></div>
+          <div><span id="eqStockLabel">Telemedición utilizada</span><strong id="eqStock">—</strong></div>
+          <div class="plus"><span id="eqPlannedLabel">+ Stock por llegar</span><strong id="eqPlanned">—</strong></div>
           <div class="minus"><span>− Venta futura</span><strong id="eqFuture">—</strong></div>
           <div class="minus"><span>− TAE pendiente</span><strong id="eqTae">—</strong></div>
           <div class="minus dead-stock-row"><span>− Punto muerto</span><strong id="eqDeadStock">—</strong></div>

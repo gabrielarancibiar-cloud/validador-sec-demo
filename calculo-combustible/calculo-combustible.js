@@ -628,6 +628,11 @@
     renderTelemetryRows(t.rows);
     renderTelemetryWarnings(t.warnings, t, s, result);
 
+    const telemetryLabel = t.snapshot
+      ? `Telemedición ${formatDateTime(t.snapshot)}`
+      : 'Telemedición utilizada';
+    if ($('eqStockLabel')) $('eqStockLabel').textContent = telemetryLabel;
+    if ($('eqPlannedLabel')) $('eqPlannedLabel').textContent = '+ Stock por llegar';
     setLiters('eqStock', t.syncedStock);
     setLiters('eqPlanned', s.plannedFuel);
     setLiters('eqFuture', result.selectedFuture);
@@ -773,8 +778,8 @@
       'VALEPAC · Cálculo de combustible',
       `Producto: ${s.product}`,
       `Rango proyectado: ${formatDateTime(s.cutoff)} → ${formatDateTime(s.projectionEnd)}`,
-      `Stock sincronizado: ${formatLiters(result.telemetry?.syncedStock)}`,
-      `Programado: ${formatLiters(s.plannedFuel)}`,
+      `Telemedición ${result.telemetry?.snapshot ? formatDateTime(result.telemetry.snapshot) : 'sin fecha y hora'} = ${formatLiters(result.telemetry?.syncedStock)}`,
+      `Stock por llegar = ${formatLiters(s.plannedFuel)}`,
       `Venta futura: ${formatLiters(result.selectedFuture)}`,
       `TAE pendiente: ${formatLiters(s.pendingTae)}`,
       `Punto muerto: ${formatLiters(s.deadStock)}`,
