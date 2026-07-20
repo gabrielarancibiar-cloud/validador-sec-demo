@@ -69,7 +69,9 @@
         $('plannedFuel').value = 0;
         $('pendingTae').value = 0;
       }
+      renderFuelLogo($('productSelect').value);
     });
+    renderFuelLogo($('productSelect').value);
   }
 
   async function testConnection() {
@@ -379,11 +381,20 @@
       const projectedStock = telemetry.syncedStock === null ? null : telemetry.syncedStock + settings.plannedFuel - selectedFuture - settings.pendingTae;
       const capacityFree = projectedStock === null || telemetry.capacity === null ? null : telemetry.capacity - projectedStock;
       const detail = buildIntervalDetail(settings, comparableRanges, trend);
+      const comparableVariations = settings.comparableDates.map((date, index) => {
+        const comparableValue = Number(comparableActualValues[index] || 0);
+        return {
+          date,
+          comparableValue,
+          variation: comparableValue > 0 ? (actual / comparableValue) - 1 : null
+        };
+      });
 
       state.lastResult = {
         settings: serializeSettings(settings),
         actual,
         comparableActualValues,
+        comparableVariations,
         comparableFutureValues,
         avgActual,
         futureBase,
@@ -603,8 +614,75 @@
     setLiters('stockAdjustedResult', result.stockAdjusted);
     setLiters('capacityFreeResult', result.capacityFree);
 
+    renderComparableVariations(result, s);
+    renderFuelLogo(s.product);
     renderDetailTable(detail, s.comparableDates);
     renderChart(detail, s.comparableDates);
+  }
+
+  function renderComparableVariations(result, settings) {
+    const panel = $('comparableVariations');
+    const items = $('comparableVariationItems');
+    if (!panel || !items) return;
+
+    const dates = settings.comparableDates || [];
+    if (!dates.length) {
+      panel.classList.add('hidden');
+      items.innerHTML = '';
+      return;
+    }
+
+    const variations = Array.isArray(result.comparableVariations) && result.comparableVariations.length
+      ? result.comparableVariations
+      : dates.map((date, index) => {
+          const comparableValue = Number(result.comparableActualValues?.[index] || 0);
+          return {
+            date,
+            comparableValue,
+            variation: comparableValue > 0 ? (Number(result.actual || 0) / comparableValue) - 1 : null
+          };
+        });
+
+    items.innerHTML = variations.map(item => {
+      const variation = item.variation;
+      const tone = variation === null ? 'neutral' : variation >= 0 ? 'positive' : 'negative';
+      const dateLabel = formatDate(parseDate(`${item.date}T00:00:00`));
+      const variationLabel = variation === null ? 'Sin base' : formatPercent(variation);
+      return `<article class="comparable-variation-item ${tone}">
+        <div class="comparable-variation-data">
+          <span>${dateLabel}</span>
+          <strong>${variationLabel}</strong>
+          <small>${formatLiters(item.comparableValue)} en el mismo tramo</small>
+        </div>
+        <button type="button" class="variation-remove" data-remove-comparable="${escapeHtml(item.date)}" title="Excluir esta fecha del cálculo">Descartar</button>
+      </article>`;
+    }).join('');
+
+    panel.classList.remove('hidden');
+    items.querySelectorAll('[data-remove-comparable]').forEach(button => {
+      button.addEventListener('click', () => {
+        const date = button.dataset.removeComparable;
+        const checkbox = [...document.querySelectorAll('#comparableDates input[type="checkbox"]')].find(el => el.value === date);
+        if (checkbox) checkbox.checked = false;
+        calculateScenario();
+      });
+    });
+  }
+
+  function renderFuelLogo(product) {
+    const el = $('fuelLogo');
+    if (!el) return;
+    const logos = {
+      'Diesel': { mark: 'DSL', name: 'Diesel', css: 'fuel-diesel' },
+      'Gasolina 93': { mark: '93', name: 'Gasolina', css: 'fuel-93' },
+      'Gasolina 95': { mark: '95', name: 'Gasolina', css: 'fuel-95' },
+      'Gasolina 97': { mark: '97', name: 'Gasolina', css: 'fuel-97' },
+      'Bluemax': { mark: 'BM', name: 'Bluemax', css: 'fuel-bluemax' }
+    };
+    const logo = logos[product] || { mark: '⛽', name: product || 'Combustible', css: 'fuel-generic' };
+    el.className = `fuel-logo ${logo.css}`;
+    el.setAttribute('aria-label', `Combustible evaluado: ${logo.name} ${logo.mark}`.trim());
+    el.innerHTML = `<span class="fuel-logo-mark">${escapeHtml(logo.mark)}</span><small class="fuel-logo-name">${escapeHtml(logo.name)}</small>`;
   }
 
   function renderTelemetryRows(rows) {

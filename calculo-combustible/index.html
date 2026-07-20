@@ -135,7 +135,16 @@
           <p><b>Intervalo:</b> 30 minutos.</p>
         </div>
       </div>
-      <div id="calculationMessage"></div>
+      <div class="calculation-feedback">
+        <div id="calculationMessage"></div>
+        <div id="comparableVariations" class="comparable-variation-panel hidden">
+          <div class="comparable-variation-head">
+            <strong>Variación frente a cada día comparable</strong>
+            <small>Compara la venta real acumulada con el mismo tramo horario de cada fecha seleccionada.</small>
+          </div>
+          <div id="comparableVariationItems" class="comparable-variation-items"></div>
+        </div>
+      </div>
     </section>
 
     <section class="kpi-grid" id="kpiGrid">
@@ -174,10 +183,14 @@
       </article>
 
       <article class="card">
-        <div class="section-title-row compact">
+        <div class="section-title-row compact result-title-row">
           <div>
             <div class="eyebrow">RESUMEN</div>
             <h2>Resultado del escenario</h2>
+          </div>
+          <div id="fuelLogo" class="fuel-logo fuel-diesel" role="img" aria-label="Combustible evaluado: Diesel">
+            <span class="fuel-logo-mark">DSL</span>
+            <small class="fuel-logo-name">Diesel</small>
           </div>
         </div>
         <div class="result-equation">
