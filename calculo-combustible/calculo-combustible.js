@@ -60,6 +60,7 @@
     $('selectSuggestedBtn').addEventListener('click', selectSuggestedComparables);
     $('clearComparablesBtn').addEventListener('click', () => setComparableChecks([]));
     $('exportDetailBtn').addEventListener('click', exportDetailCsv);
+    $('shareSummaryBtn')?.addEventListener('click', shareResultCard);
     ['realStart', 'cutoffDateTime'].forEach(id => $(id).addEventListener('change', renderComparableDates));
     $('productSelect').addEventListener('change', () => {
       const is95 = $('productSelect').value === 'Gasolina 95';
@@ -667,6 +668,131 @@
         calculateScenario();
       });
     });
+  }
+
+  async function shareResultCard() {
+    const button = $('shareSummaryBtn');
+    if (!state.lastResult) {
+      showMessage('calculationMessage', 'Primero calcula un escenario para generar la captura.', 'warn');
+      return;
+    }
+    if (!window.html2canvas) {
+      showMessage('calculationMessage', 'No se pudo cargar el generador de capturas. Actualiza la página e inténtalo nuevamente.', 'error');
+      return;
+    }
+
+    const card = $('resultCard');
+    if (!card) return;
+
+    const originalText = button?.textContent || 'Compartir';
+    if (button) {
+      button.disabled = true;
+      button.textContent = 'Generando captura...';
+    }
+
+    try {
+      if (document.fonts?.ready) await document.fonts.ready;
+      const canvas = await window.html2canvas(card, {
+        backgroundColor: '#ffffff',
+        scale: Math.min(2, window.devicePixelRatio || 1.5),
+        useCORS: true,
+        logging: false,
+        removeContainer: true,
+        ignoreElements: element => element?.hasAttribute?.('data-html2canvas-ignore')
+      });
+      const blob = await canvasToBlob(canvas, 'image/png', 1);
+      if (!blob) throw new Error('No se pudo crear la imagen de la captura.');
+
+      const summary = buildShareSummary(state.lastResult);
+      const fileName = buildShareFileName(state.lastResult);
+      const file = new File([blob], fileName, { type: 'image/png' });
+
+      if (navigator.share && navigator.canShare?.({ files: [file] })) {
+        try {
+          await navigator.share({
+            title: 'Cálculo de combustible VALEPAC',
+            text: summary,
+            files: [file]
+          });
+          showMessage('calculationMessage', 'Captura compartida correctamente.', 'ok');
+          return;
+        } catch (error) {
+          if (error?.name === 'AbortError') return;
+          console.warn('El uso compartido nativo falló; se usará WhatsApp Web.', error);
+        }
+      }
+
+      const copied = await copyImageToClipboard(blob);
+      if (!copied) downloadBlob(blob, fileName);
+
+      const instruction = copied
+        ? 'La captura quedó copiada. Elige un contacto y pégala con Ctrl+V.'
+        : 'La captura quedó descargada. Elige un contacto y adjunta la imagen.';
+      const whatsappText = `${summary}\n\n${instruction}`;
+      const whatsappUrl = `https://web.whatsapp.com/send?text=${encodeURIComponent(whatsappText)}`;
+      const popup = window.open(whatsappUrl, '_blank', 'noopener,noreferrer');
+      if (!popup) window.location.href = whatsappUrl;
+      showMessage('calculationMessage', instruction, 'ok');
+    } catch (error) {
+      console.error(error);
+      showMessage('calculationMessage', escapeHtml(error.message || 'No se pudo generar la captura.'), 'error');
+    } finally {
+      if (button) {
+        button.disabled = false;
+        button.textContent = originalText;
+      }
+    }
+  }
+
+  function buildShareSummary(result) {
+    const s = deserializeSettings(result.settings);
+    return [
+      'VALEPAC · Cálculo de combustible',
+      `Producto: ${s.product}`,
+      `Rango proyectado: ${formatDateTime(s.cutoff)} → ${formatDateTime(s.projectionEnd)}`,
+      `Stock sincronizado: ${formatLiters(result.telemetry?.syncedStock)}`,
+      `Programado: ${formatLiters(s.plannedFuel)}`,
+      `Venta futura: ${formatLiters(result.selectedFuture)}`,
+      `TAE pendiente: ${formatLiters(s.pendingTae)}`,
+      `Stock final: ${formatLiters(result.projectedStock)}`
+    ].join('\n');
+  }
+
+  function buildShareFileName(result) {
+    const s = deserializeSettings(result.settings);
+    const product = String(s.product || 'combustible')
+      .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+      .toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+    const end = s.projectionEnd instanceof Date && !Number.isNaN(s.projectionEnd.getTime())
+      ? s.projectionEnd.toISOString().slice(0, 16).replace(/[:T]/g, '-')
+      : new Date().toISOString().slice(0, 10);
+    return `valepac-${product}-${end}.png`;
+  }
+
+  function canvasToBlob(canvas, type = 'image/png', quality = 1) {
+    return new Promise(resolve => canvas.toBlob(resolve, type, quality));
+  }
+
+  async function copyImageToClipboard(blob) {
+    try {
+      if (!navigator.clipboard?.write || typeof ClipboardItem === 'undefined') return false;
+      await navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })]);
+      return true;
+    } catch (error) {
+      console.warn('No se pudo copiar la imagen al portapapeles.', error);
+      return false;
+    }
+  }
+
+  function downloadBlob(blob, fileName) {
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = fileName;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 1500);
   }
 
   function renderFuelLogo(product) {

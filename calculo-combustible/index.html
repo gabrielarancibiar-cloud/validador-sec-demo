@@ -9,6 +9,7 @@
   <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
   <script src="./config.js"></script>
 </head>
 <body>
@@ -182,7 +183,7 @@
         </div>
       </article>
 
-      <article class="card">
+      <article id="resultCard" class="card result-card">
         <div class="section-title-row compact result-title-row">
           <div>
             <div class="eyebrow">RESUMEN</div>
@@ -204,6 +205,10 @@
           <div><span>Stock con modelo base</span><strong id="stockBaseResult">—</strong></div>
           <div><span>Stock con modelo ajustado</span><strong id="stockAdjustedResult">—</strong></div>
           <div><span>Capacidad libre al final</span><strong id="capacityFreeResult">—</strong></div>
+        </div>
+        <div class="share-summary-row" data-html2canvas-ignore="true">
+          <button id="shareSummaryBtn" type="button" class="btn whatsapp-share-btn">Compartir</button>
+          <small id="shareSummaryHint">Genera una captura y abre las opciones para compartir por WhatsApp.</small>
         </div>
       </article>
     </section>

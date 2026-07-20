@@ -50,10 +50,20 @@ button,input,select{font:inherit}.hidden{display:none!important}
 .fuel-logo-mark{font-size:29px;line-height:1;letter-spacing:.5px;position:relative;z-index:1}
 .fuel-logo-name{font-size:10px;text-transform:uppercase;letter-spacing:.8px;margin-top:5px;position:relative;z-index:1;font-weight:950}
 .fuel-diesel{background:#17202b;color:#fff;border-bottom:7px solid #facc15}
-.fuel-93{background:#138a42;color:#fff;border-bottom:7px solid #93d14f}
+.fuel-93{background:#8bcf4a;color:#123b22;border-bottom:7px solid #c8ef77}
 .fuel-95{background:#f59e0b;color:#3a2400;border-bottom:7px solid #ffd166}
-.fuel-97{background:#d92632;color:#fff;border-bottom:7px solid #ff8a92}
+.fuel-97{background:#075b2b;color:#fff;border-bottom:7px solid #0a3d20}
 .fuel-bluemax{background:#0868b8;color:#fff;border-bottom:7px solid #4cc9f0}
 .fuel-generic{background:#24496f;color:#fff;border-bottom:7px solid #9cc7ee}
 @media(max-width:1100px){.calculation-feedback{grid-template-columns:1fr}.comparable-variation-panel{grid-template-columns:1fr}.comparable-variation-items{grid-template-columns:repeat(auto-fit,minmax(155px,1fr))}}
 @media(max-width:760px){.comparable-variation-items{grid-template-columns:1fr}.fuel-logo{width:80px;min-width:80px;height:66px}.fuel-logo-mark{font-size:25px}}
+
+
+/* Compartir resultado del escenario */
+.result-card{position:relative}
+.share-summary-row{display:flex;align-items:center;justify-content:flex-end;gap:12px;margin-top:14px;padding-top:14px;border-top:1px solid #dbe7f3;flex-wrap:wrap}
+.share-summary-row small{color:#71839a;font-weight:700;max-width:330px;text-align:right;line-height:1.35}
+.whatsapp-share-btn{background:#25d366!important;color:#083d1e!important;border:1px solid #1fb557!important;box-shadow:0 8px 20px rgba(37,211,102,.22)!important}
+.whatsapp-share-btn:hover{background:#20c45c!important}
+.whatsapp-share-btn:disabled{opacity:.65;cursor:wait;transform:none!important}
+@media(max-width:760px){.share-summary-row{justify-content:stretch}.whatsapp-share-btn{width:100%}.share-summary-row small{max-width:none;text-align:left}}
