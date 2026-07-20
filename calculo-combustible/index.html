@@ -88,16 +88,16 @@
         </label>
       </div>
 
-      <div class="form-grid four">
+      <div class="form-grid five">
         <label>Modelo utilizado para stock
           <select id="projectionModel">
             <option value="base">Promedio histórico base</option>
             <option value="adjusted" selected>Ajustado por tendencia del día</option>
-            <option value="manual">Ajuste manual</option>
           </select>
         </label>
-        <label>Ajuste manual
-          <div class="input-suffix"><input id="manualAdjustment" type="number" step="1" value="0"><span>%</span></div>
+        <label id="manualAdjustmentField" class="conditional-field is-disabled">Ajuste manual del promedio base
+          <div class="input-suffix"><input id="manualAdjustment" type="number" step="1" value="0" disabled><span>%</span></div>
+          <small>Solo se habilita con Promedio histórico base.</small>
         </label>
         <label>Combustible programado no recibido
           <div class="input-suffix"><input id="plannedFuel" type="number" min="0" step="1" value="0"><span>L</span></div>
@@ -105,6 +105,10 @@
         <label>Carga pendiente TAE
           <div class="input-suffix"><input id="pendingTae" type="number" min="0" step="1" value="0"><span>L</span></div>
           <small>Se descuenta del stock proyectado.</small>
+        </label>
+        <label>Punto muerto
+          <div class="input-suffix"><input id="deadStock" type="number" min="0" step="1" value="0"><span>L</span></div>
+          <small>Combustible no succionable por la bomba.</small>
         </label>
       </div>
 
@@ -133,6 +137,7 @@
           <p><b>Venta:</b> todas las transacciones válidas, excepto Movimiento Bodega y —si está marcado— surtidor 9.</p>
           <p><b>Gasolina 95:</b> para stock físico se reparte por mitades entre G93 y G97.</p>
           <p><b>TAE pendiente:</b> se considera una salida futura adicional.</p>
+          <p><b>Punto muerto:</b> se descuenta del stock final disponible, pero no de la capacidad física del estanque.</p>
           <p><b>Intervalo:</b> 30 minutos.</p>
         </div>
       </div>
@@ -152,7 +157,7 @@
       <article class="kpi"><span>Venta real acumulada</span><strong id="kpiActual">—</strong><small id="kpiActualRange">Sin cálculo</small></article>
       <article class="kpi"><span>Promedio comparable</span><strong id="kpiComparable">—</strong><small>Mismo tramo transcurrido</small></article>
       <article class="kpi"><span>Variación actual</span><strong id="kpiTrend">—</strong><small>Actual versus promedio</small></article>
-      <article class="kpi"><span>Proyección futura base</span><strong id="kpiFutureBase">—</strong><small>Promedio de comparables</small></article>
+      <article class="kpi"><span>Proyección futura base</span><strong id="kpiFutureBase">—</strong><small id="kpiFutureBaseHint">Promedio de comparables</small></article>
       <article class="kpi"><span>Proyección futura ajustada</span><strong id="kpiFutureAdjusted">—</strong><small>Según tendencia del día</small></article>
       <article class="kpi dark"><span>Stock al final del rango</span><strong id="kpiProjectedStock">—</strong><small id="kpiStockDate">Sin cálculo</small></article>
     </section>
@@ -199,7 +204,8 @@
           <div class="plus"><span>+ Programado</span><strong id="eqPlanned">—</strong></div>
           <div class="minus"><span>− Venta futura</span><strong id="eqFuture">—</strong></div>
           <div class="minus"><span>− TAE pendiente</span><strong id="eqTae">—</strong></div>
-          <div class="total"><span>= Stock final</span><strong id="eqFinal">—</strong></div>
+          <div class="minus dead-stock-row"><span>− Punto muerto</span><strong id="eqDeadStock">—</strong></div>
+          <div class="total"><span>= Stock final disponible</span><strong id="eqFinal">—</strong></div>
         </div>
         <div class="projection-comparison">
           <div><span>Stock con modelo base</span><strong id="stockBaseResult">—</strong></div>

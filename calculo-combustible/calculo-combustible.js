@@ -61,18 +61,30 @@
     $('clearComparablesBtn').addEventListener('click', () => setComparableChecks([]));
     $('exportDetailBtn').addEventListener('click', exportDetailCsv);
     $('shareSummaryBtn')?.addEventListener('click', shareResultCard);
+    $('projectionModel').addEventListener('change', syncManualAdjustmentState);
     ['realStart', 'cutoffDateTime'].forEach(id => $(id).addEventListener('change', renderComparableDates));
     $('productSelect').addEventListener('change', () => {
       const is95 = $('productSelect').value === 'Gasolina 95';
       $('plannedFuel').disabled = is95;
       $('pendingTae').disabled = is95;
+      $('deadStock').disabled = is95;
       if (is95) {
         $('plannedFuel').value = 0;
         $('pendingTae').value = 0;
+        $('deadStock').value = 0;
       }
       renderFuelLogo($('productSelect').value);
     });
     renderFuelLogo($('productSelect').value);
+    syncManualAdjustmentState();
+  }
+
+  function syncManualAdjustmentState() {
+    const isBase = $('projectionModel').value === 'base';
+    const input = $('manualAdjustment');
+    const field = $('manualAdjustmentField');
+    if (input) input.disabled = !isBase;
+    if (field) field.classList.toggle('is-disabled', !isBase);
   }
 
   async function testConnection() {
@@ -370,17 +382,21 @@
       const comparableActualValues = comparableRanges.map(r => sumCommercial(settings.product, r.realStart, r.cutoff, settings));
       const comparableFutureValues = comparableRanges.map(r => sumCommercial(settings.product, r.cutoff, r.end, settings));
       const avgActual = average(comparableActualValues);
-      const futureBase = average(comparableFutureValues);
+      const futureBaseRaw = average(comparableFutureValues);
+      const baseAdjustmentFactor = 1 + (settings.model === 'base' ? settings.manualAdjustment / 100 : 0);
+      const futureBase = Math.max(0, futureBaseRaw * baseAdjustmentFactor);
       const trend = avgActual > 0 ? (actual / avgActual) - 1 : 0;
-      const futureAdjusted = Math.max(0, futureBase * (1 + trend));
-      const futureManual = Math.max(0, futureBase * (1 + settings.manualAdjustment / 100));
-      const selectedFuture = settings.model === 'base' ? futureBase : settings.model === 'manual' ? futureManual : futureAdjusted;
+      const futureAdjusted = Math.max(0, futureBaseRaw * (1 + trend));
+      const selectedFuture = settings.model === 'base' ? futureBase : futureAdjusted;
       const bodegaActual = sumBodega(settings.product, settings.realStart, settings.cutoff, settings);
       const telemetry = calculateTelemetry(settings);
-      const stockBase = telemetry.syncedStock === null ? null : telemetry.syncedStock + settings.plannedFuel - futureBase - settings.pendingTae;
-      const stockAdjusted = telemetry.syncedStock === null ? null : telemetry.syncedStock + settings.plannedFuel - futureAdjusted - settings.pendingTae;
-      const projectedStock = telemetry.syncedStock === null ? null : telemetry.syncedStock + settings.plannedFuel - selectedFuture - settings.pendingTae;
-      const capacityFree = projectedStock === null || telemetry.capacity === null ? null : telemetry.capacity - projectedStock;
+      const stockBasePhysical = telemetry.syncedStock === null ? null : telemetry.syncedStock + settings.plannedFuel - futureBase - settings.pendingTae;
+      const stockAdjustedPhysical = telemetry.syncedStock === null ? null : telemetry.syncedStock + settings.plannedFuel - futureAdjusted - settings.pendingTae;
+      const projectedPhysicalStock = telemetry.syncedStock === null ? null : telemetry.syncedStock + settings.plannedFuel - selectedFuture - settings.pendingTae;
+      const stockBase = stockBasePhysical === null ? null : stockBasePhysical - settings.deadStock;
+      const stockAdjusted = stockAdjustedPhysical === null ? null : stockAdjustedPhysical - settings.deadStock;
+      const projectedStock = projectedPhysicalStock === null ? null : projectedPhysicalStock - settings.deadStock;
+      const capacityFree = projectedPhysicalStock === null || telemetry.capacity === null ? null : telemetry.capacity - projectedPhysicalStock;
       const detail = buildIntervalDetail(settings, comparableRanges, trend);
       const comparableVariations = settings.comparableDates.map((date, index) => {
         const comparableValue = Number(comparableActualValues[index] || 0);
@@ -398,15 +414,16 @@
         comparableVariations,
         comparableFutureValues,
         avgActual,
+        futureBaseRaw,
         futureBase,
         futureAdjusted,
-        futureManual,
         selectedFuture,
         trend,
         bodegaActual,
         telemetry,
         stockBase,
         stockAdjusted,
+        projectedPhysicalStock,
         projectedStock,
         capacityFree,
         calculatedAt: new Date().toISOString()
@@ -430,6 +447,7 @@
       manualAdjustment: Number($('manualAdjustment').value || 0),
       plannedFuel: Number($('plannedFuel').value || 0),
       pendingTae: Number($('pendingTae').value || 0),
+      deadStock: Number($('deadStock').value || 0),
       excludePump9: $('excludePump9').checked,
       use95Split: $('use95Split').checked,
       includeBodegaInStock: $('includeBodegaInStock').checked,
@@ -444,7 +462,7 @@
     if (s.cutoff <= s.realStart) throw new Error('La hora de corte debe ser posterior al inicio de venta real.');
     if (s.projectionEnd <= s.cutoff) throw new Error('El fin de proyección debe ser posterior a la hora de corte.');
     if (!s.comparableDates.length) throw new Error('Selecciona al menos una fecha comparable.');
-    if (s.plannedFuel < 0 || s.pendingTae < 0) throw new Error('Los valores manuales no pueden ser negativos.');
+    if (s.plannedFuel < 0 || s.pendingTae < 0 || s.deadStock < 0) throw new Error('Los valores manuales no pueden ser negativos.');
   }
 
   function buildComparableRanges(settings) {
@@ -564,7 +582,7 @@
 
   function buildIntervalDetail(settings, ranges, trend) {
     const rows = [];
-    const factor = settings.model === 'base' ? 1 : settings.model === 'manual' ? (1 + settings.manualAdjustment / 100) : (1 + trend);
+    const factor = settings.model === 'base' ? (1 + settings.manualAdjustment / 100) : (1 + trend);
     const anchor = startOfDay(settings.realStart);
     for (let slot = new Date(settings.realStart); slot < settings.projectionEnd; slot = addMinutes(slot, 30)) {
       const slotEnd = addMinutes(slot, 30);
@@ -590,6 +608,10 @@
     $('kpiTrend').textContent = formatPercent(result.trend);
     $('kpiTrend').className = result.trend >= 0 ? 'text-positive' : 'text-negative';
     setLiters('kpiFutureBase', result.futureBase);
+    const baseHint = $('kpiFutureBaseHint');
+    if (baseHint) baseHint.textContent = s.model === 'base' && Number(s.manualAdjustment || 0) !== 0
+      ? `Promedio histórico con ajuste ${formatSignedPercent(Number(s.manualAdjustment || 0))}`
+      : 'Promedio de comparables';
     setLiters('kpiFutureAdjusted', result.futureAdjusted);
     setLiters('kpiProjectedStock', result.projectedStock);
     $('kpiStockDate').textContent = `Al ${formatDateTime(s.projectionEnd)}`;
@@ -610,6 +632,7 @@
     setLiters('eqPlanned', s.plannedFuel);
     setLiters('eqFuture', result.selectedFuture);
     setLiters('eqTae', s.pendingTae);
+    setLiters('eqDeadStock', s.deadStock);
     setLiters('eqFinal', result.projectedStock);
     setLiters('stockBaseResult', result.stockBase);
     setLiters('stockAdjustedResult', result.stockAdjusted);
@@ -754,7 +777,8 @@
       `Programado: ${formatLiters(s.plannedFuel)}`,
       `Venta futura: ${formatLiters(result.selectedFuture)}`,
       `TAE pendiente: ${formatLiters(s.pendingTae)}`,
-      `Stock final: ${formatLiters(result.projectedStock)}`
+      `Punto muerto: ${formatLiters(s.deadStock)}`,
+      `Stock final disponible: ${formatLiters(result.projectedStock)}`
     ].join('\n');
   }
 
@@ -827,7 +851,7 @@
   function renderTelemetryWarnings(warnings, telemetry, settings, result) {
     const extra = [];
     if (telemetry.available && result.projectedStock < 0) extra.push('ALERTA: el stock proyectado queda bajo cero dentro del rango seleccionado.');
-    if (telemetry.available && result.projectedStock > telemetry.capacity) extra.push('ALERTA: el stock proyectado supera la capacidad física informada.');
+    if (telemetry.available && result.projectedPhysicalStock > telemetry.capacity) extra.push('ALERTA: el stock físico proyectado supera la capacidad informada.');
     const all = [...warnings, ...extra];
     $('telemetryWarnings').innerHTML = all.length ? `<div class="notice ${extra.length ? 'error' : 'warn'}">${all.map(x => `• ${escapeHtml(x)}`).join('<br>')}</div>` : '<div class="notice ok">Sin alertas de telemedición para el escenario.</div>';
   }
@@ -897,6 +921,7 @@
       ajuste_manual: s.manualAdjustment,
       combustible_programado: s.plannedFuel,
       tae_pendiente: s.pendingTae,
+      punto_muerto: s.deadStock,
       excluir_surtidor_9: s.excludePump9,
       distribuir_95: s.use95Split,
       descontar_bodega_stock: s.includeBodegaInStock,
@@ -937,13 +962,15 @@
     $('realStart').value = toInputDateTime(parseDate(s.inicio_real));
     $('cutoffDateTime').value = toInputDateTime(parseDate(s.hora_corte));
     $('projectionEnd').value = toInputDateTime(parseDate(s.fin_proyeccion));
-    $('projectionModel').value = s.modelo || 'adjusted';
+    $('projectionModel').value = s.modelo === 'manual' ? 'base' : (s.modelo || 'adjusted');
     $('manualAdjustment').value = s.ajuste_manual || 0;
     $('plannedFuel').value = s.combustible_programado || 0;
     $('pendingTae').value = s.tae_pendiente || 0;
+    $('deadStock').value = s.punto_muerto ?? s.resultados?.settings?.deadStock ?? 0;
     $('excludePump9').checked = s.excluir_surtidor_9 !== false;
     $('use95Split').checked = s.distribuir_95 !== false;
     $('includeBodegaInStock').checked = s.descontar_bodega_stock !== false;
+    syncManualAdjustmentState();
     renderComparableDates();
     setComparableChecks(s.fechas_comparables || []);
     calculateScenario();
@@ -1082,6 +1109,11 @@
   function formatDateTime(d) { return isValidDate(d) ? `${d.toLocaleDateString('es-CL')} ${formatTime(d)}` : '—'; }
   function formatLiters(v) { return v === null || v === undefined || !Number.isFinite(Number(v)) ? '—' : `${Number(v).toLocaleString('es-CL', { maximumFractionDigits: 0 })} L`; }
   function setLiters(id, v) { $(id).textContent = formatLiters(v); }
+  function formatSignedPercent(v) {
+    const n = Number(v || 0);
+    return `${n > 0 ? '+' : ''}${n.toLocaleString('es-CL', { maximumFractionDigits: 1 })}%`;
+  }
+
   function formatPercent(v) { return Number.isFinite(v) ? `${v >= 0 ? '+' : ''}${(v * 100).toLocaleString('es-CL', { maximumFractionDigits: 1 })}%` : '—'; }
   function average(arr) { return arr.length ? sum(arr) / arr.length : 0; }
   function sum(arr) { return arr.reduce((a, b) => a + (Number(b) || 0), 0); }
