@@ -252,3 +252,26 @@ button { cursor: pointer; }
   .fc-bulk-fields #btnApplyBulk{grid-column:auto;width:100%}
   .fc-bulk-option{white-space:normal}
 }
+
+
+/* ================================================================
+   DETALLE CONSOLIDADO DE PROPUESTAS
+================================================================ */
+.fc-consolidated-filters{display:grid;grid-template-columns:minmax(280px,1.7fr) repeat(5,minmax(150px,1fr)) auto;gap:10px;padding:0 22px 18px;align-items:end}
+.fc-consolidated-table{min-width:1900px}
+.fc-consolidated-table th:nth-child(2){min-width:150px}
+.fc-consolidated-table th:nth-child(3){min-width:210px}
+.fc-consolidated-table th:nth-child(5){min-width:190px}
+.fc-consolidated-table th:nth-child(8){min-width:260px}
+.fc-consolidated-table th:nth-child(9){min-width:175px}
+.fc-consolidated-table th:nth-child(10){min-width:190px}
+.fc-consolidated-table td small{display:block;margin-top:4px;color:var(--fc-muted);font-weight:700;line-height:1.25;white-space:normal}
+.fc-related-invoice{display:flex;align-items:flex-start;flex-direction:column;gap:5px;white-space:normal}
+.fc-related-invoice strong{color:var(--fc-navy)}
+.fc-mini-action{border:0;padding:0;color:var(--fc-blue);background:transparent;font-size:11px;font-weight:850;text-decoration:underline}
+.fc-consolidated-table tbody tr:nth-child(even) td{background:#fbfcfe}
+.fc-consolidated-table tbody tr:hover td{background:#eef6ff}
+
+@media(max-width:1500px){.fc-consolidated-filters{grid-template-columns:repeat(4,minmax(150px,1fr))}.fc-consolidated-filters .fc-field--wide{grid-column:span 2}}
+@media(max-width:900px){.fc-consolidated-filters{grid-template-columns:1fr 1fr}.fc-consolidated-filters .fc-field--wide{grid-column:1/-1}}
+@media(max-width:680px){.fc-consolidated-filters{grid-template-columns:1fr}.fc-consolidated-filters .fc-field--wide{grid-column:auto}}

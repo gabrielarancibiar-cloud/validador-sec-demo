@@ -26,6 +26,7 @@
     <nav class="fc-tabs" aria-label="Secciones de Facturas Copec">
       <button id="tabFacturas" class="fc-tab active" type="button">Facturas</button>
       <button id="tabPagos" class="fc-tab" type="button">Propuestas de pago</button>
+      <button id="tabDetalleConsolidado" class="fc-tab" type="button">Detalle consolidado</button>
     </nav>
 
     <div id="facturasView">
@@ -261,6 +262,55 @@
           </table>
         </div>
         <div class="fc-pagination"><button id="paymentPrev" class="fc-btn fc-btn--ghost" type="button">Anterior</button><span id="paymentPageInfo">Página 1 de 1</span><button id="paymentNext" class="fc-btn fc-btn--ghost" type="button">Siguiente</button></div>
+      </section>
+    </section>
+
+    <section id="detalleConsolidadoView" hidden>
+      <section class="fc-payment-intro">
+        <div>
+          <p class="fc-eyebrow">MOVIMIENTOS DE TODAS LAS PROPUESTAS</p>
+          <h2>Detalle consolidado</h2>
+          <p>Consulta en una sola vista todas las facturas, abonos, notas de crédito y movimientos compensatorios extraídos desde los comprobantes PDF.</p>
+        </div>
+        <div class="fc-header-actions">
+          <button id="btnExportConsolidated" class="fc-btn fc-btn--secondary" type="button">Exportar detalle</button>
+          <button id="btnReloadConsolidated" class="fc-btn fc-btn--secondary" type="button">Actualizar</button>
+        </div>
+      </section>
+
+      <section class="fc-kpis" aria-label="Resumen del detalle consolidado">
+        <article class="fc-kpi"><span>Movimientos</span><strong id="detailKpiTotal">0</strong><small>Registros filtrados</small></article>
+        <article class="fc-kpi"><span>Facturas</span><strong id="detailKpiFacturas">0</strong><small>Documentos tipo factura</small></article>
+        <article class="fc-kpi"><span>Abonos y créditos</span><strong id="detailKpiAbonos">0</strong><small>Ajustes aplicados</small></article>
+        <article class="fc-kpi"><span>Otros movimientos</span><strong id="detailKpiOtros">0</strong><small>Tarjetas, consumos y casos</small></article>
+        <article class="fc-kpi fc-kpi--money"><span>Neto filtrado</span><strong id="detailKpiNeto">$0</strong><small>Suma firmada de valores</small></article>
+      </section>
+
+      <section class="fc-card">
+        <div class="fc-card-header">
+          <div><p class="fc-eyebrow">CONSOLIDADO</p><h2>Movimientos por propuesta</h2></div>
+          <span id="consolidatedResultCount" class="fc-result-count">0 resultados</span>
+        </div>
+        <div class="fc-consolidated-filters">
+          <label class="fc-field fc-field--wide"><span>Buscar</span><input id="consolidatedSearch" type="search" placeholder="Propuesta, documento, método, banco o grupo de costo" /></label>
+          <label class="fc-field"><span>Propuesta</span><select id="consolidatedProposalFilter"><option value="">Todas</option></select></label>
+          <label class="fc-field"><span>Tipo de movimiento</span><select id="consolidatedTypeFilter"><option value="">Todos</option></select></label>
+          <label class="fc-field"><span>Conciliación</span><select id="consolidatedStatusFilter"><option value="">Todas</option></select></label>
+          <label class="fc-field"><span>Movimiento desde</span><input id="consolidatedFrom" type="date" /></label>
+          <label class="fc-field"><span>Movimiento hasta</span><input id="consolidatedTo" type="date" /></label>
+          <button id="btnClearConsolidatedFilters" class="fc-btn fc-btn--ghost" type="button">Limpiar filtros</button>
+        </div>
+        <div class="fc-table-wrap">
+          <table class="fc-table fc-consolidated-table">
+            <thead>
+              <tr>
+                <th>Fecha propuesta</th><th>N.º propuesta</th><th>Método / Banco</th><th>Fecha movimiento</th><th>Tipo movimiento</th><th>N.º documento</th><th class="fc-align-right">Valor</th><th>Factura relacionada</th><th>Conciliación</th><th>Comprobante</th><th></th>
+              </tr>
+            </thead>
+            <tbody id="consolidatedRows"><tr><td colspan="11" class="fc-empty">Abre esta vista para cargar el detalle consolidado.</td></tr></tbody>
+          </table>
+        </div>
+        <div class="fc-pagination"><button id="consolidatedPrev" class="fc-btn fc-btn--ghost" type="button">Anterior</button><span id="consolidatedPageInfo">Página 1 de 1</span><button id="consolidatedNext" class="fc-btn fc-btn--ghost" type="button">Siguiente</button></div>
       </section>
     </section>
   </main>

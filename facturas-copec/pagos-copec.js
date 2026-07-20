@@ -11,8 +11,10 @@
     reconcileAllPaymentsRpc: "reconciliar_todos_pagos_copec",
     analyzePaymentPdfEndpoint: "/api/analizar-comprobante-pago",
     paymentsPageSize: 30,
+    consolidatedPageSize: 50,
     maxPdfBytes: 4 * 1024 * 1024,
-    maxPaymentRows: 5000
+    maxPaymentRows: 5000,
+    maxConsolidatedRows: 20000
   }, window.FACTURAS_COPEC_CONFIG || {});
 
   const PAYMENT_HEADERS = {
@@ -35,7 +37,12 @@
     loading: false,
     processingPdf: false,
     detailPayment: null,
-    detailRows: []
+    detailRows: [],
+    allDetails: [],
+    filteredDetails: [],
+    detailPage: 1,
+    detailLoading: false,
+    detailLoaded: false
   };
 
   class PaymentBackend {
@@ -90,9 +97,23 @@
     }
 
     async details(paymentId) {
-      const select = encodeURIComponent("*,facturas_copec(numero_documento,cargos,linea_producto,estado_conciliacion,fecha_vencimiento,vigente_portal,origen_historico,origen_vigente)");
+      const select = encodeURIComponent("*,facturas_copec(numero_documento,cargos,linea_producto,estado_conciliacion,fecha_vencimiento,vigente_portal,origen_historico,origen_vigente,corresponde_incluir,grupo_costo)");
       const order = encodeURIComponent("fila_orden.asc");
       return this.request(`/rest/v1/${CONFIG.paymentsDetailTableName}?select=${select}&pago_id=eq.${encodeURIComponent(paymentId)}&order=${order}`);
+    }
+
+    async listAllDetails() {
+      const select = encodeURIComponent("id,pago_id,fila_orden,fecha_documento,tipo_documento,numero_documento,valor,factura_id,monto_factura,diferencia,estado_conciliacion,pagos_copec(id,fecha_emision,fecha_ejecucion,tipo_operacion,banco,numero_propuesta,monto,estado_conciliacion,comprobante_nombre),facturas_copec(id,numero_documento,cargos,linea_producto,estado_conciliacion,fecha_vencimiento,corresponde_incluir,grupo_costo)");
+      const order = encodeURIComponent("fecha_documento.desc,pago_id.asc,fila_orden.asc");
+      const batchSize = 1000;
+      const result = [];
+      for (let offset = 0; offset < CONFIG.maxConsolidatedRows; offset += batchSize) {
+        const rows = await this.request(`/rest/v1/${CONFIG.paymentsDetailTableName}?select=${select}&order=${order}&limit=${batchSize}&offset=${offset}`);
+        const batch = Array.isArray(rows) ? rows : [];
+        result.push(...batch);
+        if (batch.length < batchSize) break;
+      }
+      return result.slice(0, CONFIG.maxConsolidatedRows);
     }
   }
 
@@ -108,7 +129,7 @@
 
   function cacheDom() {
     [
-      "tabFacturas", "tabPagos", "facturasView", "pagosView",
+      "tabFacturas", "tabPagos", "tabDetalleConsolidado", "facturasView", "pagosView", "detalleConsolidadoView",
       "paymentExcelInput", "btnPaymentExcel", "paymentExcelStatus",
       "paymentPdfInput", "btnPaymentPdf", "paymentPdfStatus", "btnReconcileAll",
       "payKpiTotal", "payKpiPendientes", "payKpiCuadradas", "payKpiObservadas", "payKpiFacturas",
@@ -116,6 +137,9 @@
       "paymentRows", "paymentResultCount", "paymentPrev", "paymentNext", "paymentPageInfo",
       "paymentPreviewDialog", "paymentPreviewSummary", "paymentPreviewRows", "btnConfirmPaymentImport",
       "paymentDetailDialog", "paymentDetailTitle", "paymentDetailSummary", "paymentDetailRows", "btnClosePaymentDetail",
+      "btnExportConsolidated", "btnReloadConsolidated", "detailKpiTotal", "detailKpiFacturas", "detailKpiAbonos", "detailKpiOtros", "detailKpiNeto",
+      "consolidatedSearch", "consolidatedProposalFilter", "consolidatedTypeFilter", "consolidatedStatusFilter", "consolidatedFrom", "consolidatedTo", "btnClearConsolidatedFilters",
+      "consolidatedRows", "consolidatedResultCount", "consolidatedPrev", "consolidatedNext", "consolidatedPageInfo",
       "toast"
     ].forEach(id => { dom[id] = document.getElementById(id); });
   }
@@ -123,6 +147,7 @@
   function bindEvents() {
     dom.tabFacturas?.addEventListener("click", () => showTab("facturas"));
     dom.tabPagos?.addEventListener("click", () => showTab("pagos"));
+    dom.tabDetalleConsolidado?.addEventListener("click", () => showTab("detalle"));
 
     dom.btnPaymentExcel?.addEventListener("click", () => dom.paymentExcelInput.click());
     dom.paymentExcelInput?.addEventListener("change", () => handlePaymentExcel(dom.paymentExcelInput.files?.[0]));
@@ -143,6 +168,21 @@
       if (button) openPaymentDetail(button.dataset.paymentId);
     });
     dom.btnClosePaymentDetail?.addEventListener("click", () => dom.paymentDetailDialog.close());
+
+    dom.btnReloadConsolidated?.addEventListener("click", () => loadConsolidatedDetails(true));
+    dom.btnExportConsolidated?.addEventListener("click", exportConsolidatedDetails);
+    [dom.consolidatedSearch, dom.consolidatedProposalFilter, dom.consolidatedTypeFilter, dom.consolidatedStatusFilter, dom.consolidatedFrom, dom.consolidatedTo].forEach(element => {
+      element?.addEventListener(element.tagName === "INPUT" && element.type === "search" ? "input" : "change", applyConsolidatedFilters);
+    });
+    dom.btnClearConsolidatedFilters?.addEventListener("click", clearConsolidatedFilters);
+    dom.consolidatedPrev?.addEventListener("click", () => changeConsolidatedPage(-1));
+    dom.consolidatedNext?.addEventListener("click", () => changeConsolidatedPage(1));
+    dom.consolidatedRows?.addEventListener("click", event => {
+      const paymentButton = event.target.closest("[data-open-payment]");
+      if (paymentButton) { openPaymentDetail(paymentButton.dataset.openPayment); return; }
+      const invoiceButton = event.target.closest("[data-open-invoice]");
+      if (invoiceButton) openInvoiceFromConsolidated(invoiceButton.dataset.openInvoice);
+    });
   }
 
   function configureBackend() {
@@ -154,12 +194,17 @@
   }
 
   function showTab(tab) {
+    const invoices = tab === "facturas";
     const payments = tab === "pagos";
-    dom.facturasView.hidden = payments;
+    const details = tab === "detalle";
+    dom.facturasView.hidden = !invoices;
     dom.pagosView.hidden = !payments;
-    dom.tabFacturas.classList.toggle("active", !payments);
+    dom.detalleConsolidadoView.hidden = !details;
+    dom.tabFacturas.classList.toggle("active", invoices);
     dom.tabPagos.classList.toggle("active", payments);
+    dom.tabDetalleConsolidado.classList.toggle("active", details);
     if (payments) loadPayments();
+    if (details) loadConsolidatedDetails();
   }
 
   async function loadPayments() {
@@ -294,6 +339,7 @@
       setPaymentStatus(dom.paymentExcelStatus, `Importación completa · ${Number(value.nuevas || 0)} nuevas · ${Number(value.actualizadas || 0)} actualizadas.`);
       state.previewRows = [];
       state.previewMeta = null;
+      state.detailLoaded = false;
       await loadPayments();
     } catch (error) {
       showToast(`No se pudo importar: ${error.message}`, "error");
@@ -356,6 +402,7 @@
     if (completed) {
       setPaymentStatus(dom.paymentPdfStatus, `${completed} comprobante${completed === 1 ? "" : "s"} procesado${completed === 1 ? "" : "s"} y conciliado${completed === 1 ? "" : "s"}.`);
       showToast(`Conciliación completada para ${completed} comprobante${completed === 1 ? "" : "s"}.`, "success");
+      state.detailLoaded = false;
       await loadPayments();
       window.dispatchEvent(new CustomEvent("facturasCopec:reload"));
     }
@@ -373,6 +420,7 @@
       const result = await state.backend.reconcileAll();
       const value = Array.isArray(result) ? (result[0] || {}) : (result || {});
       showToast(`${Number(value.propuestas_reconciliadas || 0)} propuestas recalculadas.`, "success");
+      state.detailLoaded = false;
       await loadPayments();
       window.dispatchEvent(new CustomEvent("facturasCopec:reload"));
     } catch (error) {
@@ -473,7 +521,11 @@
   }
 
   async function openPaymentDetail(id) {
-    const payment = state.payments.find(row => String(row.id) === String(id));
+    let payment = state.payments.find(row => String(row.id) === String(id));
+    if (!payment) {
+      const detail = state.allDetails.find(row => String(row.payment?.id) === String(id));
+      if (detail?.payment) payment = normalizePayment(detail.payment);
+    }
     if (!payment || !state.backend) return;
     dom.paymentDetailTitle.textContent = `Propuesta ${payment.numero_propuesta}`;
     dom.paymentDetailSummary.innerHTML = paymentSummary(payment);
@@ -521,6 +573,239 @@
           <td>${paymentDetailStatusBadge(row.estado_conciliacion)}</td>
         </tr>`;
     }).join("");
+  }
+
+
+  async function loadConsolidatedDetails(force = false) {
+    if (!state.backend || state.detailLoading) return;
+    if (state.detailLoaded && !force) {
+      applyConsolidatedFilters();
+      return;
+    }
+    state.detailLoading = true;
+    renderConsolidatedTable();
+    try {
+      const rows = await state.backend.listAllDetails();
+      state.allDetails = (Array.isArray(rows) ? rows : []).map(normalizeConsolidatedDetail).sort(sortConsolidatedDetails);
+      state.detailLoaded = true;
+      rebuildConsolidatedFilters();
+      applyConsolidatedFilters();
+    } catch (error) {
+      state.allDetails = [];
+      state.filteredDetails = [];
+      renderConsolidated();
+      showToast(`No se pudo cargar el detalle consolidado: ${error.message}`, "error");
+    } finally {
+      state.detailLoading = false;
+      renderConsolidated();
+    }
+  }
+
+  function normalizeConsolidatedDetail(row) {
+    const paymentRaw = row.pagos_copec || {};
+    const invoice = row.facturas_copec || null;
+    const payment = Object.assign({}, paymentRaw, {
+      fecha_emision: toIsoDate(paymentRaw.fecha_emision),
+      fecha_ejecucion: paymentRaw.fecha_ejecucion || null,
+      numero_propuesta: documentValue(paymentRaw.numero_propuesta),
+      monto: numberValue(paymentRaw.monto)
+    });
+    return Object.assign({}, row, {
+      fila_orden: Number(row.fila_orden || 0),
+      fecha_documento: toIsoDate(row.fecha_documento),
+      numero_documento: documentValue(row.numero_documento),
+      valor: numberValue(row.valor),
+      diferencia: nullableNumber(row.diferencia),
+      payment,
+      invoice,
+      fecha_propuesta: toIsoDate(payment.fecha_ejecucion || payment.fecha_emision)
+    });
+  }
+
+  function sortConsolidatedDetails(a, b) {
+    const paymentDate = String(b.fecha_propuesta || "").localeCompare(String(a.fecha_propuesta || ""));
+    if (paymentDate !== 0) return paymentDate;
+    const proposal = String(b.payment?.numero_propuesta || "").localeCompare(String(a.payment?.numero_propuesta || ""), "es", { numeric: true });
+    if (proposal !== 0) return proposal;
+    return Number(a.fila_orden || 0) - Number(b.fila_orden || 0);
+  }
+
+  function rebuildConsolidatedFilters() {
+    const currentProposal = dom.consolidatedProposalFilter.value;
+    const currentType = dom.consolidatedTypeFilter.value;
+    const currentStatus = dom.consolidatedStatusFilter.value;
+    const proposals = uniqueSorted(state.allDetails.map(row => row.payment?.numero_propuesta).filter(Boolean)).reverse();
+    const types = uniqueSorted(state.allDetails.map(row => row.tipo_documento).filter(Boolean));
+    const statuses = uniqueSorted(state.allDetails.map(row => row.estado_conciliacion).filter(Boolean));
+    dom.consolidatedProposalFilter.innerHTML = `<option value="">Todas</option>${proposals.map(value => `<option value="${escapeHtml(value)}">${escapeHtml(value)}</option>`).join("")}`;
+    dom.consolidatedTypeFilter.innerHTML = `<option value="">Todos</option>${types.map(value => `<option value="${escapeHtml(value)}">${escapeHtml(value)}</option>`).join("")}`;
+    dom.consolidatedStatusFilter.innerHTML = `<option value="">Todas</option>${statuses.map(value => `<option value="${escapeHtml(value)}">${escapeHtml(value)}</option>`).join("")}`;
+    if (proposals.includes(currentProposal)) dom.consolidatedProposalFilter.value = currentProposal;
+    if (types.includes(currentType)) dom.consolidatedTypeFilter.value = currentType;
+    if (statuses.includes(currentStatus)) dom.consolidatedStatusFilter.value = currentStatus;
+  }
+
+  function applyConsolidatedFilters() {
+    const search = normalizeText(dom.consolidatedSearch.value);
+    const proposal = dom.consolidatedProposalFilter.value;
+    const type = dom.consolidatedTypeFilter.value;
+    const status = dom.consolidatedStatusFilter.value;
+    const from = dom.consolidatedFrom.value;
+    const to = dom.consolidatedTo.value;
+    state.filteredDetails = state.allDetails.filter(row => {
+      const invoice = row.invoice || {};
+      const payment = row.payment || {};
+      const text = normalizeText([
+        payment.numero_propuesta, payment.tipo_operacion, payment.banco, payment.comprobante_nombre,
+        row.tipo_documento, row.numero_documento, row.estado_conciliacion,
+        invoice.numero_documento, invoice.linea_producto, invoice.grupo_costo, invoice.corresponde_incluir
+      ].join(" "));
+      if (search && !text.includes(search)) return false;
+      if (proposal && payment.numero_propuesta !== proposal) return false;
+      if (type && row.tipo_documento !== type) return false;
+      if (status && row.estado_conciliacion !== status) return false;
+      if (from && (!row.fecha_documento || row.fecha_documento < from)) return false;
+      if (to && (!row.fecha_documento || row.fecha_documento > to)) return false;
+      return true;
+    });
+    state.detailPage = 1;
+    renderConsolidated();
+  }
+
+  function clearConsolidatedFilters() {
+    dom.consolidatedSearch.value = "";
+    dom.consolidatedProposalFilter.value = "";
+    dom.consolidatedTypeFilter.value = "";
+    dom.consolidatedStatusFilter.value = "";
+    dom.consolidatedFrom.value = "";
+    dom.consolidatedTo.value = "";
+    applyConsolidatedFilters();
+  }
+
+  function movementCategory(type) {
+    const normalized = normalizeText(type);
+    if (normalized === "factura") return "factura";
+    if (normalized.includes("abono") || normalized.includes("nota de credito")) return "abono";
+    return "otro";
+  }
+
+  function renderConsolidated() {
+    renderConsolidatedKpis();
+    renderConsolidatedTable();
+    renderConsolidatedPagination();
+    dom.consolidatedResultCount.textContent = `${formatNumber(state.filteredDetails.length)} resultado${state.filteredDetails.length === 1 ? "" : "s"}`;
+  }
+
+  function renderConsolidatedKpis() {
+    const rows = state.filteredDetails;
+    const invoices = rows.filter(row => movementCategory(row.tipo_documento) === "factura").length;
+    const credits = rows.filter(row => movementCategory(row.tipo_documento) === "abono").length;
+    const others = rows.length - invoices - credits;
+    const net = rows.reduce((sum, row) => sum + numberValue(row.valor), 0);
+    dom.detailKpiTotal.textContent = formatNumber(rows.length);
+    dom.detailKpiFacturas.textContent = formatNumber(invoices);
+    dom.detailKpiAbonos.textContent = formatNumber(credits);
+    dom.detailKpiOtros.textContent = formatNumber(others);
+    dom.detailKpiNeto.textContent = formatCurrency(net);
+  }
+
+  function renderConsolidatedTable() {
+    if (state.detailLoading) {
+      dom.consolidatedRows.innerHTML = `<tr><td colspan="11" class="fc-empty">Cargando todos los movimientos…</td></tr>`;
+      return;
+    }
+    if (!state.filteredDetails.length) {
+      dom.consolidatedRows.innerHTML = `<tr><td colspan="11" class="fc-empty">No hay movimientos para mostrar con estos filtros.</td></tr>`;
+      return;
+    }
+    const start = (state.detailPage - 1) * CONFIG.consolidatedPageSize;
+    const rows = state.filteredDetails.slice(start, start + CONFIG.consolidatedPageSize);
+    dom.consolidatedRows.innerHTML = rows.map(row => {
+      const payment = row.payment || {};
+      const invoice = row.invoice || null;
+      const invoiceText = invoice
+        ? `<strong>${escapeHtml(invoice.numero_documento || row.numero_documento || "Factura")}</strong><small>${escapeHtml(invoice.linea_producto || "")} · ${formatCurrency(invoice.cargos)}${invoice.grupo_costo ? ` · ${escapeHtml(invoice.grupo_costo)}` : ""}</small>`
+        : "—";
+      const invoiceButton = invoice ? `<button class="fc-mini-action" type="button" data-open-invoice="${escapeHtml(invoice.numero_documento || row.numero_documento)}">Ver factura</button>` : "";
+      return `<tr>
+        <td>${formatDate(row.fecha_propuesta)}</td>
+        <td class="fc-document">${escapeHtml(payment.numero_propuesta || "—")}</td>
+        <td>${escapeHtml(payment.tipo_operacion || "—")}<small>${escapeHtml(normalizeBank(payment.banco))}</small></td>
+        <td>${formatDate(row.fecha_documento)}</td>
+        <td>${escapeHtml(row.tipo_documento || "—")}</td>
+        <td class="fc-document">${escapeHtml(row.numero_documento || "—")}</td>
+        <td class="fc-money ${Number(row.valor) < 0 ? "fc-money--negative" : ""}">${formatCurrency(row.valor)}</td>
+        <td><div class="fc-related-invoice">${invoiceText}${invoiceButton}</div></td>
+        <td>${paymentDetailStatusBadge(row.estado_conciliacion)}</td>
+        <td>${escapeHtml(payment.comprobante_nombre || "—")}</td>
+        <td><button class="fc-row-action" type="button" data-open-payment="${escapeHtml(payment.id || row.pago_id)}">Ver propuesta</button></td>
+      </tr>`;
+    }).join("");
+  }
+
+  function renderConsolidatedPagination() {
+    const pages = Math.max(1, Math.ceil(state.filteredDetails.length / CONFIG.consolidatedPageSize));
+    if (state.detailPage > pages) state.detailPage = pages;
+    dom.consolidatedPageInfo.textContent = `Página ${state.detailPage} de ${pages}`;
+    dom.consolidatedPrev.disabled = state.detailPage <= 1;
+    dom.consolidatedNext.disabled = state.detailPage >= pages;
+  }
+
+  function changeConsolidatedPage(delta) {
+    const pages = Math.max(1, Math.ceil(state.filteredDetails.length / CONFIG.consolidatedPageSize));
+    state.detailPage = Math.min(pages, Math.max(1, state.detailPage + delta));
+    renderConsolidatedTable();
+    renderConsolidatedPagination();
+  }
+
+  function openInvoiceFromConsolidated(documentNumber) {
+    showTab("facturas");
+    const search = document.getElementById("filterSearch");
+    if (search) {
+      search.value = documentNumber || "";
+      search.dispatchEvent(new Event("input", { bubbles: true }));
+      search.scrollIntoView({ behavior: "smooth", block: "center" });
+      search.focus();
+    }
+  }
+
+  function exportConsolidatedDetails() {
+    if (typeof XLSX === "undefined") {
+      showToast("No se cargó la librería para exportar Excel.", "error");
+      return;
+    }
+    if (!state.filteredDetails.length) {
+      showToast("No hay movimientos filtrados para exportar.", "error");
+      return;
+    }
+    const rows = state.filteredDetails.map(row => {
+      const payment = row.payment || {};
+      const invoice = row.invoice || {};
+      return {
+        "Fecha propuesta": formatDate(row.fecha_propuesta),
+        "N° propuesta": payment.numero_propuesta || "",
+        "Método": payment.tipo_operacion || "",
+        "Banco": normalizeBank(payment.banco),
+        "Fecha movimiento": formatDate(row.fecha_documento),
+        "Tipo movimiento": row.tipo_documento || "",
+        "N° documento": row.numero_documento || "",
+        "Valor": numberValue(row.valor),
+        "Estado conciliación": row.estado_conciliacion || "",
+        "Factura relacionada": invoice.numero_documento || "",
+        "Monto factura": invoice.cargos === null || invoice.cargos === undefined ? "" : numberValue(invoice.cargos),
+        "Línea producto": invoice.linea_producto || "",
+        "Corresponde incluir": invoice.corresponde_incluir || "",
+        "Grupo de costo": invoice.grupo_costo || "",
+        "Comprobante PDF": payment.comprobante_nombre || ""
+      };
+    });
+    const sheet = XLSX.utils.json_to_sheet(rows);
+    sheet["!cols"] = [14,16,24,14,16,24,18,16,22,18,16,20,20,22,28].map(width => ({ wch: width }));
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, sheet, "Detalle consolidado");
+    const date = localIsoDate(new Date()).replaceAll("-", "");
+    XLSX.writeFile(workbook, `detalle_consolidado_propuestas_${date}.xlsx`);
+    showToast(`${rows.length} movimientos exportados.`, "success");
   }
 
   function normalizePayment(row) {
