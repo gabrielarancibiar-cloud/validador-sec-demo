@@ -67,6 +67,7 @@ button{cursor:pointer}
 .cb-badge--warning{background:#fef3c7;color:#92400e}
 .cb-badge--danger{background:#fee2e2;color:#991b1b}
 .cb-alert{display:flex;gap:8px;margin-bottom:18px;border:1px solid;border-radius:12px;padding:14px 16px;line-height:1.45}
+.cb-alert[hidden]{display:none!important}
 .cb-alert--warning{border-color:#f2d18b;background:#fff8e6;color:#7c4a03}
 .cb-notice{margin-top:14px;border:1px solid;border-radius:10px;padding:12px 14px;font-size:13px;font-weight:750}
 .cb-notice--success{border-color:#bbf7d0;background:#ecfdf5;color:#166534}
