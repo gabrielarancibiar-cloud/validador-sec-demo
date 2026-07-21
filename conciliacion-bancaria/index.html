@@ -1,0 +1,136 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="theme-color" content="#082d63">
+  <title>Conciliación MAE · BCI | VALEPAC</title>
+  <link rel="stylesheet" href="./conciliacion-bancaria.css">
+</head>
+<body>
+  <header class="cb-header">
+    <div>
+      <a class="cb-back" href="/">← Volver a VALEPAC</a>
+      <p class="cb-eyebrow">TESORERÍA · EDS 40098</p>
+      <h1>Conciliación MAE · BCI</h1>
+      <p class="cb-subtitle">Compara los depósitos registrados en la máquina MAE con los abonos en Caja Depositaria de la cuenta BCI.</p>
+    </div>
+    <div class="cb-header-actions">
+      <span id="serverBadge" class="cb-badge cb-badge--neutral">Verificando servidor</span>
+      <button id="btnExportar" class="cb-btn cb-btn--secondary" type="button" disabled>Exportar resultado</button>
+      <button id="btnGuardar" class="cb-btn cb-btn--primary" type="button" disabled>Guardar conciliación</button>
+    </div>
+  </header>
+
+  <main class="cb-app">
+    <section id="setupAlert" class="cb-alert cb-alert--warning" hidden>
+      <strong>El módulo funciona localmente, pero el guardado en Supabase aún no está disponible.</strong>
+      <span id="setupAlertText">Revisa la configuración del servidor y ejecuta la migración incluida.</span>
+    </section>
+
+    <section class="cb-card cb-upload-card">
+      <div class="cb-card-heading">
+        <div>
+          <p class="cb-eyebrow">CARGA DEL PERÍODO</p>
+          <h2>Archivos de origen</h2>
+          <p>Selecciona un archivo MAE y una cartola detallada BCI. El sistema reconoce y valida ambos formatos.</p>
+        </div>
+        <label class="cb-rule-field">
+          <span>Ventana máxima</span>
+          <select id="windowMinutes">
+            <option value="60">1 hora</option>
+            <option value="180" selected>3 horas</option>
+            <option value="360">6 horas</option>
+            <option value="1440">24 horas</option>
+          </select>
+        </label>
+      </div>
+
+      <div class="cb-upload-grid">
+        <article class="cb-source-card">
+          <div class="cb-source-label"><span class="cb-source-mark">M</span><div><strong>Depósitos máquina MAE</strong><small>Reporte transactions en Excel</small></div></div>
+          <label id="maeDropZone" class="cb-dropzone" for="maeFile" tabindex="0">
+            <input id="maeFile" type="file" accept=".xlsx,.xls" hidden>
+            <span class="cb-drop-icon">⇧</span>
+            <span><strong>Seleccionar Excel MAE</strong><small id="maeFileName">Ningún archivo seleccionado</small></span>
+          </label>
+          <div id="maeFileSummary" class="cb-file-summary">Esperando archivo.</div>
+        </article>
+
+        <article class="cb-source-card">
+          <div class="cb-source-label"><span class="cb-source-mark cb-source-mark--bci">B</span><div><strong>Movimientos cuenta BCI</strong><small>Cartola de movimientos detallados</small></div></div>
+          <label id="bciDropZone" class="cb-dropzone" for="bciFile" tabindex="0">
+            <input id="bciFile" type="file" accept=".xlsx,.xls" hidden>
+            <span class="cb-drop-icon">⇧</span>
+            <span><strong>Seleccionar Excel BCI</strong><small id="bciFileName">Ningún archivo seleccionado</small></span>
+          </label>
+          <div id="bciFileSummary" class="cb-file-summary">Esperando archivo.</div>
+        </article>
+      </div>
+
+      <div class="cb-rule-note">
+        <strong>Regla automática:</strong> importe exacto, glosa BCI “Depósito en Caja Depositaria” y movimiento más cercano dentro de la ventana seleccionada. Cada registro solo puede utilizarse una vez.
+      </div>
+      <div class="cb-upload-actions">
+        <button id="btnLimpiar" class="cb-btn cb-btn--ghost" type="button">Limpiar archivos</button>
+        <button id="btnConciliar" class="cb-btn cb-btn--primary cb-btn--large" type="button" disabled>Conciliar archivos</button>
+      </div>
+      <div id="uploadMessage" aria-live="polite"></div>
+    </section>
+
+    <section class="cb-kpis" aria-label="Resumen de conciliación">
+      <article class="cb-kpi"><span>Depósitos MAE</span><strong id="kpiMae">0</strong><small id="kpiMaeAmount">$0</small></article>
+      <article class="cb-kpi cb-kpi--success"><span>Conciliados</span><strong id="kpiMatched">0</strong><small id="kpiMatchedAmount">$0</small></article>
+      <article class="cb-kpi cb-kpi--rate"><span>Avance</span><strong id="kpiRate">0%</strong><small>Sobre depósitos MAE</small></article>
+      <article class="cb-kpi cb-kpi--warning"><span>MAE sin abono</span><strong id="kpiPendingMae">0</strong><small id="kpiPendingMaeAmount">$0</small></article>
+      <article class="cb-kpi cb-kpi--danger"><span>BCI sin MAE</span><strong id="kpiPendingBci">0</strong><small id="kpiPendingBciAmount">$0</small></article>
+      <article class="cb-kpi"><span>Otros depósitos BCI</span><strong id="kpiExcluded">0</strong><small id="kpiExcludedAmount">$0 fuera de alcance</small></article>
+    </section>
+
+    <section class="cb-card">
+      <div class="cb-card-heading cb-card-heading--compact">
+        <div>
+          <p class="cb-eyebrow">RESULTADO</p>
+          <h2>Detalle de movimientos</h2>
+        </div>
+        <span id="resultCount" class="cb-result-count">Sin conciliación</span>
+      </div>
+
+      <div id="analysisNotes" class="cb-analysis-notes" hidden></div>
+
+      <div class="cb-filters">
+        <label class="cb-field cb-field--wide"><span>Buscar</span><input id="filterSearch" type="search" placeholder="Importe, usuario, glosa o código BCI"></label>
+        <label class="cb-field"><span>Estado</span><select id="filterStatus"><option value="">Todos</option><option value="conciliado">Conciliados</option><option value="demora">Conciliados con demora</option><option value="pendiente_mae">MAE sin abono</option><option value="pendiente_bci">BCI sin MAE</option><option value="fuera_alcance">Otros depósitos BCI</option></select></label>
+        <label class="cb-field"><span>Desde</span><input id="filterFrom" type="date"></label>
+        <label class="cb-field"><span>Hasta</span><input id="filterTo" type="date"></label>
+        <button id="btnLimpiarFiltros" class="cb-btn cb-btn--ghost" type="button">Limpiar filtros</button>
+      </div>
+
+      <div class="cb-table-wrap">
+        <table class="cb-table">
+          <thead><tr><th>Estado</th><th class="cb-align-right">Importe</th><th>Fecha MAE</th><th>Fecha BCI</th><th>Diferencia</th><th>Usuario MAE</th><th>Detalle BCI</th><th>Código BCI</th></tr></thead>
+          <tbody id="resultRows"><tr><td colspan="8" class="cb-empty">Carga ambos archivos para iniciar.</td></tr></tbody>
+        </table>
+      </div>
+    </section>
+
+    <section class="cb-grid-two">
+      <article class="cb-card cb-compact-card">
+        <div class="cb-card-heading cb-card-heading--compact"><div><p class="cb-eyebrow">CONTROL</p><h2>Excepciones</h2></div></div>
+        <div id="exceptionSummary" class="cb-empty-panel">Todavía no hay resultados.</div>
+      </article>
+      <article class="cb-card cb-compact-card">
+        <div class="cb-card-heading cb-card-heading--compact"><div><p class="cb-eyebrow">TRAZABILIDAD</p><h2>Últimas conciliaciones</h2></div><button id="btnRecargarHistorial" class="cb-btn cb-btn--secondary cb-btn--small" type="button">Actualizar</button></div>
+        <div id="historyList" class="cb-history-list"><div class="cb-empty-panel">Consultando historial...</div></div>
+      </article>
+    </section>
+  </main>
+
+  <div id="toast" class="cb-toast" role="status" aria-live="polite" hidden></div>
+
+  <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
+  <script src="./config.js"></script>
+  <script src="./reconciliation-core.js"></script>
+  <script src="./conciliacion-bancaria.js"></script>
+</body>
+</html>

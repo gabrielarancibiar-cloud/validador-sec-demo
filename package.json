@@ -1,1 +1,14 @@
-{"scripts":{"build":"mkdir -p dist && cp index.html dist/index.html"},"dependencies":{}}
+{
+  "name": "validador-sec-demo",
+  "private": true,
+  "scripts": {
+    "build": "node scripts/build.mjs",
+    "test": "node tests/reconciliation-core.test.cjs && node tests/api-reconciliation.test.cjs"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.0.0"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}
