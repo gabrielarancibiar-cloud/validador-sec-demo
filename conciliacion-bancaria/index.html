@@ -13,27 +13,26 @@
       <a class="cb-back" href="/">← Volver a VALEPAC</a>
       <p class="cb-eyebrow">TESORERÍA · EDS 40098</p>
       <h1>Conciliación MAE · BCI</h1>
-      <p class="cb-subtitle">Compara los depósitos registrados en la máquina MAE con los abonos en Caja Depositaria de la cuenta BCI.</p>
+      <p class="cb-subtitle">Mantiene una sola conciliación histórica que se enriquece con cada nuevo archivo MAE o BCI.</p>
     </div>
     <div class="cb-header-actions">
       <span id="serverBadge" class="cb-badge cb-badge--neutral">Verificando servidor</span>
       <button id="btnExportar" class="cb-btn cb-btn--secondary" type="button" disabled>Exportar resultado</button>
-      <button id="btnGuardar" class="cb-btn cb-btn--primary" type="button" disabled>Guardar conciliación</button>
     </div>
   </header>
 
   <main class="cb-app">
     <section id="setupAlert" class="cb-alert cb-alert--warning" hidden>
-      <strong>El módulo funciona localmente, pero el guardado en Supabase aún no está disponible.</strong>
+      <strong>El flujo histórico todavía no está disponible.</strong>
       <span id="setupAlertText">Revisa la configuración del servidor y ejecuta la migración incluida.</span>
     </section>
 
     <section class="cb-card cb-upload-card">
       <div class="cb-card-heading">
         <div>
-          <p class="cb-eyebrow">CARGA DEL PERÍODO</p>
-          <h2>Archivos de origen</h2>
-          <p>Selecciona un archivo MAE y una cartola detallada BCI. El sistema reconoce y valida ambos formatos.</p>
+          <p class="cb-eyebrow">ALIMENTAR HISTORIAL</p>
+          <h2>Nuevos archivos de origen</h2>
+          <p>Puedes cargar uno o ambos archivos. Solo se incorporarán movimientos que aún no existan en el historial.</p>
         </div>
         <label class="cb-rule-field">
           <span>Ventana máxima</span>
@@ -48,7 +47,7 @@
 
       <div class="cb-upload-grid">
         <article class="cb-source-card">
-          <div class="cb-source-label"><span class="cb-source-mark">M</span><div><strong>Depósitos máquina MAE</strong><small>Reporte transactions en Excel</small></div></div>
+          <div class="cb-source-label"><span class="cb-source-mark">M</span><div><strong>Depósitos máquina MAE</strong><small>Reporte transactions en Excel · opcional</small></div></div>
           <label id="maeDropZone" class="cb-dropzone" for="maeFile" tabindex="0">
             <input id="maeFile" type="file" accept=".xlsx,.xls" hidden>
             <span class="cb-drop-icon">⇧</span>
@@ -58,7 +57,7 @@
         </article>
 
         <article class="cb-source-card">
-          <div class="cb-source-label"><span class="cb-source-mark cb-source-mark--bci">B</span><div><strong>Movimientos cuenta BCI</strong><small>Cartola de movimientos detallados</small></div></div>
+          <div class="cb-source-label"><span class="cb-source-mark cb-source-mark--bci">B</span><div><strong>Movimientos cuenta BCI</strong><small>Cartola de movimientos detallados · opcional</small></div></div>
           <label id="bciDropZone" class="cb-dropzone" for="bciFile" tabindex="0">
             <input id="bciFile" type="file" accept=".xlsx,.xls" hidden>
             <span class="cb-drop-icon">⇧</span>
@@ -69,11 +68,11 @@
       </div>
 
       <div class="cb-rule-note">
-        <strong>Regla automática:</strong> importe exacto, glosa BCI “Depósito en Caja Depositaria” y movimiento más cercano dentro de la ventana seleccionada. Cada registro solo puede utilizarse una vez.
+        <strong>Flujo acumulativo:</strong> cada Excel aporta movimientos nuevos a la línea MAE o BCI. Los archivos solapados no duplican transacciones y toda la historia se vuelve a conciliar por importe y cercanía horaria.
       </div>
       <div class="cb-upload-actions">
         <button id="btnLimpiar" class="cb-btn cb-btn--ghost" type="button">Limpiar archivos</button>
-        <button id="btnConciliar" class="cb-btn cb-btn--primary cb-btn--large" type="button" disabled>Conciliar archivos</button>
+        <button id="btnConciliar" class="cb-btn cb-btn--primary cb-btn--large" type="button" disabled>Incorporar al historial</button>
       </div>
       <div id="uploadMessage" aria-live="polite"></div>
     </section>
@@ -92,7 +91,7 @@
         <div>
           <p class="cb-eyebrow">RESULTADO</p>
           <h2>Detalle de movimientos</h2>
-          <p id="resultOrigin" class="cb-result-origin">Carga ambos archivos o abre una conciliación guardada.</p>
+          <p id="resultOrigin" class="cb-result-origin">Consultando la conciliación histórica acumulada.</p>
         </div>
         <span id="resultCount" class="cb-result-count">Sin conciliación</span>
       </div>
@@ -101,16 +100,16 @@
 
       <div class="cb-filters">
         <label class="cb-field cb-field--wide"><span>Buscar</span><input id="filterSearch" type="search" placeholder="Importe, usuario, glosa o código BCI"></label>
+        <label class="cb-field"><span>Año</span><select id="filterYear"><option value="">Todos los años</option></select></label>
+        <label class="cb-field"><span>Mes</span><select id="filterMonth"><option value="">Todos los meses</option><option value="01">Enero</option><option value="02">Febrero</option><option value="03">Marzo</option><option value="04">Abril</option><option value="05">Mayo</option><option value="06">Junio</option><option value="07">Julio</option><option value="08">Agosto</option><option value="09">Septiembre</option><option value="10">Octubre</option><option value="11">Noviembre</option><option value="12">Diciembre</option></select></label>
         <label class="cb-field"><span>Estado</span><select id="filterStatus"><option value="">Todos</option><option value="conciliado">Conciliados</option><option value="demora">Conciliados con demora</option><option value="pendiente_mae">MAE sin abono</option><option value="pendiente_bci">BCI sin MAE</option><option value="fuera_alcance">Otros depósitos BCI</option></select></label>
-        <label class="cb-field"><span>Desde</span><input id="filterFrom" type="date"></label>
-        <label class="cb-field"><span>Hasta</span><input id="filterTo" type="date"></label>
         <button id="btnLimpiarFiltros" class="cb-btn cb-btn--ghost" type="button">Limpiar filtros</button>
       </div>
 
       <div class="cb-table-wrap">
         <table class="cb-table">
           <thead><tr><th>Estado</th><th class="cb-align-right">Importe</th><th>Fecha MAE</th><th>Fecha BCI</th><th>Diferencia</th><th>Usuario MAE</th><th>Detalle BCI</th><th>Código BCI</th></tr></thead>
-          <tbody id="resultRows"><tr><td colspan="8" class="cb-empty">Carga ambos archivos para iniciar.</td></tr></tbody>
+          <tbody id="resultRows"><tr><td colspan="8" class="cb-empty">Consultando movimientos históricos.</td></tr></tbody>
         </table>
       </div>
     </section>
@@ -121,8 +120,8 @@
         <div id="exceptionSummary" class="cb-empty-panel">Todavía no hay resultados.</div>
       </article>
       <article class="cb-card cb-compact-card">
-        <div class="cb-card-heading cb-card-heading--compact"><div><p class="cb-eyebrow">TRAZABILIDAD</p><h2>Registro histórico</h2><p>Selecciona un período para revisar nuevamente todos sus movimientos.</p></div><button id="btnRecargarHistorial" class="cb-btn cb-btn--secondary cb-btn--small" type="button">Actualizar</button></div>
-        <div id="historyList" class="cb-history-list"><div class="cb-empty-panel">Consultando historial...</div></div>
+        <div class="cb-card-heading cb-card-heading--compact"><div><p class="cb-eyebrow">TRAZABILIDAD</p><h2>Últimas cargas</h2><p>Registro de los archivos que han alimentado el flujo histórico.</p></div><button id="btnRecargarHistorial" class="cb-btn cb-btn--secondary cb-btn--small" type="button">Actualizar</button></div>
+        <div id="historyList" class="cb-history-list"><div class="cb-empty-panel">Consultando cargas...</div></div>
       </article>
     </section>
   </main>

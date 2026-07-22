@@ -119,6 +119,7 @@ button{cursor:pointer}
 .cb-history-info{min-width:0;flex:1}
 .cb-history-info small{overflow-wrap:anywhere}
 .cb-history-summary{min-width:130px;text-align:right;color:var(--cb-navy);font-weight:900}
+.cb-source-badge{flex:0 0 auto;border-radius:999px;padding:7px 10px;background:#eaf3ff;color:var(--cb-blue);font-size:11px;font-weight:900;white-space:nowrap}
 .cb-exception-value{text-align:right;color:var(--cb-navy);font-weight:900}
 .cb-toast{position:fixed;right:24px;bottom:24px;z-index:50;max-width:430px;border-radius:12px;padding:13px 16px;background:var(--cb-navy);color:#fff;box-shadow:0 18px 45px rgba(0,0,0,.25);font-weight:750}
 .cb-toast.is-error{background:var(--cb-red)}

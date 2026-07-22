@@ -13,11 +13,11 @@
   const ids = [
     "serverBadge", "setupAlert", "setupAlertText", "maeFile", "bciFile", "maeDropZone", "bciDropZone",
     "maeFileName", "bciFileName", "maeFileSummary", "bciFileSummary", "windowMinutes", "btnLimpiar",
-    "btnConciliar", "btnExportar", "btnGuardar", "uploadMessage", "kpiMae", "kpiMaeAmount", "kpiMatched",
+    "btnConciliar", "btnExportar", "uploadMessage", "kpiMae", "kpiMaeAmount", "kpiMatched",
     "kpiMatchedAmount", "kpiRate", "kpiPendingMae", "kpiPendingMaeAmount", "kpiPendingBci",
-    "kpiPendingBciAmount", "kpiExcluded", "kpiExcludedAmount", "analysisNotes", "resultCount", "filterSearch",
-    "filterStatus", "filterFrom", "filterTo", "btnLimpiarFiltros", "resultRows", "exceptionSummary",
-    "btnRecargarHistorial", "historyList", "resultOrigin", "toast"
+    "kpiPendingBciAmount", "kpiExcluded", "kpiExcludedAmount", "analysisNotes", "resultCount", "resultOrigin",
+    "filterSearch", "filterYear", "filterMonth", "filterStatus", "btnLimpiarFiltros", "resultRows",
+    "exceptionSummary", "btnRecargarHistorial", "historyList", "toast"
   ];
   const dom = Object.fromEntries(ids.map(id => [id, document.getElementById(id)]));
 
@@ -25,10 +25,9 @@
     mae: null,
     bci: null,
     result: null,
+    uploads: [],
+    updatedAt: null,
     serverReady: false,
-    history: [],
-    selectedHistoryId: null,
-    loadingHistoryId: null,
     saving: false
   };
 
@@ -42,24 +41,18 @@
     dom.windowMinutes.value = String(CFG.defaultWindowMinutes);
     bindFileInput("mae");
     bindFileInput("bci");
-    dom.btnLimpiar.addEventListener("click", resetAll);
-    dom.btnConciliar.addEventListener("click", runReconciliation);
+    dom.btnLimpiar.addEventListener("click", () => resetFiles());
+    dom.btnConciliar.addEventListener("click", submitFiles);
     dom.btnExportar.addEventListener("click", exportResult);
-    dom.btnGuardar.addEventListener("click", saveResult);
-    dom.btnRecargarHistorial.addEventListener("click", loadHistory);
-    dom.historyList.addEventListener("click", event => {
-      const button = event.target.closest("[data-history-id]");
-      if (button) loadHistoricalBatch(button.dataset.historyId, { scroll: true, notify: true });
-    });
+    dom.btnRecargarHistorial.addEventListener("click", () => loadFlow({ preserveFilters: true }));
     dom.btnLimpiarFiltros.addEventListener("click", clearFilters);
-    [dom.filterSearch, dom.filterStatus, dom.filterFrom, dom.filterTo].forEach(control => {
-      control.addEventListener(control.tagName === "INPUT" ? "input" : "change", renderRows);
-    });
-    dom.windowMinutes.addEventListener("change", () => {
-      if (state.mae && state.bci && state.result) runReconciliation();
-    });
+    dom.filterSearch.addEventListener("input", renderRows);
+    dom.filterStatus.addEventListener("change", renderRows);
+    dom.filterYear.addEventListener("change", renderAll);
+    dom.filterMonth.addEventListener("change", renderAll);
+    dom.windowMinutes.addEventListener("change", () => loadFlow({ preserveFilters: true }));
     resetKpis();
-    loadHistory();
+    loadFlow();
   }
 
   function bindFileInput(kind) {
@@ -110,19 +103,15 @@
     try {
       const arrayBuffer = await file.arrayBuffer();
       const parsed = parseWorkbook(arrayBuffer, kind);
-      const hash = await sha256(arrayBuffer);
-      state[kind] = { file, arrayBuffer, parsed, hash };
+      state[kind] = { file, arrayBuffer, parsed };
       renderSourceSummary(kind);
-      const zone = kind === "mae" ? dom.maeDropZone : dom.bciDropZone;
-      zone.classList.add("has-file");
-      if (state.result) clearResultOnly();
-      updateReadyState();
+      (kind === "mae" ? dom.maeDropZone : dom.bciDropZone).classList.add("has-file");
     } catch (error) {
       state[kind] = null;
       summaryEl.textContent = "Archivo no válido.";
       showNotice(error.message || "No se pudo leer el archivo.", "error");
-      updateReadyState();
     }
+    updateReadyState();
   }
 
   function parseWorkbook(arrayBuffer, kind) {
@@ -148,37 +137,102 @@
     if (!source) return;
     const element = kind === "mae" ? dom.maeFileSummary : dom.bciFileSummary;
     if (kind === "mae") {
-      element.textContent = `${source.deposits.length.toLocaleString("es-CL")} depósitos · ${money(CORE.sumAmount(source.deposits))} · ${source.pickups.length} recogidas excluidas`;
+      element.textContent = `${source.deposits.length.toLocaleString("es-CL")} depósitos válidos · ${money(CORE.sumAmount(source.deposits))}`;
     } else {
-      element.textContent = `${source.deposits.length.toLocaleString("es-CL")} depósitos BCI · ${source.inScope.length} de Caja Depositaria · ${source.excluded.length} fuera de alcance`;
+      const scope = source.inScope || source.deposits.filter(row => row.inScope);
+      const excluded = source.excluded || source.deposits.filter(row => !row.inScope);
+      element.textContent = `${scope.length.toLocaleString("es-CL")} Caja Depositaria · ${excluded.length.toLocaleString("es-CL")} otros depósitos`;
     }
     element.classList.add("is-valid");
   }
 
   function updateReadyState() {
-    dom.btnConciliar.disabled = !(state.mae && state.bci);
+    dom.btnConciliar.disabled = (!(state.mae || state.bci) || !state.serverReady || state.saving);
     dom.btnExportar.disabled = !state.result;
-    dom.btnGuardar.disabled = !(state.result && state.mae && state.bci && !state.selectedHistoryId && state.serverReady && !state.saving);
   }
 
-  function runReconciliation() {
-    if (!state.mae || !state.bci) {
-      showNotice("Carga ambos archivos antes de conciliar.", "warning");
-      return;
-    }
+  async function loadFlow(options = {}) {
+    setServerBadge("neutral", "Actualizando historial");
+    dom.btnRecargarHistorial.disabled = true;
     try {
-      state.selectedHistoryId = null;
-      state.result = CORE.reconcile(state.mae.parsed, state.bci.parsed, {
-        windowMinutes: Number(dom.windowMinutes.value || CFG.defaultWindowMinutes)
+      const separator = CFG.apiEndpoint.includes("?") ? "&" : "?";
+      const response = await fetch(`${CFG.apiEndpoint}${separator}window=${encodeURIComponent(dom.windowMinutes.value || CFG.defaultWindowMinutes)}`, {
+        headers: { "Accept": "application/json" }, cache: "no-store"
       });
-      dom.resultOrigin.textContent = "Conciliación actual calculada desde los archivos cargados.";
-      clearFilters(false);
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(payload.error || "Servidor no disponible.");
+      state.serverReady = true;
+      state.result = payload.result || null;
+      state.uploads = Array.isArray(payload.uploads) ? payload.uploads : [];
+      state.updatedAt = payload.updatedAt || null;
+      setServerBadge("success", "Supabase conectado");
+      dom.setupAlert.hidden = true;
+      populateYearFilter(options.preserveFilters === true);
       renderAll();
       renderHistory();
-      showNotice(`Conciliación lista: ${state.result.summary.matchedCount} coincidencias por ${money(state.result.summary.matchedAmount)}.`, "success");
     } catch (error) {
-      showNotice(error.message || "No fue posible ejecutar la conciliación.", "error");
+      state.serverReady = false;
+      setServerBadge("warning", "Actualización pendiente");
+      dom.setupAlertText.textContent = error.message || "Revisa la configuración del servidor y la migración de Supabase.";
+      dom.setupAlert.hidden = false;
+      dom.historyList.innerHTML = '<div class="cb-empty-panel">Las cargas aparecerán después de activar el flujo histórico.</div>';
+    } finally {
+      dom.btnRecargarHistorial.disabled = false;
+      updateReadyState();
     }
+  }
+
+  async function submitFiles() {
+    if (!(state.mae || state.bci) || state.saving) return;
+    state.saving = true;
+    dom.btnConciliar.textContent = "Incorporando...";
+    updateReadyState();
+    try {
+      const payload = buildPersistencePayload();
+      const response = await fetch(CFG.apiEndpoint, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "Accept": "application/json" },
+        body: JSON.stringify(payload)
+      });
+      const result = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(result.error || "No fue posible incorporar los movimientos.");
+      const counts = result.counts || {};
+      const parts = [];
+      if (state.mae) parts.push(`MAE: ${Number(counts.mae_nuevos || 0).toLocaleString("es-CL")} nuevos de ${Number(counts.mae_recibidos || 0).toLocaleString("es-CL")}`);
+      if (state.bci) parts.push(`BCI: ${Number(counts.bci_nuevos || 0).toLocaleString("es-CL")} nuevos de ${Number(counts.bci_recibidos || 0).toLocaleString("es-CL")}`);
+      resetFiles({ keepNotice: true });
+      showNotice(`Historial actualizado. ${parts.join(" · ")}.`, "success");
+      await loadFlow({ preserveFilters: true });
+      showToast("La conciliación histórica fue actualizada.");
+    } catch (error) {
+      showNotice(error.message || "No fue posible actualizar la conciliación histórica.", "error");
+      showToast(error.message || "No fue posible actualizar la conciliación histórica.", true);
+    } finally {
+      state.saving = false;
+      dom.btnConciliar.textContent = "Incorporar al historial";
+      updateReadyState();
+    }
+  }
+
+  function buildPersistencePayload() {
+    return {
+      carga: { creado_por: getPortalUser() },
+      mae: state.mae ? state.mae.parsed.deposits.map(row => ({
+        source_key: row.sourceKey, source_row: row.sourceRow, occurred_at: row.dateTime,
+        maquina: row.machine, cliente: row.client, usuario: row.user, tipo: row.type,
+        moneda: row.currency, monto: row.amount
+      })) : [],
+      bci: state.bci ? state.bci.parsed.deposits.map(row => ({
+        source_key: row.sourceKey, source_row: row.sourceRow, occurred_at: row.dateTime,
+        fecha_contable: row.accountingDate || null, codigo_transaccion: row.transactionCode,
+        tipo: row.type, glosa: row.detail, monto: row.amount, en_alcance: row.inScope,
+        motivo_exclusion: row.excludedReason || null
+      })) : [],
+      files: {
+        mae: state.mae ? { name: state.mae.file.name, base64: arrayBufferToBase64(state.mae.arrayBuffer) } : null,
+        bci: state.bci ? { name: state.bci.file.name, base64: arrayBufferToBase64(state.bci.arrayBuffer) } : null
+      }
+    };
   }
 
   function renderAll() {
@@ -186,12 +240,70 @@
     renderAnalysisNotes();
     renderRows();
     renderExceptions();
+    const updated = state.updatedAt ? ` · última carga ${formatCreatedAt(state.updatedAt)}` : "";
+    dom.resultOrigin.textContent = `Conciliación histórica acumulada${updated}.`;
     updateReadyState();
   }
 
+  function periodRows() {
+    if (!state.result) return [];
+    const year = dom.filterYear.value;
+    const month = dom.filterMonth.value;
+    return state.result.rows.filter(row => {
+      const dateKey = rowDateKey(row);
+      if (year && dateKey.slice(0, 4) !== year) return false;
+      if (month && dateKey.slice(5, 7) !== month) return false;
+      return true;
+    });
+  }
+
+  function filteredRows() {
+    const search = CORE.normalizeText(dom.filterSearch.value);
+    const status = dom.filterStatus.value;
+    return periodRows().filter(row => {
+      if (status && row.statusKey !== status) return false;
+      if (search) {
+        const haystack = CORE.normalizeText([
+          row.amount, row.statusLabel, row.mae?.user, row.mae?.machine,
+          row.bci?.detail, row.bci?.transactionCode
+        ].join(" "));
+        if (!haystack.includes(search)) return false;
+      }
+      return true;
+    });
+  }
+
+  function summarizeRows(rows) {
+    const matched = rows.filter(row => row.statusKey === "conciliado" || row.statusKey === "demora");
+    const pendingMae = rows.filter(row => row.statusKey === "pendiente_mae");
+    const pendingBci = rows.filter(row => row.statusKey === "pendiente_bci");
+    const excluded = rows.filter(row => row.statusKey === "fuera_alcance");
+    const maeRows = rows.filter(row => row.mae);
+    const bciScopeRows = rows.filter(row => row.bci && row.statusKey !== "fuera_alcance");
+    return {
+      maeCount: maeRows.length,
+      maeAmount: maeRows.reduce((sum, row) => sum + Number(row.mae?.amount || 0), 0),
+      bciScopeCount: bciScopeRows.length,
+      bciScopeAmount: bciScopeRows.reduce((sum, row) => sum + Number(row.bci?.amount || 0), 0),
+      matchedCount: matched.length,
+      matchedAmount: matched.reduce((sum, row) => sum + Number(row.amount || 0), 0),
+      pendingMaeCount: pendingMae.length,
+      pendingMaeAmount: CORE.sumAmount(pendingMae),
+      pendingBciCount: pendingBci.length,
+      pendingBciAmount: CORE.sumAmount(pendingBci),
+      excludedBciCount: excluded.length,
+      excludedBciAmount: CORE.sumAmount(excluded),
+      delayedCount: matched.filter(row => row.statusKey === "demora").length,
+      crossesDayCount: matched.filter(row => row.crossesDay).length,
+      within15MinutesCount: matched.filter(row => Math.abs(Number(row.deltaSeconds || 0)) <= 900).length,
+      within60MinutesCount: matched.filter(row => Math.abs(Number(row.deltaSeconds || 0)) <= 3600).length,
+      matchRate: maeRows.length ? matched.length / maeRows.length : 0
+    };
+  }
+
   function renderKpis() {
-    const summary = state.result?.summary;
-    if (!summary) return resetKpis();
+    if (!state.result) return resetKpis();
+    const summary = summarizeRows(periodRows());
     dom.kpiMae.textContent = summary.maeCount.toLocaleString("es-CL");
     dom.kpiMaeAmount.textContent = money(summary.maeAmount);
     dom.kpiMatched.textContent = summary.matchedCount.toLocaleString("es-CL");
@@ -213,11 +325,11 @@
   }
 
   function renderAnalysisNotes() {
-    const summary = state.result?.summary;
-    if (!summary) {
+    if (!state.result) {
       dom.analysisNotes.hidden = true;
       return;
     }
+    const summary = summarizeRows(periodRows());
     const chips = [
       `${summary.within15MinutesCount} coincidencias dentro de 15 minutos`,
       `${summary.within60MinutesCount} coincidencias dentro de 1 hora`,
@@ -228,35 +340,15 @@
     dom.analysisNotes.hidden = false;
   }
 
-  function filteredRows() {
-    if (!state.result) return [];
-    const search = CORE.normalizeText(dom.filterSearch.value);
-    const status = dom.filterStatus.value;
-    const from = dom.filterFrom.value;
-    const to = dom.filterTo.value;
-    return state.result.rows.filter(row => {
-      if (status && row.statusKey !== status) return false;
-      const dateKey = row.mae?.dateKey || row.bci?.dateKey || "";
-      if (from && dateKey < from) return false;
-      if (to && dateKey > to) return false;
-      if (search) {
-        const haystack = CORE.normalizeText([
-          row.amount, row.statusLabel, row.mae?.user, row.mae?.machine, row.bci?.detail, row.bci?.transactionCode
-        ].join(" "));
-        if (!haystack.includes(search)) return false;
-      }
-      return true;
-    });
-  }
-
   function renderRows() {
     if (!state.result) {
-      dom.resultCount.textContent = "Sin conciliación";
-      dom.resultRows.innerHTML = '<tr><td colspan="8" class="cb-empty">Carga ambos archivos para iniciar.</td></tr>';
+      dom.resultCount.textContent = "Sin información";
+      dom.resultRows.innerHTML = '<tr><td colspan="8" class="cb-empty">Aún no hay movimientos históricos.</td></tr>';
       return;
     }
     const rows = filteredRows();
-    dom.resultCount.textContent = `${rows.length.toLocaleString("es-CL")} de ${state.result.rows.length.toLocaleString("es-CL")} movimientos`;
+    const periodTotal = periodRows().length;
+    dom.resultCount.textContent = `${rows.length.toLocaleString("es-CL")} de ${periodTotal.toLocaleString("es-CL")} movimientos`;
     if (!rows.length) {
       dom.resultRows.innerHTML = '<tr><td colspan="8" class="cb-empty">No hay movimientos para los filtros seleccionados.</td></tr>';
       return;
@@ -285,32 +377,56 @@
   }
 
   function renderExceptions() {
-    const result = state.result;
-    if (!result) {
+    if (!state.result) {
       dom.exceptionSummary.className = "cb-empty-panel";
       dom.exceptionSummary.textContent = "Todavía no hay resultados.";
       return;
     }
-    const summary = result.summary;
+    const summary = summarizeRows(periodRows());
     const items = [
       { title: "Depósitos MAE sin abono", note: "Requieren revisar el corte o el ingreso en BCI.", count: summary.pendingMaeCount, amount: summary.pendingMaeAmount },
-      { title: "Abonos BCI sin depósito MAE", note: "Caja Depositaria dentro del período sin pareja.", count: summary.pendingBciCount, amount: summary.pendingBciAmount },
-      { title: "Coincidencias con demora", note: `Mismo importe dentro de ${result.windowMinutes} minutos.`, count: summary.delayedCount, amount: CORE.sumAmount(result.matches.filter(row => row.delayed)) },
+      { title: "Abonos BCI sin depósito MAE", note: "Caja Depositaria sin pareja dentro del flujo histórico.", count: summary.pendingBciCount, amount: summary.pendingBciAmount },
+      { title: "Coincidencias con demora", note: `Mismo importe dentro de ${state.result.windowMinutes} minutos.`, count: summary.delayedCount, amount: periodRows().filter(row => row.statusKey === "demora").reduce((sum, row) => sum + Number(row.amount || 0), 0) },
       { title: "Otros depósitos BCI", note: "Caja manual o cheque; se informan, pero no se concilian con MAE.", count: summary.excludedBciCount, amount: summary.excludedBciAmount }
     ];
     dom.exceptionSummary.className = "cb-exception-list";
     dom.exceptionSummary.innerHTML = items.map(item => `<div class="cb-exception-item"><div><strong>${escapeHtml(item.title)}</strong><small>${escapeHtml(item.note)}</small></div><div class="cb-exception-value">${item.count.toLocaleString("es-CL")}<small>${money(item.amount)}</small></div></div>`).join("");
   }
 
-  function clearFilters(render = true) {
-    dom.filterSearch.value = "";
-    dom.filterStatus.value = "";
-    dom.filterFrom.value = "";
-    dom.filterTo.value = "";
-    if (render) renderRows();
+  function renderHistory() {
+    if (!state.uploads.length) {
+      dom.historyList.innerHTML = '<div class="cb-empty-panel">Todavía no hay archivos incorporados.</div>';
+      return;
+    }
+    dom.historyList.innerHTML = state.uploads.map(item => {
+      const files = [item.mae_archivo_nombre, item.bci_archivo_nombre].filter(Boolean).join(" · ") || "Carga histórica";
+      const counts = [];
+      if (Number(item.mae_recibidos || 0)) counts.push(`MAE ${Number(item.mae_nuevos || 0).toLocaleString("es-CL")} nuevos de ${Number(item.mae_recibidos || 0).toLocaleString("es-CL")}`);
+      if (Number(item.bci_recibidos || 0)) counts.push(`BCI ${Number(item.bci_nuevos || 0).toLocaleString("es-CL")} nuevos de ${Number(item.bci_recibidos || 0).toLocaleString("es-CL")}`);
+      const source = item.fuente === "ambas" ? "MAE + BCI" : String(item.fuente || "").toUpperCase();
+      return `<div class="cb-history-item">
+        <div class="cb-history-info"><strong>${escapeHtml(files)}</strong><small>${escapeHtml(formatCreatedAt(item.created_at))}${item.creado_por ? ` · ${escapeHtml(item.creado_por)}` : ""}<br>${escapeHtml(counts.join(" · ") || "Datos migrados al flujo")}</small></div>
+        <span class="cb-source-badge">${escapeHtml(source)}</span>
+      </div>`;
+    }).join("");
   }
 
-  function resetAll() {
+  function populateYearFilter(preserve) {
+    const previous = preserve ? dom.filterYear.value : "";
+    const years = [...new Set((state.result?.rows || []).map(row => rowDateKey(row).slice(0, 4)).filter(year => /^\d{4}$/.test(year)))].sort().reverse();
+    dom.filterYear.innerHTML = '<option value="">Todos los años</option>' + years.map(year => `<option value="${year}">${year}</option>`).join("");
+    dom.filterYear.value = years.includes(previous) ? previous : "";
+  }
+
+  function clearFilters() {
+    dom.filterSearch.value = "";
+    dom.filterYear.value = "";
+    dom.filterMonth.value = "";
+    dom.filterStatus.value = "";
+    renderAll();
+  }
+
+  function resetFiles(options = {}) {
     state.mae = null;
     state.bci = null;
     dom.maeFile.value = "";
@@ -323,296 +439,43 @@
     dom.bciFileSummary.classList.remove("is-valid");
     dom.maeDropZone.classList.remove("has-file");
     dom.bciDropZone.classList.remove("has-file");
-    clearResultOnly();
-    clearNotice();
+    if (!options.keepNotice) clearNotice();
     updateReadyState();
-  }
-
-  function clearResultOnly() {
-    state.result = null;
-    state.selectedHistoryId = null;
-    resetKpis();
-    dom.analysisNotes.hidden = true;
-    dom.resultOrigin.textContent = "Carga ambos archivos o abre una conciliación guardada.";
-    dom.resultCount.textContent = "Sin conciliación";
-    dom.resultRows.innerHTML = '<tr><td colspan="8" class="cb-empty">Carga ambos archivos para iniciar.</td></tr>';
-    dom.exceptionSummary.className = "cb-empty-panel";
-    dom.exceptionSummary.textContent = "Todavía no hay resultados.";
-    renderHistory();
-    updateReadyState();
-  }
-
-  async function loadHistory() {
-    setServerBadge("neutral", "Verificando servidor");
-    dom.btnRecargarHistorial.disabled = true;
-    try {
-      const response = await fetch(CFG.apiEndpoint, { headers: { "Accept": "application/json" }, cache: "no-store" });
-      const payload = await response.json().catch(() => ({}));
-      if (!response.ok) throw new Error(payload.error || "Servidor no disponible.");
-      state.serverReady = true;
-      state.history = Array.isArray(payload.items) ? payload.items : [];
-      setServerBadge("success", "Supabase conectado");
-      dom.setupAlert.hidden = true;
-      renderHistory();
-      if (!state.result && state.history[0]?.id) {
-        await loadHistoricalBatch(state.history[0].id, { scroll: false, notify: false });
-      }
-    } catch (error) {
-      state.serverReady = false;
-      state.history = [];
-      setServerBadge("warning", "Guardado pendiente");
-      dom.setupAlertText.textContent = error.message || "Revisa la configuración del servidor y la migración de Supabase.";
-      dom.setupAlert.hidden = false;
-      dom.historyList.innerHTML = '<div class="cb-empty-panel">El historial estará disponible después de configurar Supabase.</div>';
-    } finally {
-      dom.btnRecargarHistorial.disabled = false;
-    }
-    updateReadyState();
-  }
-
-  function renderHistory() {
-    if (!state.history.length) {
-      dom.historyList.innerHTML = '<div class="cb-empty-panel">No hay conciliaciones guardadas.</div>';
-      return;
-    }
-    dom.historyList.innerHTML = state.history.map(item => {
-      const selected = state.selectedHistoryId === item.id;
-      const loading = state.loadingHistoryId === item.id;
-      return `<div class="cb-history-item${selected ? " is-selected" : ""}">
-        <div class="cb-history-info"><strong>${escapeHtml(formatPeriod(item.periodo_desde, item.periodo_hasta))}</strong><small>${escapeHtml(item.mae_archivo_nombre || "MAE")} · ${escapeHtml(item.bci_archivo_nombre || "BCI")}<br>${escapeHtml(formatCreatedAt(item.created_at))}${item.creado_por ? ` · ${escapeHtml(item.creado_por)}` : ""}</small></div>
-        <div class="cb-history-summary"><strong>${Number(item.conciliados_cantidad || 0).toLocaleString("es-CL")} conciliados</strong><small>${money(item.conciliados_monto || 0)}</small></div>
-        <button class="cb-btn cb-btn--secondary cb-btn--small" type="button" data-history-id="${escapeHtml(item.id)}" ${loading ? "disabled" : ""}>${loading ? "Cargando..." : selected ? "Detalle abierto" : "Ver detalle"}</button>
-      </div>`;
-    }).join("");
-  }
-
-  async function loadHistoricalBatch(batchId, options = {}) {
-    if (!batchId || state.loadingHistoryId) return;
-    state.loadingHistoryId = batchId;
-    renderHistory();
-    try {
-      const separator = CFG.apiEndpoint.includes("?") ? "&" : "?";
-      const response = await fetch(`${CFG.apiEndpoint}${separator}id=${encodeURIComponent(batchId)}`, {
-        headers: { "Accept": "application/json" },
-        cache: "no-store"
-      });
-      const payload = await response.json().catch(() => ({}));
-      if (!response.ok) throw new Error(payload.error || "No fue posible abrir la conciliación guardada.");
-
-      state.result = buildStoredResult(payload);
-      state.selectedHistoryId = batchId;
-      clearFilters(false);
-      renderAll();
-      dom.resultOrigin.textContent = `Registro guardado el ${formatCreatedAt(payload.item?.created_at)}${payload.item?.creado_por ? ` · ${payload.item.creado_por}` : ""}.`;
-      if (options.notify) showToast("Conciliación histórica cargada para revisión.");
-      if (options.scroll) document.querySelector(".cb-kpis")?.scrollIntoView({ behavior: "smooth", block: "start" });
-    } catch (error) {
-      showToast(error.message || "No fue posible abrir la conciliación guardada.", true);
-    } finally {
-      state.loadingHistoryId = null;
-      renderHistory();
-      updateReadyState();
-    }
-  }
-
-  function buildStoredResult(payload) {
-    const batch = payload.item || {};
-    const mae = (Array.isArray(payload.mae) ? payload.mae : []).map(row => ({
-      sourceKey: row.source_key, sourceRow: Number(row.source_row || 0),
-      dateTime: normalizeStoredDateTime(row.occurred_at), dateKey: String(row.occurred_at || "").slice(0, 10),
-      machine: row.maquina || "", client: row.cliente || "", user: row.usuario || "",
-      type: row.tipo || "Depósito", currency: row.moneda || "CLP", amount: Number(row.monto || 0)
-    }));
-    const bci = (Array.isArray(payload.bci) ? payload.bci : []).map(row => ({
-      sourceKey: row.source_key, sourceRow: Number(row.source_row || 0),
-      dateTime: normalizeStoredDateTime(row.occurred_at), dateKey: String(row.occurred_at || "").slice(0, 10),
-      accountingDate: row.fecha_contable || "", transactionCode: row.codigo_transaccion || "",
-      type: row.tipo || "DEPOSITOS", detail: row.glosa || "", amount: Number(row.monto || 0),
-      inScope: row.en_alcance === true, excludedReason: row.motivo_exclusion || ""
-    }));
-    const maeByKey = new Map(mae.map(row => [row.sourceKey, row]));
-    const bciByKey = new Map(bci.map(row => [row.sourceKey, row]));
-    const matchedMae = new Set();
-    const matchedBci = new Set();
-    const matches = (Array.isArray(payload.matches) ? payload.matches : []).map(row => {
-      const maeRow = maeByKey.get(row.mae_source_key);
-      const bciRow = bciByKey.get(row.bci_source_key);
-      if (!maeRow || !bciRow) return null;
-      matchedMae.add(maeRow.sourceKey);
-      matchedBci.add(bciRow.sourceKey);
-      const delayed = row.estado === "demora";
-      return {
-        statusKey: delayed ? "demora" : "conciliado",
-        statusLabel: delayed ? "Conciliado con demora" : "Conciliado",
-        amount: Number(row.monto || maeRow.amount), deltaSeconds: Number(row.diferencia_segundos || 0),
-        crossesDay: row.cruza_dia === true, delayed, mae: maeRow, bci: bciRow
-      };
-    }).filter(Boolean);
-
-    const pendingMae = mae.filter(row => !matchedMae.has(row.sourceKey)).map(row => ({
-      statusKey: "pendiente_mae", statusLabel: "MAE sin abono", amount: row.amount,
-      deltaSeconds: null, crossesDay: false, delayed: false, mae: row, bci: null
-    }));
-    const remainingBci = bci.filter(row => !matchedBci.has(row.sourceKey)).map(row => ({
-      statusKey: row.inScope ? "pendiente_bci" : "fuera_alcance",
-      statusLabel: row.inScope ? "BCI sin MAE" : "Fuera de alcance",
-      amount: row.amount, deltaSeconds: null, crossesDay: false, delayed: false, mae: null, bci: row
-    }));
-    const rows = [...matches, ...pendingMae, ...remainingBci].sort((a, b) => {
-      const dateA = a.mae?.dateTime || a.bci?.dateTime || "";
-      const dateB = b.mae?.dateTime || b.bci?.dateTime || "";
-      return dateA.localeCompare(dateB);
-    });
-    const scopeBci = bci.filter(row => row.inScope);
-    const excludedBci = bci.filter(row => !row.inScope);
-    const fallbackSummary = {
-      maeCount: mae.length, maeAmount: CORE.sumAmount(mae),
-      bciScopeCount: scopeBci.length, bciScopeAmount: CORE.sumAmount(scopeBci),
-      matchedCount: matches.length, matchedAmount: CORE.sumAmount(matches),
-      pendingMaeCount: pendingMae.length, pendingMaeAmount: CORE.sumAmount(pendingMae),
-      pendingBciCount: remainingBci.filter(row => row.statusKey === "pendiente_bci").length,
-      pendingBciAmount: CORE.sumAmount(remainingBci.filter(row => row.statusKey === "pendiente_bci")),
-      excludedBciCount: excludedBci.length, excludedBciAmount: CORE.sumAmount(excludedBci),
-      within15MinutesCount: matches.filter(row => Math.abs(row.deltaSeconds) <= 900).length,
-      within60MinutesCount: matches.filter(row => Math.abs(row.deltaSeconds) <= 3600).length,
-      delayedCount: matches.filter(row => row.delayed).length,
-      crossesDayCount: matches.filter(row => row.crossesDay).length,
-      matchRate: mae.length ? matches.length / mae.length : 0
-    };
-    const storedSummary = batch.resumen && typeof batch.resumen === "object" ? batch.resumen : {};
-    const summary = Object.assign(fallbackSummary, storedSummary);
-    summary.matchRate = Number.isFinite(Number(summary.matchRate)) ? Number(summary.matchRate) : fallbackSummary.matchRate;
-
-    return {
-      periodStart: batch.periodo_desde || "",
-      periodEnd: batch.periodo_hasta || "",
-      windowMinutes: Number(batch.ventana_minutos || CFG.defaultWindowMinutes),
-      summary, matches, rows
-    };
-  }
-
-  function normalizeStoredDateTime(value) {
-    return String(value || "").replace("T", " ").replace(/Z$/, "").slice(0, 19);
-  }
-
-  async function saveResult() {
-    if (!state.result || !state.mae || !state.bci || state.selectedHistoryId) return;
-    if (!state.serverReady) {
-      showToast("Supabase aún no está configurado para este módulo.", true);
-      return;
-    }
-    state.saving = true;
-    updateReadyState();
-    dom.btnGuardar.textContent = "Guardando...";
-    try {
-      const payload = await buildPersistencePayload();
-      const response = await fetch(CFG.apiEndpoint, {
-        method: "POST",
-        headers: { "Content-Type": "application/json", "Accept": "application/json" },
-        body: JSON.stringify(payload)
-      });
-      const result = await response.json().catch(() => ({}));
-      if (!response.ok) throw new Error(result.error || "No fue posible guardar la conciliación.");
-      showToast("Conciliación y archivos originales guardados en Supabase.");
-      await loadHistory();
-    } catch (error) {
-      showToast(error.message || "No fue posible guardar la conciliación.", true);
-    } finally {
-      state.saving = false;
-      dom.btnGuardar.textContent = "Guardar conciliación";
-      updateReadyState();
-    }
-  }
-
-  async function buildPersistencePayload() {
-    const result = state.result;
-    const user = getPortalUser();
-    return {
-      lote: {
-        estacion: CFG.estacion,
-        creado_por: user,
-        periodo_desde: result.periodStart,
-        periodo_hasta: result.periodEnd,
-        ventana_minutos: result.windowMinutes,
-        mae_archivo_nombre: state.mae.file.name,
-        mae_archivo_sha256: state.mae.hash,
-        bci_archivo_nombre: state.bci.file.name,
-        bci_archivo_sha256: state.bci.hash,
-        mae_cantidad: result.summary.maeCount,
-        mae_monto: result.summary.maeAmount,
-        bci_caja_cantidad: result.summary.bciScopeCount,
-        bci_caja_monto: result.summary.bciScopeAmount,
-        conciliados_cantidad: result.summary.matchedCount,
-        conciliados_monto: result.summary.matchedAmount,
-        pendiente_mae_cantidad: result.summary.pendingMaeCount,
-        pendiente_mae_monto: result.summary.pendingMaeAmount,
-        pendiente_bci_cantidad: result.summary.pendingBciCount,
-        pendiente_bci_monto: result.summary.pendingBciAmount,
-        fuera_alcance_cantidad: result.summary.excludedBciCount,
-        fuera_alcance_monto: result.summary.excludedBciAmount,
-        resumen: result.summary
-      },
-      mae: state.mae.parsed.deposits.map(row => ({
-        source_key: row.sourceKey, source_row: row.sourceRow, occurred_at: row.dateTime,
-        maquina: row.machine, cliente: row.client, usuario: row.user, tipo: row.type,
-        moneda: row.currency, monto: row.amount
-      })),
-      bci: state.bci.parsed.deposits.map(row => ({
-        source_key: row.sourceKey, source_row: row.sourceRow, occurred_at: row.dateTime,
-        fecha_contable: row.accountingDate || null, codigo_transaccion: row.transactionCode,
-        tipo: row.type, glosa: row.detail, monto: row.amount, en_alcance: row.inScope,
-        motivo_exclusion: row.excludedReason || null
-      })),
-      matches: result.matches.map(row => ({
-        mae_source_key: row.mae.sourceKey, bci_source_key: row.bci.sourceKey,
-        estado: row.statusKey, monto: row.amount, diferencia_segundos: row.deltaSeconds,
-        cruza_dia: row.crossesDay
-      })),
-      files: {
-        mae: { name: state.mae.file.name, mimeType: excelMime(state.mae.file.name), base64: arrayBufferToBase64(state.mae.arrayBuffer) },
-        bci: { name: state.bci.file.name, mimeType: excelMime(state.bci.file.name), base64: arrayBufferToBase64(state.bci.arrayBuffer) }
-      }
-    };
   }
 
   function exportResult() {
     if (!state.result || !window.XLSX) return;
-    const result = state.result;
+    const rows = filteredRows();
+    const summary = summarizeRows(periodRows());
     const workbook = XLSX.utils.book_new();
+    const scope = [dom.filterYear.value || "Todos los años", dom.filterMonth.options[dom.filterMonth.selectedIndex]?.text || "Todos los meses"].join(" · ");
     const summaryRows = [
-      ["Conciliación MAE · BCI", ""],
-      ["Estación", CFG.estacion],
-      ["Período", formatPeriod(result.periodStart, result.periodEnd)],
-      ["Ventana máxima (minutos)", result.windowMinutes],
-      ["Depósitos MAE", result.summary.maeCount],
-      ["Monto MAE", result.summary.maeAmount],
-      ["Conciliados", result.summary.matchedCount],
-      ["Monto conciliado", result.summary.matchedAmount],
-      ["Avance", result.summary.matchRate],
-      ["MAE sin abono", result.summary.pendingMaeCount],
-      ["BCI sin MAE", result.summary.pendingBciCount],
-      ["Otros depósitos BCI", result.summary.excludedBciCount]
+      ["Conciliación histórica MAE · BCI", ""], ["Estación", CFG.estacion], ["Filtro", scope],
+      ["Ventana máxima (minutos)", state.result.windowMinutes], ["Depósitos MAE", summary.maeCount],
+      ["Monto MAE", summary.maeAmount], ["Conciliados", summary.matchedCount], ["Monto conciliado", summary.matchedAmount],
+      ["Avance", summary.matchRate], ["MAE sin abono", summary.pendingMaeCount], ["BCI sin MAE", summary.pendingBciCount],
+      ["Otros depósitos BCI", summary.excludedBciCount]
     ];
     const summarySheet = XLSX.utils.aoa_to_sheet(summaryRows);
-    summarySheet.B9 = Object.assign(summarySheet.B9 || {}, { t: "n", v: result.summary.matchRate, z: "0%" });
+    summarySheet.B9 = Object.assign(summarySheet.B9 || {}, { t: "n", v: summary.matchRate, z: "0%" });
     XLSX.utils.book_append_sheet(workbook, summarySheet, "Resumen");
-
-    const detail = result.rows.map(row => ({
-      Estado: row.statusLabel,
-      Importe: row.amount,
-      "Fecha MAE": row.mae?.dateTime || "",
-      "Fecha BCI": row.bci?.dateTime || "",
-      "Diferencia minutos": row.deltaSeconds === null ? "" : row.deltaSeconds / 60,
-      "Usuario MAE": row.mae?.user || "",
-      "Máquina": row.mae?.machine || "",
-      "Glosa BCI": row.bci?.detail || "",
-      "Código BCI": row.bci?.transactionCode || ""
+    const detail = rows.map(row => ({
+      Estado: row.statusLabel, Importe: row.amount, "Fecha MAE": row.mae?.dateTime || "",
+      "Fecha BCI": row.bci?.dateTime || "", "Diferencia minutos": row.deltaSeconds == null ? "" : row.deltaSeconds / 60,
+      "Usuario MAE": row.mae?.user || "", Máquina: row.mae?.machine || "",
+      "Glosa BCI": row.bci?.detail || "", "Código BCI": row.bci?.transactionCode || ""
     }));
     XLSX.utils.book_append_sheet(workbook, XLSX.utils.json_to_sheet(detail), "Detalle");
-    XLSX.utils.book_append_sheet(workbook, XLSX.utils.json_to_sheet(result.unmatchedMae.map(row => ({ Fila: row.sourceRow, Fecha: row.dateTime, Importe: row.amount, Usuario: row.user, Máquina: row.machine }))), "MAE sin abono");
-    XLSX.utils.book_append_sheet(workbook, XLSX.utils.json_to_sheet(result.unmatchedBci.map(row => ({ Fila: row.sourceRow, Fecha: row.dateTime, Importe: row.amount, Glosa: row.detail, Código: row.transactionCode }))), "BCI sin MAE");
-    XLSX.utils.book_append_sheet(workbook, XLSX.utils.json_to_sheet(result.excludedBci.map(row => ({ Fila: row.sourceRow, Fecha: row.dateTime, Importe: row.amount, Glosa: row.detail, Motivo: row.excludedReason }))), "Otros depósitos BCI");
-    XLSX.writeFile(workbook, `conciliacion_mae_bci_${result.periodStart}_${result.periodEnd}.xlsx`, { compression: true });
+    XLSX.utils.book_append_sheet(workbook, XLSX.utils.json_to_sheet(state.uploads.map(item => ({
+      Fecha: formatCreatedAt(item.created_at), Usuario: item.creado_por || "", Fuente: item.fuente,
+      "Archivo MAE": item.mae_archivo_nombre || "", "MAE recibidos": item.mae_recibidos, "MAE nuevos": item.mae_nuevos,
+      "Archivo BCI": item.bci_archivo_nombre || "", "BCI recibidos": item.bci_recibidos, "BCI nuevos": item.bci_nuevos
+    }))), "Cargas");
+    XLSX.writeFile(workbook, `conciliacion_historica_mae_bci_${dom.filterYear.value || "total"}_${dom.filterMonth.value || "todos"}.xlsx`, { compression: true });
+  }
+
+  function rowDateKey(row) {
+    return String(row.mae?.dateKey || row.bci?.dateKey || "").slice(0, 10);
   }
 
   function setServerBadge(type, text) {
@@ -643,7 +506,7 @@
 
   function formatDateTime(value) {
     if (!value) return "—";
-    const match = String(value).match(/^(\d{4})-(\d{2})-(\d{2}) (\d{2}):(\d{2})/);
+    const match = String(value).match(/^(\d{4})-(\d{2})-(\d{2})[ T](\d{2}):(\d{2})/);
     return match ? `${match[3]}-${match[2]}-${match[1]} ${match[4]}:${match[5]}` : String(value);
   }
 
@@ -653,11 +516,6 @@
     const prefix = minutes > 0 ? "+" : "";
     const rounded = Math.abs(minutes) < 10 ? minutes.toFixed(1) : Math.round(minutes);
     return `${prefix}${rounded} min`;
-  }
-
-  function formatPeriod(from, to) {
-    if (!from && !to) return "Sin período";
-    return from === to ? from : `${from || "—"} a ${to || "—"}`;
   }
 
   function formatCreatedAt(value) {
@@ -670,12 +528,6 @@
     return String(value ?? "").replace(/[&<>'"]/g, char => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", "'": "&#39;", '"': "&quot;" }[char]));
   }
 
-  async function sha256(buffer) {
-    if (!window.crypto?.subtle) return `sin-hash-${buffer.byteLength}`;
-    const hash = await window.crypto.subtle.digest("SHA-256", buffer);
-    return Array.from(new Uint8Array(hash)).map(byte => byte.toString(16).padStart(2, "0")).join("");
-  }
-
   function arrayBufferToBase64(buffer) {
     const bytes = new Uint8Array(buffer);
     const chunkSize = 0x8000;
@@ -684,10 +536,6 @@
       binary += String.fromCharCode(...bytes.subarray(i, Math.min(i + chunkSize, bytes.length)));
     }
     return btoa(binary);
-  }
-
-  function excelMime(fileName) {
-    return /\.xls$/i.test(fileName) ? "application/vnd.ms-excel" : "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
   }
 
   function getPortalUser() {
