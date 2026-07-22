@@ -67,7 +67,7 @@ button{cursor:pointer}
 .cb-badge--warning{background:#fef3c7;color:#92400e}
 .cb-badge--danger{background:#fee2e2;color:#991b1b}
 .cb-alert{display:flex;gap:8px;margin-bottom:18px;border:1px solid;border-radius:12px;padding:14px 16px;line-height:1.45}
-.cb-alert[hidden]{display:none!important}
+[hidden]{display:none!important}
 .cb-alert--warning{border-color:#f2d18b;background:#fff8e6;color:#7c4a03}
 .cb-notice{margin-top:14px;border:1px solid;border-radius:10px;padding:12px 14px;font-size:13px;font-weight:750}
 .cb-notice--success{border-color:#bbf7d0;background:#ecfdf5;color:#166534}
@@ -87,6 +87,7 @@ button{cursor:pointer}
 .cb-analysis-notes{display:flex;gap:10px;flex-wrap:wrap;margin:4px 24px 16px}
 .cb-analysis-chip{border:1px solid #dbe7f3;border-radius:999px;padding:8px 11px;background:#f6f9fc;color:#47627f;font-size:12px;font-weight:800}
 .cb-analysis-chip.is-warning{border-color:#f3d49a;background:#fff8e8;color:#8a5800}
+.cb-result-origin{margin:5px 0 0;color:var(--cb-muted);font-size:13px;font-weight:700}
 .cb-result-count{color:var(--cb-muted);font-weight:750}
 .cb-filters{display:grid;grid-template-columns:1.7fr 1fr 160px 160px auto;align-items:end;gap:11px;padding:12px 24px 20px;border-bottom:1px solid var(--cb-border)}
 .cb-field{display:flex;min-width:0;flex-direction:column;gap:6px}
@@ -106,17 +107,22 @@ button{cursor:pointer}
 .cb-status--pending{background:#fee2e2;color:#991b1b}
 .cb-status--excluded{background:#eef2f6;color:#536176}
 .cb-empty{padding:42px!important;text-align:center;color:var(--cb-muted)!important}
-.cb-grid-two{display:grid;grid-template-columns:1fr 1fr;gap:18px}
+.cb-grid-two{display:grid;grid-template-columns:minmax(320px,.8fr) minmax(560px,1.2fr);gap:18px}
 .cb-compact-card{min-height:250px;margin-bottom:0}
 .cb-empty-panel{margin:4px 24px 24px;border:1px dashed #cddbea;border-radius:12px;padding:20px;color:var(--cb-muted);font-weight:700}
 .cb-exception-list,.cb-history-list{display:grid;gap:10px;margin:4px 24px 24px}
+.cb-history-list{max-height:520px;overflow:auto;padding-right:4px}
 .cb-exception-item,.cb-history-item{display:flex;align-items:center;justify-content:space-between;gap:14px;border:1px solid #dce7f1;border-radius:12px;padding:13px 14px;background:#f9fbfd}
+.cb-history-item.is-selected{border-color:#76a9df;background:#eef6ff;box-shadow:0 0 0 2px rgba(19,103,209,.08)}
 .cb-exception-item strong,.cb-history-item strong{display:block;color:var(--cb-navy)}
 .cb-exception-item small,.cb-history-item small{display:block;margin-top:3px;color:var(--cb-muted);font-weight:650}
+.cb-history-info{min-width:0;flex:1}
+.cb-history-info small{overflow-wrap:anywhere}
+.cb-history-summary{min-width:130px;text-align:right;color:var(--cb-navy);font-weight:900}
 .cb-exception-value{text-align:right;color:var(--cb-navy);font-weight:900}
 .cb-toast{position:fixed;right:24px;bottom:24px;z-index:50;max-width:430px;border-radius:12px;padding:13px 16px;background:var(--cb-navy);color:#fff;box-shadow:0 18px 45px rgba(0,0,0,.25);font-weight:750}
 .cb-toast.is-error{background:var(--cb-red)}
 .cb-toast.is-success{background:var(--cb-green)}
 @media(max-width:1350px){.cb-kpis{grid-template-columns:repeat(3,1fr)}.cb-filters{grid-template-columns:1.6fr 1fr 1fr 1fr}.cb-filters .cb-btn{grid-column:1/-1}.cb-grid-two{grid-template-columns:1fr}}
 @media(max-width:900px){.cb-header{flex-direction:column}.cb-header-actions{justify-content:flex-start}.cb-upload-grid{grid-template-columns:1fr}.cb-card-heading{flex-direction:column}.cb-rule-field{width:100%}}
-@media(max-width:680px){.cb-header{padding:18px}.cb-app{padding:14px}.cb-kpis,.cb-filters{grid-template-columns:1fr}.cb-upload-actions{flex-direction:column-reverse}.cb-upload-actions .cb-btn{width:100%}.cb-alert{flex-direction:column}.cb-exception-item,.cb-history-item{align-items:flex-start;flex-direction:column}.cb-exception-value{text-align:left}}
+@media(max-width:680px){.cb-header{padding:18px}.cb-app{padding:14px}.cb-kpis,.cb-filters{grid-template-columns:1fr}.cb-upload-actions{flex-direction:column-reverse}.cb-upload-actions .cb-btn{width:100%}.cb-alert{flex-direction:column}.cb-exception-item,.cb-history-item{align-items:flex-start;flex-direction:column}.cb-exception-value,.cb-history-summary{text-align:left}.cb-history-item .cb-btn{width:100%}}

@@ -17,7 +17,7 @@
     "kpiMatchedAmount", "kpiRate", "kpiPendingMae", "kpiPendingMaeAmount", "kpiPendingBci",
     "kpiPendingBciAmount", "kpiExcluded", "kpiExcludedAmount", "analysisNotes", "resultCount", "filterSearch",
     "filterStatus", "filterFrom", "filterTo", "btnLimpiarFiltros", "resultRows", "exceptionSummary",
-    "btnRecargarHistorial", "historyList", "toast"
+    "btnRecargarHistorial", "historyList", "resultOrigin", "toast"
   ];
   const dom = Object.fromEntries(ids.map(id => [id, document.getElementById(id)]));
 
@@ -27,6 +27,8 @@
     result: null,
     serverReady: false,
     history: [],
+    selectedHistoryId: null,
+    loadingHistoryId: null,
     saving: false
   };
 
@@ -45,6 +47,10 @@
     dom.btnExportar.addEventListener("click", exportResult);
     dom.btnGuardar.addEventListener("click", saveResult);
     dom.btnRecargarHistorial.addEventListener("click", loadHistory);
+    dom.historyList.addEventListener("click", event => {
+      const button = event.target.closest("[data-history-id]");
+      if (button) loadHistoricalBatch(button.dataset.historyId, { scroll: true, notify: true });
+    });
     dom.btnLimpiarFiltros.addEventListener("click", clearFilters);
     [dom.filterSearch, dom.filterStatus, dom.filterFrom, dom.filterTo].forEach(control => {
       control.addEventListener(control.tagName === "INPUT" ? "input" : "change", renderRows);
@@ -152,7 +158,7 @@
   function updateReadyState() {
     dom.btnConciliar.disabled = !(state.mae && state.bci);
     dom.btnExportar.disabled = !state.result;
-    dom.btnGuardar.disabled = !(state.result && state.serverReady && !state.saving);
+    dom.btnGuardar.disabled = !(state.result && state.mae && state.bci && !state.selectedHistoryId && state.serverReady && !state.saving);
   }
 
   function runReconciliation() {
@@ -161,11 +167,14 @@
       return;
     }
     try {
+      state.selectedHistoryId = null;
       state.result = CORE.reconcile(state.mae.parsed, state.bci.parsed, {
         windowMinutes: Number(dom.windowMinutes.value || CFG.defaultWindowMinutes)
       });
+      dom.resultOrigin.textContent = "Conciliación actual calculada desde los archivos cargados.";
       clearFilters(false);
       renderAll();
+      renderHistory();
       showNotice(`Conciliación lista: ${state.result.summary.matchedCount} coincidencias por ${money(state.result.summary.matchedAmount)}.`, "success");
     } catch (error) {
       showNotice(error.message || "No fue posible ejecutar la conciliación.", "error");
@@ -321,17 +330,21 @@
 
   function clearResultOnly() {
     state.result = null;
+    state.selectedHistoryId = null;
     resetKpis();
     dom.analysisNotes.hidden = true;
+    dom.resultOrigin.textContent = "Carga ambos archivos o abre una conciliación guardada.";
     dom.resultCount.textContent = "Sin conciliación";
     dom.resultRows.innerHTML = '<tr><td colspan="8" class="cb-empty">Carga ambos archivos para iniciar.</td></tr>';
     dom.exceptionSummary.className = "cb-empty-panel";
     dom.exceptionSummary.textContent = "Todavía no hay resultados.";
+    renderHistory();
     updateReadyState();
   }
 
   async function loadHistory() {
     setServerBadge("neutral", "Verificando servidor");
+    dom.btnRecargarHistorial.disabled = true;
     try {
       const response = await fetch(CFG.apiEndpoint, { headers: { "Accept": "application/json" }, cache: "no-store" });
       const payload = await response.json().catch(() => ({}));
@@ -341,6 +354,9 @@
       setServerBadge("success", "Supabase conectado");
       dom.setupAlert.hidden = true;
       renderHistory();
+      if (!state.result && state.history[0]?.id) {
+        await loadHistoricalBatch(state.history[0].id, { scroll: false, notify: false });
+      }
     } catch (error) {
       state.serverReady = false;
       state.history = [];
@@ -348,6 +364,8 @@
       dom.setupAlertText.textContent = error.message || "Revisa la configuración del servidor y la migración de Supabase.";
       dom.setupAlert.hidden = false;
       dom.historyList.innerHTML = '<div class="cb-empty-panel">El historial estará disponible después de configurar Supabase.</div>';
+    } finally {
+      dom.btnRecargarHistorial.disabled = false;
     }
     updateReadyState();
   }
@@ -357,11 +375,128 @@
       dom.historyList.innerHTML = '<div class="cb-empty-panel">No hay conciliaciones guardadas.</div>';
       return;
     }
-    dom.historyList.innerHTML = state.history.map(item => `<div class="cb-history-item"><div><strong>${escapeHtml(formatPeriod(item.periodo_desde, item.periodo_hasta))}</strong><small>${escapeHtml(item.mae_archivo_nombre || "MAE")} · ${escapeHtml(item.bci_archivo_nombre || "BCI")}<br>${escapeHtml(formatCreatedAt(item.created_at))}${item.creado_por ? ` · ${escapeHtml(item.creado_por)}` : ""}</small></div><div class="cb-exception-value">${Number(item.conciliados_cantidad || 0).toLocaleString("es-CL")} conciliados<small>${money(item.conciliados_monto || 0)}</small></div></div>`).join("");
+    dom.historyList.innerHTML = state.history.map(item => {
+      const selected = state.selectedHistoryId === item.id;
+      const loading = state.loadingHistoryId === item.id;
+      return `<div class="cb-history-item${selected ? " is-selected" : ""}">
+        <div class="cb-history-info"><strong>${escapeHtml(formatPeriod(item.periodo_desde, item.periodo_hasta))}</strong><small>${escapeHtml(item.mae_archivo_nombre || "MAE")} · ${escapeHtml(item.bci_archivo_nombre || "BCI")}<br>${escapeHtml(formatCreatedAt(item.created_at))}${item.creado_por ? ` · ${escapeHtml(item.creado_por)}` : ""}</small></div>
+        <div class="cb-history-summary"><strong>${Number(item.conciliados_cantidad || 0).toLocaleString("es-CL")} conciliados</strong><small>${money(item.conciliados_monto || 0)}</small></div>
+        <button class="cb-btn cb-btn--secondary cb-btn--small" type="button" data-history-id="${escapeHtml(item.id)}" ${loading ? "disabled" : ""}>${loading ? "Cargando..." : selected ? "Detalle abierto" : "Ver detalle"}</button>
+      </div>`;
+    }).join("");
+  }
+
+  async function loadHistoricalBatch(batchId, options = {}) {
+    if (!batchId || state.loadingHistoryId) return;
+    state.loadingHistoryId = batchId;
+    renderHistory();
+    try {
+      const separator = CFG.apiEndpoint.includes("?") ? "&" : "?";
+      const response = await fetch(`${CFG.apiEndpoint}${separator}id=${encodeURIComponent(batchId)}`, {
+        headers: { "Accept": "application/json" },
+        cache: "no-store"
+      });
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(payload.error || "No fue posible abrir la conciliación guardada.");
+
+      state.result = buildStoredResult(payload);
+      state.selectedHistoryId = batchId;
+      clearFilters(false);
+      renderAll();
+      dom.resultOrigin.textContent = `Registro guardado el ${formatCreatedAt(payload.item?.created_at)}${payload.item?.creado_por ? ` · ${payload.item.creado_por}` : ""}.`;
+      if (options.notify) showToast("Conciliación histórica cargada para revisión.");
+      if (options.scroll) document.querySelector(".cb-kpis")?.scrollIntoView({ behavior: "smooth", block: "start" });
+    } catch (error) {
+      showToast(error.message || "No fue posible abrir la conciliación guardada.", true);
+    } finally {
+      state.loadingHistoryId = null;
+      renderHistory();
+      updateReadyState();
+    }
+  }
+
+  function buildStoredResult(payload) {
+    const batch = payload.item || {};
+    const mae = (Array.isArray(payload.mae) ? payload.mae : []).map(row => ({
+      sourceKey: row.source_key, sourceRow: Number(row.source_row || 0),
+      dateTime: normalizeStoredDateTime(row.occurred_at), dateKey: String(row.occurred_at || "").slice(0, 10),
+      machine: row.maquina || "", client: row.cliente || "", user: row.usuario || "",
+      type: row.tipo || "Depósito", currency: row.moneda || "CLP", amount: Number(row.monto || 0)
+    }));
+    const bci = (Array.isArray(payload.bci) ? payload.bci : []).map(row => ({
+      sourceKey: row.source_key, sourceRow: Number(row.source_row || 0),
+      dateTime: normalizeStoredDateTime(row.occurred_at), dateKey: String(row.occurred_at || "").slice(0, 10),
+      accountingDate: row.fecha_contable || "", transactionCode: row.codigo_transaccion || "",
+      type: row.tipo || "DEPOSITOS", detail: row.glosa || "", amount: Number(row.monto || 0),
+      inScope: row.en_alcance === true, excludedReason: row.motivo_exclusion || ""
+    }));
+    const maeByKey = new Map(mae.map(row => [row.sourceKey, row]));
+    const bciByKey = new Map(bci.map(row => [row.sourceKey, row]));
+    const matchedMae = new Set();
+    const matchedBci = new Set();
+    const matches = (Array.isArray(payload.matches) ? payload.matches : []).map(row => {
+      const maeRow = maeByKey.get(row.mae_source_key);
+      const bciRow = bciByKey.get(row.bci_source_key);
+      if (!maeRow || !bciRow) return null;
+      matchedMae.add(maeRow.sourceKey);
+      matchedBci.add(bciRow.sourceKey);
+      const delayed = row.estado === "demora";
+      return {
+        statusKey: delayed ? "demora" : "conciliado",
+        statusLabel: delayed ? "Conciliado con demora" : "Conciliado",
+        amount: Number(row.monto || maeRow.amount), deltaSeconds: Number(row.diferencia_segundos || 0),
+        crossesDay: row.cruza_dia === true, delayed, mae: maeRow, bci: bciRow
+      };
+    }).filter(Boolean);
+
+    const pendingMae = mae.filter(row => !matchedMae.has(row.sourceKey)).map(row => ({
+      statusKey: "pendiente_mae", statusLabel: "MAE sin abono", amount: row.amount,
+      deltaSeconds: null, crossesDay: false, delayed: false, mae: row, bci: null
+    }));
+    const remainingBci = bci.filter(row => !matchedBci.has(row.sourceKey)).map(row => ({
+      statusKey: row.inScope ? "pendiente_bci" : "fuera_alcance",
+      statusLabel: row.inScope ? "BCI sin MAE" : "Fuera de alcance",
+      amount: row.amount, deltaSeconds: null, crossesDay: false, delayed: false, mae: null, bci: row
+    }));
+    const rows = [...matches, ...pendingMae, ...remainingBci].sort((a, b) => {
+      const dateA = a.mae?.dateTime || a.bci?.dateTime || "";
+      const dateB = b.mae?.dateTime || b.bci?.dateTime || "";
+      return dateA.localeCompare(dateB);
+    });
+    const scopeBci = bci.filter(row => row.inScope);
+    const excludedBci = bci.filter(row => !row.inScope);
+    const fallbackSummary = {
+      maeCount: mae.length, maeAmount: CORE.sumAmount(mae),
+      bciScopeCount: scopeBci.length, bciScopeAmount: CORE.sumAmount(scopeBci),
+      matchedCount: matches.length, matchedAmount: CORE.sumAmount(matches),
+      pendingMaeCount: pendingMae.length, pendingMaeAmount: CORE.sumAmount(pendingMae),
+      pendingBciCount: remainingBci.filter(row => row.statusKey === "pendiente_bci").length,
+      pendingBciAmount: CORE.sumAmount(remainingBci.filter(row => row.statusKey === "pendiente_bci")),
+      excludedBciCount: excludedBci.length, excludedBciAmount: CORE.sumAmount(excludedBci),
+      within15MinutesCount: matches.filter(row => Math.abs(row.deltaSeconds) <= 900).length,
+      within60MinutesCount: matches.filter(row => Math.abs(row.deltaSeconds) <= 3600).length,
+      delayedCount: matches.filter(row => row.delayed).length,
+      crossesDayCount: matches.filter(row => row.crossesDay).length,
+      matchRate: mae.length ? matches.length / mae.length : 0
+    };
+    const storedSummary = batch.resumen && typeof batch.resumen === "object" ? batch.resumen : {};
+    const summary = Object.assign(fallbackSummary, storedSummary);
+    summary.matchRate = Number.isFinite(Number(summary.matchRate)) ? Number(summary.matchRate) : fallbackSummary.matchRate;
+
+    return {
+      periodStart: batch.periodo_desde || "",
+      periodEnd: batch.periodo_hasta || "",
+      windowMinutes: Number(batch.ventana_minutos || CFG.defaultWindowMinutes),
+      summary, matches, rows
+    };
+  }
+
+  function normalizeStoredDateTime(value) {
+    return String(value || "").replace("T", " ").replace(/Z$/, "").slice(0, 19);
   }
 
   async function saveResult() {
-    if (!state.result || !state.mae || !state.bci) return;
+    if (!state.result || !state.mae || !state.bci || state.selectedHistoryId) return;
     if (!state.serverReady) {
       showToast("Supabase aún no está configurado para este módulo.", true);
       return;
