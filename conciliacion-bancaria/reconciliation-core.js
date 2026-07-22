@@ -251,10 +251,13 @@
       code: headerIndex(headers, required[2]),
       type: headerIndex(headers, required[3]),
       detail: headerIndex(headers, required[4]),
-      amount: headerIndex(headers, required[5])
+      amount: headerIndex(headers, required[5]),
+      expense: headerIndex(headers, ["Egreso (-)", "Egreso", "Cargo"])
     };
 
+    const movements = [];
     const deposits = [];
+    const reversals = [];
     let invalidRows = 0;
     const maxRows = Number(options.maxRows || 10000);
     const dataRows = matrix.slice(rowIndex + 1, rowIndex + 1 + maxRows);
@@ -263,19 +266,21 @@
       if (!Array.isArray(row) || row.every(cell => String(cell ?? "").trim() === "")) return;
       const sourceRow = rowIndex + offset + 2;
       const type = String(valueAt(row, columns.type) ?? "").trim();
-      if (normalizeText(type) !== "depositos") return;
+      const detail = String(valueAt(row, columns.detail) ?? "").trim();
+      const normalizedDetail = normalizeText(detail);
+      const isReversal = normalizedDetail.includes("reversa de abono");
+      const isDeposit = normalizeText(type) === "depositos";
+      if (!isDeposit && !isReversal) return;
       const timestamp = parseDateTime(valueAt(row, columns.date), valueAt(row, columns.time));
       const accountingTimestamp = parseDateTime(valueAt(row, columns.accountingDate));
-      const amount = parseAmount(valueAt(row, columns.amount));
+      const amount = parseAmount(valueAt(row, isReversal ? columns.expense : columns.amount));
       if (!timestamp || amount <= 0) {
         invalidRows += 1;
         return;
       }
-      const detail = String(valueAt(row, columns.detail) ?? "").trim();
-      const normalizedDetail = normalizeText(detail);
-      const inScope = normalizedDetail.includes("caja depositaria");
+      const inScope = !isReversal && normalizedDetail.includes("caja depositaria");
       const transactionCode = String(valueAt(row, columns.code) ?? "").trim();
-      deposits.push({
+      const movement = {
         sourceKey: transactionCode || `BCI-${sourceRow}`,
         sourceRow,
         dateTime: timestamp.dateTime,
@@ -287,18 +292,24 @@
         detail,
         amount,
         inScope,
-        excludedReason: inScope ? "" : (normalizedDetail.includes("cheque") ? "Cheque u otro documento" : "Depósito manual por caja")
-      });
+        isReversal,
+        excludedReason: isReversal ? "Reversa de abono" : inScope ? "" : (normalizedDetail.includes("cheque") ? "Cheque u otro documento" : "Depósito manual por caja")
+      };
+      movements.push(movement);
+      if (isReversal) reversals.push(movement);
+      else deposits.push(movement);
     });
 
-    if (!deposits.length) throw new Error("La cartola BCI no contiene abonos de tipo DEPOSITOS con fecha e importe válidos.");
+    if (!movements.length) throw new Error("La cartola BCI no contiene depósitos ni reversas de abono con fecha e importe válidos.");
     return {
       kind: "bci",
       headerRow: rowIndex + 1,
       sourceRows: dataRows.length,
+      movements: movements.sort((a, b) => a.epoch - b.epoch),
       deposits: deposits.sort((a, b) => a.epoch - b.epoch),
       inScope: deposits.filter(row => row.inScope),
       excluded: deposits.filter(row => !row.inScope),
+      reversals: reversals.sort((a, b) => a.epoch - b.epoch),
       invalidRows
     };
   }

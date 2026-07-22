@@ -15,7 +15,7 @@
     "maeFileName", "bciFileName", "maeFileSummary", "bciFileSummary", "windowMinutes", "btnLimpiar",
     "btnConciliar", "btnExportar", "uploadMessage", "kpiMae", "kpiMaeAmount", "kpiMatched",
     "kpiMatchedAmount", "kpiRate", "kpiPendingMae", "kpiPendingMaeAmount", "kpiPendingBci",
-    "kpiPendingBciAmount", "kpiExcluded", "kpiExcludedAmount", "analysisNotes", "resultCount", "resultOrigin",
+    "kpiPendingBciAmount", "kpiReversals", "kpiReversalsAmount", "kpiExcluded", "kpiExcludedAmount", "analysisNotes", "resultCount", "resultOrigin",
     "filterSearch", "filterYear", "filterMonth", "filterStatus", "btnLimpiarFiltros", "resultRows",
     "exceptionSummary", "btnRecargarHistorial", "historyList", "toast"
   ];
@@ -28,7 +28,8 @@
     uploads: [],
     updatedAt: null,
     serverReady: false,
-    saving: false
+    saving: false,
+    reviewingId: null
   };
 
   init();
@@ -48,6 +49,10 @@
     dom.btnLimpiarFiltros.addEventListener("click", clearFilters);
     dom.filterSearch.addEventListener("input", renderRows);
     dom.filterStatus.addEventListener("change", renderRows);
+    dom.resultRows.addEventListener("click", event => {
+      const button = event.target.closest("[data-reversal-id]");
+      if (button) updateReversalReview(button.dataset.reversalId, button.dataset.reviewed !== "true");
+    });
     dom.filterYear.addEventListener("change", renderAll);
     dom.filterMonth.addEventListener("change", renderAll);
     dom.windowMinutes.addEventListener("change", () => loadFlow({ preserveFilters: true }));
@@ -141,7 +146,8 @@
     } else {
       const scope = source.inScope || source.deposits.filter(row => row.inScope);
       const excluded = source.excluded || source.deposits.filter(row => !row.inScope);
-      element.textContent = `${scope.length.toLocaleString("es-CL")} Caja Depositaria · ${excluded.length.toLocaleString("es-CL")} otros depósitos`;
+      const reversals = source.reversals || [];
+      element.textContent = `${scope.length.toLocaleString("es-CL")} Caja Depositaria · ${reversals.length.toLocaleString("es-CL")} reversas · ${excluded.length.toLocaleString("es-CL")} otros depósitos`;
     }
     element.classList.add("is-valid");
   }
@@ -214,6 +220,28 @@
     }
   }
 
+  async function updateReversalReview(reversalId, reviewed) {
+    if (!reversalId || state.reviewingId) return;
+    state.reviewingId = reversalId;
+    renderRows();
+    try {
+      const response = await fetch(CFG.apiEndpoint, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json", "Accept": "application/json" },
+        body: JSON.stringify({ reversal_id: reversalId, reviewed, reviewed_by: getPortalUser() })
+      });
+      const result = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(result.error || "No fue posible guardar la revisión.");
+      await loadFlow({ preserveFilters: true });
+      showToast(reviewed ? "Reversa marcada como revisada." : "Revisión de reversa reabierta.");
+    } catch (error) {
+      showToast(error.message || "No fue posible guardar la revisión.", true);
+    } finally {
+      state.reviewingId = null;
+      renderRows();
+    }
+  }
+
   function buildPersistencePayload() {
     return {
       carga: { creado_por: getPortalUser() },
@@ -222,11 +250,11 @@
         maquina: row.machine, cliente: row.client, usuario: row.user, tipo: row.type,
         moneda: row.currency, monto: row.amount
       })) : [],
-      bci: state.bci ? state.bci.parsed.deposits.map(row => ({
+      bci: state.bci ? (state.bci.parsed.movements || state.bci.parsed.deposits).map(row => ({
         source_key: row.sourceKey, source_row: row.sourceRow, occurred_at: row.dateTime,
         fecha_contable: row.accountingDate || null, codigo_transaccion: row.transactionCode,
         tipo: row.type, glosa: row.detail, monto: row.amount, en_alcance: row.inScope,
-        motivo_exclusion: row.excludedReason || null
+        motivo_exclusion: row.excludedReason || null, es_reversa: row.isReversal === true
       })) : [],
       files: {
         mae: state.mae ? { name: state.mae.file.name, base64: arrayBufferToBase64(state.mae.arrayBuffer) } : null,
@@ -265,7 +293,8 @@
       if (search) {
         const haystack = CORE.normalizeText([
           row.amount, row.statusLabel, row.mae?.user, row.mae?.machine,
-          row.bci?.detail, row.bci?.transactionCode
+          row.bci?.detail, row.bci?.transactionCode, row.reversal?.detail,
+          row.reversal?.transactionCode, row.reversal?.reviewedBy
         ].join(" "));
         if (!haystack.includes(search)) return false;
       }
@@ -277,9 +306,10 @@
     const matched = rows.filter(row => row.statusKey === "conciliado" || row.statusKey === "demora");
     const pendingMae = rows.filter(row => row.statusKey === "pendiente_mae");
     const pendingBci = rows.filter(row => row.statusKey === "pendiente_bci");
+    const reversals = rows.filter(row => row.statusKey === "reversa_bci");
     const excluded = rows.filter(row => row.statusKey === "fuera_alcance");
     const maeRows = rows.filter(row => row.mae);
-    const bciScopeRows = rows.filter(row => row.bci && row.statusKey !== "fuera_alcance");
+    const bciScopeRows = rows.filter(row => row.bci && !["fuera_alcance", "reversa_bci"].includes(row.statusKey));
     return {
       maeCount: maeRows.length,
       maeAmount: maeRows.reduce((sum, row) => sum + Number(row.mae?.amount || 0), 0),
@@ -291,6 +321,9 @@
       pendingMaeAmount: CORE.sumAmount(pendingMae),
       pendingBciCount: pendingBci.length,
       pendingBciAmount: CORE.sumAmount(pendingBci),
+      reversalCount: reversals.length,
+      reversalAmount: CORE.sumAmount(reversals),
+      reversalPendingReviewCount: reversals.filter(row => !row.reversal?.reviewed).length,
       excludedBciCount: excluded.length,
       excludedBciAmount: CORE.sumAmount(excluded),
       delayedCount: matched.filter(row => row.statusKey === "demora").length,
@@ -313,13 +346,16 @@
     dom.kpiPendingMaeAmount.textContent = money(summary.pendingMaeAmount);
     dom.kpiPendingBci.textContent = summary.pendingBciCount.toLocaleString("es-CL");
     dom.kpiPendingBciAmount.textContent = money(summary.pendingBciAmount);
+    dom.kpiReversals.textContent = summary.reversalCount.toLocaleString("es-CL");
+    dom.kpiReversalsAmount.textContent = `${money(summary.reversalAmount)} · ${summary.reversalPendingReviewCount} por revisar`;
     dom.kpiExcluded.textContent = summary.excludedBciCount.toLocaleString("es-CL");
     dom.kpiExcludedAmount.textContent = `${money(summary.excludedBciAmount)} fuera de alcance`;
   }
 
   function resetKpis() {
-    [dom.kpiMae, dom.kpiMatched, dom.kpiPendingMae, dom.kpiPendingBci, dom.kpiExcluded].forEach(el => { el.textContent = "0"; });
+    [dom.kpiMae, dom.kpiMatched, dom.kpiPendingMae, dom.kpiPendingBci, dom.kpiReversals, dom.kpiExcluded].forEach(el => { el.textContent = "0"; });
     [dom.kpiMaeAmount, dom.kpiMatchedAmount, dom.kpiPendingMaeAmount, dom.kpiPendingBciAmount].forEach(el => { el.textContent = "$0"; });
+    dom.kpiReversalsAmount.textContent = "$0 · 0 por revisar";
     dom.kpiExcludedAmount.textContent = "$0 fuera de alcance";
     dom.kpiRate.textContent = "0%";
   }
@@ -334,7 +370,8 @@
       `${summary.within15MinutesCount} coincidencias dentro de 15 minutos`,
       `${summary.within60MinutesCount} coincidencias dentro de 1 hora`,
       `${summary.delayedCount} conciliadas con demora`,
-      `${summary.crossesDayCount} cruce${summary.crossesDayCount === 1 ? "" : "s"} de medianoche`
+      `${summary.crossesDayCount} cruce${summary.crossesDayCount === 1 ? "" : "s"} de medianoche`,
+      `${summary.reversalPendingReviewCount} reversas pendientes de revisión`
     ];
     dom.analysisNotes.innerHTML = chips.map((text, index) => `<span class="cb-analysis-chip ${index >= 2 && Number(text.split(" ")[0]) ? "is-warning" : ""}">${escapeHtml(text)}</span>`).join("");
     dom.analysisNotes.hidden = false;
@@ -343,28 +380,40 @@
   function renderRows() {
     if (!state.result) {
       dom.resultCount.textContent = "Sin información";
-      dom.resultRows.innerHTML = '<tr><td colspan="8" class="cb-empty">Aún no hay movimientos históricos.</td></tr>';
+      dom.resultRows.innerHTML = '<tr><td colspan="9" class="cb-empty">Aún no hay movimientos históricos.</td></tr>';
       return;
     }
     const rows = filteredRows();
     const periodTotal = periodRows().length;
     dom.resultCount.textContent = `${rows.length.toLocaleString("es-CL")} de ${periodTotal.toLocaleString("es-CL")} movimientos`;
     if (!rows.length) {
-      dom.resultRows.innerHTML = '<tr><td colspan="8" class="cb-empty">No hay movimientos para los filtros seleccionados.</td></tr>';
+      dom.resultRows.innerHTML = '<tr><td colspan="9" class="cb-empty">No hay movimientos para los filtros seleccionados.</td></tr>';
       return;
     }
     dom.resultRows.innerHTML = rows.map(row => {
-      const code = row.bci?.transactionCode || "—";
+      const isReversal = row.statusKey === "reversa_bci";
+      const code = isReversal
+        ? [row.bci?.transactionCode, row.reversal?.transactionCode].filter(Boolean).join(" → ") || "—"
+        : row.bci?.transactionCode || "—";
       const shortCode = code.length > 24 ? `…${code.slice(-23)}` : code;
+      const bciDate = isReversal
+        ? row.reversal?.matched
+          ? `${formatDateTime(row.bci?.dateTime)} → ${formatDateTime(row.reversal?.dateTime)}`
+          : formatDateTime(row.reversal?.dateTime)
+        : formatDateTime(row.bci?.dateTime);
+      const detail = isReversal
+        ? row.reversal?.matched ? `${row.bci?.detail || "Abono BCI"} → ${row.reversal?.detail || "Reversa de Abono"}` : row.reversal?.detail || "Reversa de Abono"
+        : row.bci?.detail || "—";
       return `<tr>
         <td>${statusBadge(row)}</td>
         <td class="cb-money">${money(row.amount)}</td>
         <td>${formatDateTime(row.mae?.dateTime)}</td>
-        <td>${formatDateTime(row.bci?.dateTime)}</td>
+        <td>${bciDate}</td>
         <td>${formatDelta(row.deltaSeconds)}</td>
         <td>${escapeHtml(row.mae?.user || "—")}</td>
-        <td>${escapeHtml(row.bci?.detail || "—")}</td>
+        <td>${escapeHtml(detail)}</td>
         <td title="${escapeHtml(code)}">${escapeHtml(shortCode)}</td>
+        <td>${reviewControl(row)}</td>
       </tr>`;
     }).join("");
   }
@@ -372,8 +421,19 @@
   function statusBadge(row) {
     const css = row.statusKey === "conciliado" ? "matched"
       : row.statusKey === "demora" ? "delay"
+        : row.statusKey === "reversa_bci" ? "reversal"
         : row.statusKey === "fuera_alcance" ? "excluded" : "pending";
     return `<span class="cb-status cb-status--${css}">${escapeHtml(row.statusLabel)}</span>`;
+  }
+
+  function reviewControl(row) {
+    if (row.statusKey !== "reversa_bci" || !row.reversal?.id) return "—";
+    const reviewed = row.reversal.reviewed === true;
+    const loading = state.reviewingId === row.reversal.id;
+    const title = reviewed
+      ? `Revisado${row.reversal.reviewedBy ? ` por ${row.reversal.reviewedBy}` : ""}${row.reversal.reviewedAt ? ` el ${formatCreatedAt(row.reversal.reviewedAt)}` : ""}`
+      : "Marcar este evento como revisado";
+    return `<button class="cb-review-btn${reviewed ? " is-reviewed" : ""}" type="button" data-reversal-id="${escapeHtml(row.reversal.id)}" data-reviewed="${reviewed}" title="${escapeHtml(title)}" ${loading ? "disabled" : ""}>${loading ? "Guardando..." : reviewed ? "✓ Revisado" : "Marcar revisado"}</button>`;
   }
 
   function renderExceptions() {
@@ -386,6 +446,7 @@
     const items = [
       { title: "Depósitos MAE sin abono", note: "Requieren revisar el corte o el ingreso en BCI.", count: summary.pendingMaeCount, amount: summary.pendingMaeAmount },
       { title: "Abonos BCI sin depósito MAE", note: "Caja Depositaria sin pareja dentro del flujo histórico.", count: summary.pendingBciCount, amount: summary.pendingBciAmount },
+      { title: "Reversas BCI por revisar", note: "Abonos anulados por el banco; quedan fuera de la conciliación normal.", count: summary.reversalPendingReviewCount, amount: periodRows().filter(row => row.statusKey === "reversa_bci" && !row.reversal?.reviewed).reduce((sum, row) => sum + Number(row.amount || 0), 0) },
       { title: "Coincidencias con demora", note: `Mismo importe dentro de ${state.result.windowMinutes} minutos.`, count: summary.delayedCount, amount: periodRows().filter(row => row.statusKey === "demora").reduce((sum, row) => sum + Number(row.amount || 0), 0) },
       { title: "Otros depósitos BCI", note: "Caja manual o cheque; se informan, pero no se concilian con MAE.", count: summary.excludedBciCount, amount: summary.excludedBciAmount }
     ];
@@ -454,6 +515,7 @@
       ["Ventana máxima (minutos)", state.result.windowMinutes], ["Depósitos MAE", summary.maeCount],
       ["Monto MAE", summary.maeAmount], ["Conciliados", summary.matchedCount], ["Monto conciliado", summary.matchedAmount],
       ["Avance", summary.matchRate], ["MAE sin abono", summary.pendingMaeCount], ["BCI sin MAE", summary.pendingBciCount],
+      ["Reversas BCI", summary.reversalCount], ["Reversas pendientes de revisión", summary.reversalPendingReviewCount],
       ["Otros depósitos BCI", summary.excludedBciCount]
     ];
     const summarySheet = XLSX.utils.aoa_to_sheet(summaryRows);
@@ -463,7 +525,10 @@
       Estado: row.statusLabel, Importe: row.amount, "Fecha MAE": row.mae?.dateTime || "",
       "Fecha BCI": row.bci?.dateTime || "", "Diferencia minutos": row.deltaSeconds == null ? "" : row.deltaSeconds / 60,
       "Usuario MAE": row.mae?.user || "", Máquina: row.mae?.machine || "",
-      "Glosa BCI": row.bci?.detail || "", "Código BCI": row.bci?.transactionCode || ""
+      "Glosa BCI": row.bci?.detail || "", "Código BCI": row.bci?.transactionCode || "",
+      "Fecha reversa": row.reversal?.dateTime || "", "Código reversa": row.reversal?.transactionCode || "",
+      Revisado: row.reversal ? (row.reversal.reviewed ? "Sí" : "No") : "",
+      "Revisado por": row.reversal?.reviewedBy || "", "Fecha revisión": row.reversal?.reviewedAt || ""
     }));
     XLSX.utils.book_append_sheet(workbook, XLSX.utils.json_to_sheet(detail), "Detalle");
     XLSX.utils.book_append_sheet(workbook, XLSX.utils.json_to_sheet(state.uploads.map(item => ({
@@ -475,7 +540,7 @@
   }
 
   function rowDateKey(row) {
-    return String(row.mae?.dateKey || row.bci?.dateKey || "").slice(0, 10);
+    return String(row.reversal?.dateKey || row.mae?.dateKey || row.bci?.dateKey || "").slice(0, 10);
   }
 
   function setServerBadge(type, text) {

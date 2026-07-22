@@ -83,6 +83,7 @@
       <article class="cb-kpi cb-kpi--rate"><span>Avance</span><strong id="kpiRate">0%</strong><small>Sobre depósitos MAE</small></article>
       <article class="cb-kpi cb-kpi--warning"><span>MAE sin abono</span><strong id="kpiPendingMae">0</strong><small id="kpiPendingMaeAmount">$0</small></article>
       <article class="cb-kpi cb-kpi--danger"><span>BCI sin MAE</span><strong id="kpiPendingBci">0</strong><small id="kpiPendingBciAmount">$0</small></article>
+      <article class="cb-kpi cb-kpi--reversal"><span>Reversas BCI</span><strong id="kpiReversals">0</strong><small id="kpiReversalsAmount">$0</small></article>
       <article class="cb-kpi"><span>Otros depósitos BCI</span><strong id="kpiExcluded">0</strong><small id="kpiExcludedAmount">$0 fuera de alcance</small></article>
     </section>
 
@@ -102,14 +103,14 @@
         <label class="cb-field cb-field--wide"><span>Buscar</span><input id="filterSearch" type="search" placeholder="Importe, usuario, glosa o código BCI"></label>
         <label class="cb-field"><span>Año</span><select id="filterYear"><option value="">Todos los años</option></select></label>
         <label class="cb-field"><span>Mes</span><select id="filterMonth"><option value="">Todos los meses</option><option value="01">Enero</option><option value="02">Febrero</option><option value="03">Marzo</option><option value="04">Abril</option><option value="05">Mayo</option><option value="06">Junio</option><option value="07">Julio</option><option value="08">Agosto</option><option value="09">Septiembre</option><option value="10">Octubre</option><option value="11">Noviembre</option><option value="12">Diciembre</option></select></label>
-        <label class="cb-field"><span>Estado</span><select id="filterStatus"><option value="">Todos</option><option value="conciliado">Conciliados</option><option value="demora">Conciliados con demora</option><option value="pendiente_mae">MAE sin abono</option><option value="pendiente_bci">BCI sin MAE</option><option value="fuera_alcance">Otros depósitos BCI</option></select></label>
+        <label class="cb-field"><span>Estado</span><select id="filterStatus"><option value="">Todos</option><option value="conciliado">Conciliados</option><option value="demora">Conciliados con demora</option><option value="pendiente_mae">MAE sin abono</option><option value="pendiente_bci">BCI sin MAE</option><option value="reversa_bci">Reversas BCI</option><option value="fuera_alcance">Otros depósitos BCI</option></select></label>
         <button id="btnLimpiarFiltros" class="cb-btn cb-btn--ghost" type="button">Limpiar filtros</button>
       </div>
 
       <div class="cb-table-wrap">
         <table class="cb-table">
-          <thead><tr><th>Estado</th><th class="cb-align-right">Importe</th><th>Fecha MAE</th><th>Fecha BCI</th><th>Diferencia</th><th>Usuario MAE</th><th>Detalle BCI</th><th>Código BCI</th></tr></thead>
-          <tbody id="resultRows"><tr><td colspan="8" class="cb-empty">Consultando movimientos históricos.</td></tr></tbody>
+          <thead><tr><th>Estado</th><th class="cb-align-right">Importe</th><th>Fecha MAE</th><th>Fecha BCI</th><th>Diferencia</th><th>Usuario MAE</th><th>Detalle BCI</th><th>Código BCI</th><th>Revisión</th></tr></thead>
+          <tbody id="resultRows"><tr><td colspan="9" class="cb-empty">Consultando movimientos históricos.</td></tr></tbody>
         </table>
       </div>
     </section>
