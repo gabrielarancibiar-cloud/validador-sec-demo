@@ -28,7 +28,13 @@ module.exports = async function handler(req, res) {
     return res.status(503).json({ error: error.message });
   }
 
-  if (req.method === "GET") return listBatches(supabase, res);
+  if (req.method === "GET") {
+    const batchId = getQueryValue(req.query?.id);
+    if (batchId && !isUuid(batchId)) {
+      return res.status(400).json({ error: "El identificador de la conciliación no es válido." });
+    }
+    return batchId ? getBatchDetails(supabase, batchId, res) : listBatches(supabase, res);
+  }
   return saveBatch(supabase, req, res);
 };
 
@@ -48,7 +54,7 @@ async function listBatches(supabase, res) {
     .from("conciliacion_lotes")
     .select("id,created_at,creado_por,periodo_desde,periodo_hasta,mae_archivo_nombre,bci_archivo_nombre,conciliados_cantidad,conciliados_monto,pendiente_mae_cantidad,pendiente_bci_cantidad,estado")
     .order("created_at", { ascending: false })
-    .limit(20);
+    .limit(100);
 
   if (error) {
     return res.status(503).json({
@@ -56,6 +62,53 @@ async function listBatches(supabase, res) {
     });
   }
   return res.status(200).json({ items: data || [] });
+}
+
+async function getBatchDetails(supabase, batchId, res) {
+  const [batchResult, maeResult, bciResult, matchesResult] = await Promise.all([
+    supabase
+      .from("conciliacion_lotes")
+      .select("id,created_at,creado_por,periodo_desde,periodo_hasta,ventana_minutos,mae_archivo_nombre,bci_archivo_nombre,mae_cantidad,mae_monto,bci_caja_cantidad,bci_caja_monto,conciliados_cantidad,conciliados_monto,pendiente_mae_cantidad,pendiente_mae_monto,pendiente_bci_cantidad,pendiente_bci_monto,fuera_alcance_cantidad,fuera_alcance_monto,estado,resumen")
+      .eq("id", batchId)
+      .maybeSingle(),
+    supabase
+      .from("conciliacion_mae")
+      .select("source_key,source_row,occurred_at,maquina,cliente,usuario,tipo,moneda,monto")
+      .eq("lote_id", batchId)
+      .order("occurred_at", { ascending: true }),
+    supabase
+      .from("conciliacion_bci")
+      .select("source_key,source_row,occurred_at,fecha_contable,codigo_transaccion,tipo,glosa,monto,en_alcance,motivo_exclusion")
+      .eq("lote_id", batchId)
+      .order("occurred_at", { ascending: true }),
+    supabase
+      .from("conciliacion_matches")
+      .select("mae_source_key,bci_source_key,estado,monto,diferencia_segundos,cruza_dia")
+      .eq("lote_id", batchId)
+  ]);
+
+  const queryError = batchResult.error || maeResult.error || bciResult.error || matchesResult.error;
+  if (queryError) {
+    return res.status(500).json({ error: "No fue posible consultar el detalle guardado en Supabase." });
+  }
+  if (!batchResult.data) {
+    return res.status(404).json({ error: "La conciliación solicitada no existe." });
+  }
+
+  return res.status(200).json({
+    item: batchResult.data,
+    mae: maeResult.data || [],
+    bci: bciResult.data || [],
+    matches: matchesResult.data || []
+  });
+}
+
+function getQueryValue(value) {
+  return String(Array.isArray(value) ? value[0] : (value || "")).trim();
+}
+
+function isUuid(value) {
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(String(value || ""));
 }
 
 async function saveBatch(supabase, req, res) {
@@ -274,4 +327,4 @@ function cleanText(value, maxLength = 500) {
   return String(value ?? "").trim().slice(0, maxLength);
 }
 
-module.exports._test = { validateAndReconcile, decodeExcelFile, safeFileName };
+module.exports._test = { validateAndReconcile, decodeExcelFile, safeFileName, getQueryValue, isUuid };
