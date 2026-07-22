@@ -30,6 +30,9 @@ function timingSafeEqual(a, b) {
 }
 
 export default function middleware(request) {
+  if (process.env.PORTAL_GATE_DISABLED === 'true') {
+    return;
+  }
   const expectedUser = process.env.PORTAL_GATE_USER;
   const expectedPass = process.env.PORTAL_GATE_PASS;
 
