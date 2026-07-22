@@ -10,8 +10,8 @@ const PAGE_SIZE = 1000;
 
 async function handler(req, res) {
   res.setHeader("Cache-Control", "no-store");
-  if (!["GET", "POST"].includes(req.method)) {
-    res.setHeader("Allow", "GET, POST");
+  if (!["GET", "POST", "PATCH"].includes(req.method)) {
+    res.setHeader("Allow", "GET, POST, PATCH");
     return res.status(405).json({ error: "Método no permitido." });
   }
 
@@ -23,6 +23,7 @@ async function handler(req, res) {
   }
 
   if (req.method === "GET") return getLedger(supabase, req, res);
+  if (req.method === "PATCH") return updateReversalReview(supabase, req, res);
   return addToLedger(supabase, req, res);
 }
 
@@ -51,7 +52,7 @@ async function getLedger(supabase, req, res) {
         .range(from, to)),
       fetchAllRows((from, to) => supabase
         .from("conciliacion_bci_flujo")
-        .select("registro_id,source_key_original,source_row,occurred_at,fecha_contable,codigo_transaccion,tipo,glosa,monto,en_alcance,motivo_exclusion")
+        .select("registro_id,source_key_original,source_row,occurred_at,fecha_contable,codigo_transaccion,tipo,glosa,monto,en_alcance,motivo_exclusion,es_reversa,revisado,revisado_por,revisado_at")
         .order("occurred_at", { ascending: true })
         .range(from, to)),
       supabase
@@ -64,14 +65,10 @@ async function getLedger(supabase, req, res) {
     if (uploadsResult.error) throw uploadsResult.error;
     const maeRows = maeData.map(toCoreMae);
     const bciRows = bciData.map(toCoreBci);
-    const result = CORE.reconcile(
-      { deposits: maeRows },
-      { inScope: bciRows.filter(row => row.inScope), excluded: bciRows.filter(row => !row.inScope) },
-      { windowMinutes }
-    );
+    const result = buildLedgerResult(maeRows, bciRows, windowMinutes);
 
     return res.status(200).json({
-      result: compactResult(result),
+      result,
       uploads: uploadsResult.data || [],
       updatedAt: uploadsResult.data?.[0]?.created_at || null
     });
@@ -83,6 +80,80 @@ async function getLedger(supabase, req, res) {
         : (error.message || "No fue posible consultar la conciliación histórica.")
     });
   }
+}
+
+function buildLedgerResult(maeRows, bciRows, windowMinutes) {
+  const { activeDeposits, reversalRows } = resolveBciReversals(bciRows);
+  const reconciled = CORE.reconcile(
+    { deposits: maeRows },
+    { inScope: activeDeposits.filter(row => row.inScope), excluded: activeDeposits.filter(row => !row.inScope) },
+    { windowMinutes }
+  );
+  const compact = compactResult(reconciled);
+  compact.rows = [...compact.rows, ...reversalRows].sort((a, b) => rowSortDate(b).localeCompare(rowSortDate(a)));
+  compact.summary.reversalCount = reversalRows.length;
+  compact.summary.reversalAmount = reversalRows.reduce((sum, row) => sum + Number(row.amount || 0), 0);
+  compact.summary.reversalPendingReviewCount = reversalRows.filter(row => !row.reversal?.reviewed).length;
+  return compact;
+}
+
+function resolveBciReversals(rows) {
+  const deposits = rows.filter(row => !row.isReversal);
+  const reversals = rows.filter(row => row.isReversal).sort((a, b) => a.epoch - b.epoch);
+  const usedDeposits = new Set();
+  const reversalRows = [];
+  const maximumGapSeconds = 30 * 24 * 60 * 60;
+
+  for (const reversal of reversals) {
+    const group = transactionGroup(reversal.transactionCode);
+    const candidates = group ? deposits.filter(deposit => {
+      const delta = (reversal.epoch - deposit.epoch) / 1000;
+      return !usedDeposits.has(deposit.sourceKey)
+        && transactionGroup(deposit.transactionCode) === group
+        && deposit.amount === reversal.amount
+        && delta >= 0
+        && delta <= maximumGapSeconds;
+    }) : [];
+    candidates.sort((a, b) => (reversal.epoch - a.epoch) - (reversal.epoch - b.epoch));
+    const deposit = candidates[0] || null;
+    if (deposit) usedDeposits.add(deposit.sourceKey);
+    const deltaSeconds = deposit ? Math.round((reversal.epoch - deposit.epoch) / 1000) : null;
+    reversalRows.push({
+      statusKey: "reversa_bci",
+      statusLabel: deposit ? "Abono reversado" : "Reversa sin abono asociado",
+      amount: reversal.amount,
+      deltaSeconds,
+      crossesDay: Boolean(deposit && deposit.dateKey !== reversal.dateKey),
+      mae: null,
+      bci: deposit || reversal,
+      reversal: {
+        id: reversal.sourceKey,
+        dateTime: reversal.dateTime,
+        dateKey: reversal.dateKey,
+        detail: reversal.detail,
+        transactionCode: reversal.transactionCode,
+        reviewed: reversal.reviewed,
+        reviewedBy: reversal.reviewedBy,
+        reviewedAt: reversal.reviewedAt,
+        matched: Boolean(deposit)
+      }
+    });
+  }
+
+  return {
+    activeDeposits: deposits.filter(row => !usedDeposits.has(row.sourceKey)),
+    reversalRows
+  };
+}
+
+function transactionGroup(code) {
+  const value = String(code || "").trim();
+  if (!value) return "";
+  return identityText(value.split("|")[0]);
+}
+
+function rowSortDate(row) {
+  return String(row.reversal?.dateTime || row.mae?.dateTime || row.bci?.dateTime || "");
 }
 
 function compactResult(result) {
@@ -113,6 +184,35 @@ function compactResult(result) {
       } : null
     }))
   };
+}
+
+async function updateReversalReview(supabase, req, res) {
+  let body;
+  try {
+    body = typeof req.body === "string" ? JSON.parse(req.body) : (req.body || {});
+  } catch (_) {
+    return res.status(400).json({ error: "El contenido enviado no es JSON válido." });
+  }
+  const reversalId = cleanText(body.reversal_id, 64);
+  if (!/^[0-9a-f]{64}$/i.test(reversalId) || typeof body.reviewed !== "boolean") {
+    return res.status(400).json({ error: "La revisión de la reversa no es válida." });
+  }
+  const reviewed = body.reviewed;
+  const changes = {
+    revisado: reviewed,
+    revisado_por: reviewed ? cleanText(body.reviewed_by || "Usuario portal", 150) : null,
+    revisado_at: reviewed ? new Date().toISOString() : null
+  };
+  const { data, error } = await supabase
+    .from("conciliacion_bci_flujo")
+    .update(changes)
+    .eq("registro_id", reversalId)
+    .eq("es_reversa", true)
+    .select("registro_id,revisado,revisado_por,revisado_at")
+    .maybeSingle();
+  if (error) return res.status(500).json({ error: error.message || "No fue posible guardar la revisión." });
+  if (!data) return res.status(404).json({ error: "La reversa indicada no existe." });
+  return res.status(200).json({ item: data, message: reviewed ? "Reversa marcada como revisada." : "Revisión reabierta." });
 }
 
 async function addToLedger(supabase, req, res) {
@@ -201,7 +301,8 @@ function validateAndPrepareFlow(body) {
       registro_id: row.registroId, source_key_original: row.sourceKey, source_row: row.sourceRow,
       occurred_at: row.dateTime, fecha_contable: row.accountingDate || null,
       codigo_transaccion: row.transactionCode, tipo: row.type, glosa: row.detail,
-      monto: row.amount, en_alcance: row.inScope, motivo_exclusion: row.excludedReason || null
+      monto: row.amount, en_alcance: row.inScope, motivo_exclusion: row.excludedReason || null,
+      es_reversa: row.isReversal
     }))
   };
 }
@@ -237,12 +338,14 @@ function normalizeBciRow(row, index) {
   const amount = positiveInteger(row?.monto, `Importe BCI inválido en la fila ${index + 1}.`);
   if (!timestamp) throw new Error(`Fecha BCI inválida en la fila ${index + 1}.`);
   const accounting = row?.fecha_contable ? CORE.parseDateTime(row.fecha_contable) : null;
+  const isReversal = row.es_reversa === true;
   return {
     sourceKey: cleanText(row.source_key || row.codigo_transaccion || `BCI-${index + 1}`, 500), sourceRow: positiveRow(row.source_row, index),
     dateTime: timestamp.dateTime, dateKey: timestamp.dateKey, epoch: timestamp.epoch,
     accountingDate: accounting?.dateKey || "", transactionCode: cleanText(row.codigo_transaccion, 500),
-    type: cleanText(row.tipo || "DEPOSITOS", 100), detail: cleanText(row.glosa, 500), amount,
-    inScope: row.en_alcance === true, excludedReason: cleanText(row.motivo_exclusion, 200)
+    type: cleanText(row.tipo || (isReversal ? "REVERSA" : "DEPOSITOS"), 100), detail: cleanText(row.glosa, 500), amount,
+    inScope: row.en_alcance === true, excludedReason: cleanText(row.motivo_exclusion, 200),
+    isReversal
   };
 }
 
@@ -263,7 +366,9 @@ function toCoreBci(row) {
     dateTime: timestamp?.dateTime || String(row.occurred_at || ""), dateKey: timestamp?.dateKey || "", epoch: timestamp?.epoch || 0,
     accountingDate: row.fecha_contable || "", transactionCode: row.codigo_transaccion || "",
     type: row.tipo || "DEPOSITOS", detail: row.glosa || "", amount: Number(row.monto || 0),
-    inScope: row.en_alcance === true, excludedReason: row.motivo_exclusion || ""
+    inScope: row.en_alcance === true, excludedReason: row.motivo_exclusion || "",
+    isReversal: row.es_reversa === true, reviewed: row.revisado === true,
+    reviewedBy: row.revisado_por || "", reviewedAt: row.revisado_at || null
   };
 }
 
@@ -357,5 +462,6 @@ function cleanText(value, maxLength = 500) {
 
 module.exports._test = {
   validateAndPrepareFlow, addStableIds, normalizeMaeRow, normalizeBciRow,
-  decodeExcelFile, safeFileName, getQueryValue, identityText, clampWindow, compactResult
+  decodeExcelFile, safeFileName, getQueryValue, identityText, clampWindow, compactResult,
+  buildLedgerResult, resolveBciReversals, transactionGroup
 };
