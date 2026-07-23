@@ -15,8 +15,8 @@
     <div>
       <a class="vp-back" href="/">← Volver a VALEPAC</a>
       <div class="vp-eyebrow">CONTROL DE PRECIOS · EDS 40098</div>
-      <h1>Validador de precios de gasolina</h1>
-      <p>Detecta ventas consecutivas de un mismo producto con variaciones cercanas a $100.</p>
+      <h1>Periodos de precio de gasolina</h1>
+      <p>Identifica cada nivel estable de precio y suma los litros vendidos hasta el siguiente cambio cercano a $100.</p>
     </div>
     <div class="vp-header-actions">
       <span id="statusBadge" class="vp-badge vp-badge--neutral">Esperando CSV</span>
@@ -30,7 +30,7 @@
         <div>
           <div class="vp-eyebrow">CARGA DE DATOS</div>
           <h2>Reporte de ventas</h2>
-          <p>Carga el CSV descargado desde el sistema de ventas. Se analizarán únicamente Gasolina 93, 95 y 97.</p>
+          <p>Carga el CSV de ventas. El análisis considera Gasolina 93, 95 y 97, junto con la cantidad vendida en litros.</p>
         </div>
       </div>
 
@@ -54,85 +54,76 @@
     <section class="vp-card">
       <div class="vp-card-heading vp-card-heading--compact">
         <div>
-          <div class="vp-eyebrow">REGLA DE DETECCIÓN</div>
-          <h2>Ventana de búsqueda</h2>
-          <p>Los valores pueden ajustarse sin volver a cargar el archivo.</p>
+          <div class="vp-eyebrow">REGLA DE SEGMENTACIÓN</div>
+          <h2>Definición del periodo estable</h2>
+          <p>Los parámetros se pueden ajustar sin volver a cargar el archivo.</p>
         </div>
-        <button id="analyzeBtn" class="vp-btn vp-btn--primary vp-btn--large" type="button" disabled>Analizar cambios</button>
+        <button id="analyzeBtn" class="vp-btn vp-btn--primary vp-btn--large" type="button" disabled>Calcular periodos</button>
       </div>
 
       <div class="vp-form-grid">
         <label class="vp-field">
-          <span>Variación mínima</span>
+          <span>Cambio mínimo para nuevo periodo</span>
           <div class="vp-input-suffix"><span>$</span><input id="minVariation" type="number" min="0" step="1" value="80"></div>
         </label>
         <label class="vp-field">
-          <span>Variación máxima</span>
+          <span>Cambio máximo para nuevo periodo</span>
           <div class="vp-input-suffix"><span>$</span><input id="maxVariation" type="number" min="0" step="1" value="130"></div>
         </label>
         <label class="vp-field">
-          <span>Tiempo máximo entre ventas</span>
-          <select id="maxGap">
-            <option value="15">15 minutos</option>
-            <option value="30">30 minutos</option>
-            <option value="60" selected>60 minutos</option>
-            <option value="120">2 horas</option>
-            <option value="360">6 horas</option>
-          </select>
+          <span>Banda del mismo precio estable</span>
+          <div class="vp-input-suffix"><span>± $</span><input id="stableTolerance" type="number" min="0" step="1" value="35"></div>
         </label>
         <label class="vp-field">
-          <span>Tolerancia para confirmar nivel</span>
-          <div class="vp-input-suffix"><span>± $</span><input id="confirmationTolerance" type="number" min="0" step="1" value="35"></div>
+          <span>Tiempo para confirmar el nuevo nivel</span>
+          <select id="confirmationWindow">
+            <option value="60">60 minutos</option>
+            <option value="120" selected>2 horas</option>
+            <option value="180">3 horas</option>
+            <option value="360">6 horas</option>
+          </select>
         </label>
       </div>
 
       <div class="vp-rule-note">
-        <strong>Cómo funciona:</strong> cada venta se compara con la venta anterior del mismo tipo de gasolina.
-        Un cambio queda como <b>consistente</b> cuando el nuevo nivel de precio vuelve a aparecer en al menos dos de las cuatro ventas siguientes.
+        <strong>Regla aplicada:</strong> un periodo mantiene agrupadas las ventas dentro de una banda de precio —incluidos descuentos—.
+        Cuando aparecen al menos tres ventas en un nuevo nivel separado entre $80 y $130, el periodo anterior se cierra y comienza una nueva suma de litros.
       </div>
     </section>
 
     <section class="vp-kpis">
-      <article class="vp-kpi"><span>Ventas de gasolina</span><strong id="kpiSales">—</strong><small id="kpiPeriod">Sin archivo</small></article>
-      <article class="vp-kpi vp-kpi--detected"><span>Cambios detectados</span><strong id="kpiChanges">—</strong><small id="kpiEvents">— eventos agrupados</small></article>
-      <article class="vp-kpi vp-kpi--down"><span>Bajas de precio</span><strong id="kpiDown">—</strong><small>Variación negativa</small></article>
-      <article class="vp-kpi vp-kpi--up"><span>Subidas de precio</span><strong id="kpiUp">—</strong><small>Variación positiva</small></article>
-      <article class="vp-kpi vp-kpi--consistent"><span>Cambios consistentes</span><strong id="kpiConsistent">—</strong><small>Repetidos en ventas siguientes</small></article>
-      <article class="vp-kpi vp-kpi--review"><span>A revisar</span><strong id="kpiReview">—</strong><small>Aislados o sin muestra</small></article>
+      <article class="vp-kpi"><span>Litros analizados</span><strong id="kpiTotalLiters">—</strong><small id="kpiPeriod">Sin archivo</small></article>
+      <article class="vp-kpi vp-kpi--detected"><span>Litros en precios estables</span><strong id="kpiStableLiters">—</strong><small id="kpiCoverage">— de cobertura</small></article>
+      <article class="vp-kpi vp-kpi--consistent"><span>Periodos de precio</span><strong id="kpiPeriods">—</strong><small>Gasolina 93, 95 y 97</small></article>
+      <article class="vp-kpi vp-kpi--down"><span>Periodos iniciados por baja</span><strong id="kpiDown">—</strong><small>Cambio negativo cercano a $100</small></article>
+      <article class="vp-kpi vp-kpi--up"><span>Periodos iniciados por subida</span><strong id="kpiUp">—</strong><small>Cambio positivo cercano a $100</small></article>
+      <article class="vp-kpi vp-kpi--review"><span>Litros fuera del nivel</span><strong id="kpiExceptionLiters">—</strong><small id="kpiExceptionSales">Ventas aisladas</small></article>
     </section>
 
     <section class="vp-card">
       <div class="vp-card-heading vp-card-heading--compact">
         <div>
           <div class="vp-eyebrow">RESUMEN</div>
-          <h2>Eventos de cambio</h2>
-          <p>Las detecciones próximas entre sí se agrupan para facilitar la revisión del momento del cambio.</p>
+          <h2>Resultado por producto</h2>
+          <p>Volumen acumulado, cantidad de periodos y último precio estable detectado.</p>
         </div>
       </div>
-      <div id="eventList" class="vp-event-list">
-        <div class="vp-empty-panel">Carga un CSV para ver los eventos detectados.</div>
+      <div id="productSummary" class="vp-product-summary">
+        <div class="vp-empty-panel">Carga un CSV para ver el resumen por producto.</div>
       </div>
     </section>
 
     <section class="vp-card">
       <div class="vp-card-heading vp-card-heading--compact">
         <div>
-          <div class="vp-eyebrow">DETALLE</div>
-          <h2>Ventas con cambio de precio</h2>
+          <div class="vp-eyebrow">PERIODOS</div>
+          <h2>Litros vendidos por precio estable</h2>
           <p id="resultCount">Sin resultados.</p>
         </div>
         <button id="clearFiltersBtn" class="vp-btn vp-btn--secondary" type="button">Limpiar filtros</button>
       </div>
 
-      <div class="vp-filters">
-        <label class="vp-field">
-          <span>Dirección</span>
-          <select id="directionFilter">
-            <option value="all">Bajas y subidas</option>
-            <option value="down">Solo bajas</option>
-            <option value="up">Solo subidas</option>
-          </select>
-        </label>
+      <div class="vp-filters vp-period-filters">
         <label class="vp-field">
           <span>Producto</span>
           <select id="productFilter">
@@ -143,12 +134,12 @@
           </select>
         </label>
         <label class="vp-field">
-          <span>Validación</span>
-          <select id="validationFilter">
-            <option value="all">Todos</option>
-            <option value="consistent">Consistentes</option>
-            <option value="review">A revisar</option>
-            <option value="insufficient">Sin muestra suficiente</option>
+          <span>Inicio del periodo</span>
+          <select id="directionFilter">
+            <option value="all">Inicial, bajas y subidas</option>
+            <option value="initial">Periodo inicial</option>
+            <option value="down">Iniciado por baja</option>
+            <option value="up">Iniciado por subida</option>
           </select>
         </label>
         <label class="vp-field">
@@ -160,33 +151,62 @@
           <input id="dateTo" type="date">
         </label>
         <label class="vp-field vp-field--search">
-          <span>Buscar</span>
-          <input id="searchFilter" type="search" placeholder="Atendedor, POS o transacción">
+          <span>Buscar precio</span>
+          <input id="searchFilter" type="search" placeholder="Ej.: 1409">
         </label>
       </div>
 
       <div class="vp-table-wrap">
-        <table class="vp-table">
+        <table class="vp-table vp-period-table">
           <thead>
             <tr>
-              <th>Dirección</th>
-              <th>Validación</th>
+              <th>Producto</th>
+              <th>Periodo</th>
+              <th>Origen</th>
+              <th class="vp-align-right">Precio estable</th>
+              <th class="vp-align-right">Cambio</th>
+              <th>Desde</th>
+              <th>Hasta</th>
+              <th class="vp-align-right">Duración</th>
+              <th class="vp-align-right">Ventas estables</th>
+              <th class="vp-align-right">Litros estables</th>
+              <th>Precios incluidos</th>
+              <th class="vp-align-right">Litros fuera de nivel</th>
+            </tr>
+          </thead>
+          <tbody id="periodRows">
+            <tr><td colspan="12" class="vp-empty">Carga un CSV para comenzar.</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <section class="vp-card">
+      <div class="vp-card-heading vp-card-heading--compact">
+        <div>
+          <div class="vp-eyebrow">CONTROL</div>
+          <h2>Ventas fuera del nivel estable</h2>
+          <p id="exceptionCount">Aquí aparecerán ventas aisladas que no forman un nuevo periodo confirmado.</p>
+        </div>
+      </div>
+      <div class="vp-table-wrap vp-exception-wrap">
+        <table class="vp-table vp-exception-table">
+          <thead>
+            <tr>
               <th>Producto</th>
               <th>Fecha y hora</th>
-              <th class="vp-align-right">Precio anterior</th>
-              <th class="vp-align-right">Precio actual</th>
-              <th class="vp-align-right">Variación</th>
-              <th class="vp-align-right">Tiempo</th>
+              <th class="vp-align-right">Precio venta</th>
+              <th class="vp-align-right">Precio estable</th>
+              <th class="vp-align-right">Diferencia</th>
+              <th class="vp-align-right">Litros</th>
               <th>Atendedor</th>
               <th>POS</th>
-              <th>Forma de pago</th>
-              <th class="vp-align-right">Descuento</th>
               <th>Transacción</th>
               <th>Revisión</th>
             </tr>
           </thead>
-          <tbody id="resultRows">
-            <tr><td colspan="14" class="vp-empty">Carga un CSV para comenzar.</td></tr>
+          <tbody id="exceptionRows">
+            <tr><td colspan="10" class="vp-empty">Sin datos.</td></tr>
           </tbody>
         </table>
       </div>

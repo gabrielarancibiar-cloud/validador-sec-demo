@@ -57,21 +57,33 @@ async function run() {
     if (sale) sales.push(sale);
   }
 
-  const result = core.analyzeSales(sales, {
+  const result = core.analyzeStablePeriods(sales, {
     minVariation: 80,
     maxVariation: 130,
-    maxGapMinutes: 60,
-    confirmationTolerance: 35,
-    confirmationLookAhead: 4,
-    confirmationMinimum: 2,
-    confirmationWindowMinutes: 60,
-    eventWindowMinutes: 45
+    stableTolerance: 35,
+    transitionLookAhead: 8,
+    transitionConfirmationSales: 3,
+    confirmationWindowMinutes: 120
   });
   console.log(JSON.stringify({
     gasolineRows: sales.length,
     ...result.summary,
     dateFrom: result.summary.dateFrom?.toISOString(),
-    dateTo: result.summary.dateTo?.toISOString()
+    dateTo: result.summary.dateTo?.toISOString(),
+    periods: result.periods.map((period) => ({
+      product: period.product,
+      sequence: period.sequence,
+      stablePrice: period.stablePrice,
+      direction: period.direction,
+      changeDelta: period.changeDelta,
+      start: period.start?.toISOString(),
+      end: period.end?.toISOString(),
+      stableSales: period.stableSales.length,
+      stableLiters: period.stableLiters,
+      exceptionSales: period.exceptionSales.length,
+      exceptionLiters: period.exceptionLiters,
+      prices: period.priceBreakdown.map((item) => `${item.price}:${item.liters}`)
+    }))
   }, null, 2));
 }
 

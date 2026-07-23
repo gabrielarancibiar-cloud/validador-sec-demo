@@ -39,6 +39,24 @@
     return Number.isFinite(parsed) ? parsed : NaN;
   }
 
+  function parseDecimalNumber(value) {
+    if (typeof value === "number") return Number.isFinite(value) ? value : NaN;
+    if (value === null || value === undefined || value === "") return NaN;
+    let text = String(value).trim().replace(/\s/g, "").replace(/\$/g, "");
+    if (!text) return NaN;
+    if (text.includes(",") && text.includes(".")) {
+      if (text.lastIndexOf(",") > text.lastIndexOf(".")) {
+        text = text.replace(/\./g, "").replace(",", ".");
+      } else {
+        text = text.replace(/,/g, "");
+      }
+    } else if (text.includes(",")) {
+      text = text.replace(",", ".");
+    }
+    const parsed = Number(text);
+    return Number.isFinite(parsed) ? parsed : NaN;
+  }
+
   function isValidDate(value) {
     return value instanceof Date && !Number.isNaN(value.getTime());
   }
@@ -111,6 +129,7 @@
       rowNumber: Number(rowNumber) || 0,
       product,
       price: parseLocaleNumber(field(row, ["PRECIO"])),
+      liters: parseDecimalNumber(field(row, ["CANTIDAD"])),
       timestamp,
       transactionId: String(field(row, ["TRANSACCION ID", "TRANSACCIÓN ID"]) || "").trim(),
       transactionCode: String(field(row, ["TRANSACCION CODIGO", "TRANSACCIÓN CÓDIGO"]) || "").trim(),
@@ -248,6 +267,254 @@
     };
   }
 
+  function analyzeStablePeriods(inputSales, options) {
+    const opts = normalizePeriodOptions(options);
+    const sales = Array.isArray(inputSales) ? inputSales : [];
+    const invalidPrice = [];
+    const invalidLiters = [];
+    const validSales = [];
+
+    sales.forEach((sale) => {
+      if (!sale || !sale.product || !isValidDate(sale.timestamp)) return;
+      if (!Number.isFinite(sale.price) || sale.price < opts.minValidPrice || sale.price > opts.maxValidPrice) {
+        invalidPrice.push(sale);
+        return;
+      }
+      if (!Number.isFinite(sale.liters) || sale.liters <= 0) {
+        invalidLiters.push(sale);
+        return;
+      }
+      validSales.push({ ...sale, timestamp: new Date(sale.timestamp) });
+    });
+
+    const byProduct = new Map();
+    validSales.forEach((sale) => {
+      if (!byProduct.has(sale.product)) byProduct.set(sale.product, []);
+      byProduct.get(sale.product).push(sale);
+    });
+
+    const periods = [];
+    const transitions = [];
+    for (const [product, productSales] of byProduct.entries()) {
+      productSales.sort((a, b) => a.timestamp - b.timestamp || a.rowNumber - b.rowNumber);
+      if (!productSales.length) continue;
+
+      const initialSeed = productSales.slice(0, Math.min(opts.seedSales, productSales.length));
+      let current = createPeriod(product, dominantPrice(initialSeed, opts.stableTolerance), null, 1);
+
+      for (let index = 0; index < productSales.length; index += 1) {
+        const sale = productSales[index];
+        const distance = sale.price - current.stablePrice;
+        if (Math.abs(distance) <= opts.stableTolerance) {
+          addStableSale(current, sale);
+          continue;
+        }
+
+        const transition = confirmPeriodTransition(productSales, index, current.stablePrice, opts);
+        if (!transition.confirmed) {
+          addExceptionSale(current, sale);
+          continue;
+        }
+
+        const previousSale = productSales[index - 1] || sale;
+        finalizePeriod(current, previousSale.timestamp);
+        periods.push(current);
+
+        const delta = transition.stablePrice - current.stablePrice;
+        current = createPeriod(
+          product,
+          transition.stablePrice,
+          {
+            direction: delta < 0 ? "down" : "up",
+            delta,
+            previousPrice: current.stablePrice,
+            confirmationSales: transition.confirmationSales
+          },
+          current.sequence + 1
+        );
+        addStableSale(current, sale);
+        transitions.push({
+          product,
+          timestamp: new Date(sale.timestamp),
+          direction: delta < 0 ? "down" : "up",
+          delta,
+          previousPrice: current.previousPrice,
+          newPrice: transition.stablePrice,
+          confirmationSales: transition.confirmationSales,
+          sale
+        });
+      }
+
+      finalizePeriod(current, productSales[productSales.length - 1].timestamp);
+      periods.push(current);
+    }
+
+    periods.sort((a, b) => a.start - b.start || a.product.localeCompare(b.product));
+    transitions.sort((a, b) => a.timestamp - b.timestamp || a.product.localeCompare(b.product));
+    const allTimestamps = validSales.map((sale) => sale.timestamp.getTime());
+    const totalLiters = sum(validSales.map((sale) => sale.liters));
+    const stableLiters = sum(periods.map((period) => period.stableLiters));
+    const exceptionLiters = sum(periods.map((period) => period.exceptionLiters));
+
+    return {
+      options: opts,
+      validSales,
+      invalidPrice,
+      invalidLiters,
+      periods,
+      transitions,
+      summary: {
+        sourceRows: sales.length,
+        validSales: validSales.length,
+        invalidPrice: invalidPrice.length,
+        invalidLiters: invalidLiters.length,
+        periods: periods.length,
+        transitions: transitions.length,
+        down: transitions.filter((item) => item.direction === "down").length,
+        up: transitions.filter((item) => item.direction === "up").length,
+        productCount: byProduct.size,
+        totalLiters,
+        stableLiters,
+        exceptionLiters,
+        stableCoverage: totalLiters ? stableLiters / totalLiters : 0,
+        dateFrom: allTimestamps.length ? new Date(Math.min(...allTimestamps)) : null,
+        dateTo: allTimestamps.length ? new Date(Math.max(...allTimestamps)) : null
+      }
+    };
+  }
+
+  function normalizePeriodOptions(options) {
+    const base = normalizeOptions(options);
+    const raw = options || {};
+    return {
+      ...base,
+      stableTolerance: Math.max(0, Number(raw.stableTolerance) || 35),
+      seedSales: Math.max(1, Math.round(Number(raw.seedSales) || 8)),
+      transitionLookAhead: Math.max(2, Math.round(Number(raw.transitionLookAhead) || 8)),
+      transitionConfirmationSales: Math.max(2, Math.round(Number(raw.transitionConfirmationSales) || 3)),
+      confirmationWindowMinutes: Math.max(1, Number(raw.confirmationWindowMinutes) || 120)
+    };
+  }
+
+  function createPeriod(product, stablePrice, change, sequence) {
+    return {
+      id: `${product.replace(/\s+/g, "-").toLowerCase()}-${sequence}`,
+      product,
+      sequence,
+      stablePrice,
+      previousPrice: change?.previousPrice ?? null,
+      direction: change?.direction || "initial",
+      changeDelta: change?.delta ?? null,
+      confirmationSales: change?.confirmationSales || 0,
+      start: null,
+      end: null,
+      stableSales: [],
+      exceptionSales: [],
+      stableLiters: 0,
+      exceptionLiters: 0,
+      totalLiters: 0,
+      priceBreakdown: [],
+      _priceStats: new Map(),
+      _dominantCount: 0
+    };
+  }
+
+  function addStableSale(period, sale) {
+    period.stableSales.push(sale);
+    period.stableLiters += sale.liters;
+    period.totalLiters += sale.liters;
+    if (!period.start || sale.timestamp < period.start) period.start = new Date(sale.timestamp);
+    if (!period.end || sale.timestamp > period.end) period.end = new Date(sale.timestamp);
+    const priceKey = String(sale.price);
+    if (!period._priceStats.has(priceKey)) {
+      period._priceStats.set(priceKey, { price: sale.price, sales: 0, liters: 0 });
+    }
+    const priceStat = period._priceStats.get(priceKey);
+    priceStat.sales += 1;
+    priceStat.liters += sale.liters;
+    if (
+      priceStat.sales > period._dominantCount ||
+      (priceStat.sales === period._dominantCount && sale.price > period.stablePrice)
+    ) {
+      period.stablePrice = sale.price;
+      period._dominantCount = priceStat.sales;
+    }
+  }
+
+  function addExceptionSale(period, sale) {
+    period.exceptionSales.push(sale);
+    period.exceptionLiters += sale.liters;
+    period.totalLiters += sale.liters;
+    if (!period.start || sale.timestamp < period.start) period.start = new Date(sale.timestamp);
+    if (!period.end || sale.timestamp > period.end) period.end = new Date(sale.timestamp);
+  }
+
+  function finalizePeriod(period, fallbackEnd) {
+    if (!period.start) period.start = fallbackEnd ? new Date(fallbackEnd) : null;
+    period.end = fallbackEnd ? new Date(fallbackEnd) : period.end;
+    period.priceBreakdown = [...period._priceStats.values()]
+      .map((item) => ({ ...item, liters: round(item.liters, 3) }))
+      .sort((a, b) => b.sales - a.sales || b.liters - a.liters || b.price - a.price);
+    period.stableLiters = round(period.stableLiters, 3);
+    period.exceptionLiters = round(period.exceptionLiters, 3);
+    period.totalLiters = round(period.totalLiters, 3);
+    delete period._priceStats;
+    delete period._dominantCount;
+  }
+
+  function confirmPeriodTransition(productSales, index, currentStablePrice, options) {
+    const candidate = productSales[index];
+    const nearby = [];
+    for (
+      let cursor = index;
+      cursor < productSales.length && cursor <= index + options.transitionLookAhead;
+      cursor += 1
+    ) {
+      const sale = productSales[cursor];
+      const minutes = (sale.timestamp - candidate.timestamp) / MINUTE_MS;
+      if (minutes > options.confirmationWindowMinutes) break;
+      if (Math.abs(sale.price - candidate.price) <= options.stableTolerance) nearby.push(sale);
+    }
+    if (nearby.length < options.transitionConfirmationSales) return { confirmed: false };
+
+    const stablePrice = dominantPrice(nearby, options.stableTolerance, candidate.price);
+    const delta = stablePrice - currentStablePrice;
+    const absoluteDelta = Math.abs(delta);
+    if (absoluteDelta < options.minVariation || absoluteDelta > options.maxVariation) {
+      return { confirmed: false };
+    }
+    return {
+      confirmed: true,
+      stablePrice,
+      confirmationSales: nearby.length
+    };
+  }
+
+  function dominantPrice(sales, tolerance, fallback) {
+    const valid = (sales || []).filter((sale) => Number.isFinite(sale?.price));
+    if (!valid.length) return Number(fallback) || 0;
+    let bestCluster = [];
+    valid.forEach((candidate) => {
+      const cluster = valid.filter((sale) => Math.abs(sale.price - candidate.price) <= tolerance);
+      if (cluster.length > bestCluster.length) bestCluster = cluster;
+    });
+    const counts = new Map();
+    (bestCluster.length ? bestCluster : valid).forEach((sale) => {
+      counts.set(sale.price, (counts.get(sale.price) || 0) + 1);
+    });
+    return [...counts.entries()]
+      .sort((a, b) => b[1] - a[1] || b[0] - a[0])[0][0];
+  }
+
+  function sum(values) {
+    return (values || []).reduce((total, value) => total + (Number(value) || 0), 0);
+  }
+
+  function round(value, decimals) {
+    const factor = 10 ** decimals;
+    return Math.round((Number(value) || 0) * factor) / factor;
+  }
+
   function groupEvents(changes, eventWindowMinutes) {
     const windowMs = Math.max(1, Number(eventWindowMinutes) || 45) * MINUTE_MS;
     const sorted = [...(changes || [])].sort((a, b) => a.current.timestamp - b.current.timestamp);
@@ -282,12 +549,14 @@
 
   return {
     analyzeSales,
+    analyzeStablePeriods,
     groupEvents,
     isValidDate,
     normalizeOptions,
     normalizeProduct,
     normalizeText,
     parseDate,
+    parseDecimalNumber,
     parseLocaleNumber,
     rowToSale
   };

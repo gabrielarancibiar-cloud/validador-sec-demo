@@ -3,12 +3,13 @@
 
   const CORE = window.PriceChangeCore;
   const $ = (id) => document.getElementById(id);
-  const REVIEW_STORAGE_KEY = "valepac_price_change_reviews_v1";
+  const REVIEW_STORAGE_KEY = "valepac_price_period_reviews_v1";
   const state = {
     sourceFile: null,
     sales: [],
     analysis: null,
-    filteredChanges: [],
+    filteredPeriods: [],
+    filteredExceptions: [],
     reviewed: readReviewed()
   };
 
@@ -28,10 +29,10 @@
     $("exportBtn").addEventListener("click", exportResults);
     $("clearFiltersBtn").addEventListener("click", clearFilters);
 
-    ["directionFilter", "productFilter", "validationFilter", "dateFrom", "dateTo"].forEach((id) => {
-      $(id).addEventListener("change", renderResults);
+    ["productFilter", "directionFilter", "dateFrom", "dateTo"].forEach((id) => {
+      $(id).addEventListener("change", renderPeriods);
     });
-    $("searchFilter").addEventListener("input", renderResults);
+    $("searchFilter").addEventListener("input", renderPeriods);
 
     const dropzone = $("dropzone");
     dropzone.addEventListener("keydown", (event) => {
@@ -53,7 +54,7 @@
       if (file) loadCsv(file);
     });
 
-    $("resultRows").addEventListener("click", (event) => {
+    $("exceptionRows").addEventListener("click", (event) => {
       const button = event.target.closest("[data-review-key]");
       if (!button) return;
       toggleReviewed(button.dataset.reviewKey);
@@ -73,13 +74,14 @@
     state.sourceFile = file;
     state.sales = [];
     state.analysis = null;
-    state.filteredChanges = [];
+    state.filteredPeriods = [];
+    state.filteredExceptions = [];
     $("fileName").textContent = `${file.name} · ${formatFileSize(file.size)}`;
     $("dropzone").classList.add("has-file");
     $("analyzeBtn").disabled = true;
     $("exportBtn").disabled = true;
     setStatus("neutral", "Procesando CSV");
-    setProgress(2, "Leyendo encabezados y ventas...");
+    setProgress(2, "Leyendo precios y cantidades...");
     showMessage("", "");
 
     let rowsRead = 0;
@@ -138,12 +140,11 @@
     return {
       minVariation: Number($("minVariation").value),
       maxVariation: Number($("maxVariation").value),
-      maxGapMinutes: Number($("maxGap").value),
-      confirmationTolerance: Number($("confirmationTolerance").value),
-      confirmationLookAhead: 4,
-      confirmationMinimum: 2,
-      confirmationWindowMinutes: Number($("maxGap").value),
-      eventWindowMinutes: 45,
+      stableTolerance: Number($("stableTolerance").value),
+      confirmationWindowMinutes: Number($("confirmationWindow").value),
+      transitionLookAhead: 8,
+      transitionConfirmationSales: 3,
+      seedSales: 8,
       minValidPrice: 500,
       maxValidPrice: 4000
     };
@@ -152,172 +153,208 @@
   function analyze() {
     if (!state.sales.length) return;
     const options = getOptions();
-    if (!Number.isFinite(options.minVariation) || !Number.isFinite(options.maxVariation) || options.minVariation < 0) {
-      showMessage("Revisa los valores mínimo y máximo de la variación.", "error");
+    if (
+      !Number.isFinite(options.minVariation) ||
+      !Number.isFinite(options.maxVariation) ||
+      !Number.isFinite(options.stableTolerance) ||
+      options.minVariation < 0 ||
+      options.stableTolerance < 0
+    ) {
+      showMessage("Revisa los valores de la regla de segmentación.", "error");
       return;
     }
     if (options.minVariation > options.maxVariation) {
-      showMessage("La variación mínima no puede ser mayor que la variación máxima.", "error");
+      showMessage("El cambio mínimo no puede ser mayor que el cambio máximo.", "error");
       return;
     }
 
-    state.analysis = CORE.analyzeSales(state.sales, options);
+    state.analysis = CORE.analyzeStablePeriods(state.sales, options);
     renderKpis();
-    renderEvents();
-    renderResults();
-    $("exportBtn").disabled = state.analysis.changes.length === 0;
-    setStatus(
-      state.analysis.changes.length ? "success" : "warning",
-      `${state.analysis.changes.length.toLocaleString("es-CL")} cambios detectados`
-    );
+    renderProductSummary();
+    renderPeriods();
+    $("exportBtn").disabled = state.analysis.periods.length === 0;
+    setStatus("success", `${state.analysis.periods.length.toLocaleString("es-CL")} periodos detectados`);
 
-    const invalid = state.analysis.invalidPrice.length;
+    const excluded = state.analysis.invalidPrice.length + state.analysis.invalidLiters.length;
     showMessage(
-      `Análisis actualizado con una variación entre $${formatNumber(options.minVariation)} y $${formatNumber(options.maxVariation)}, en un máximo de ${formatMinutes(options.maxGapMinutes)}.` +
-      (invalid ? ` Se excluyeron ${invalid.toLocaleString("es-CL")} ventas con precio cero o fuera de rango.` : ""),
-      invalid ? "warning" : "success"
+      `Se detectaron ${state.analysis.periods.length.toLocaleString("es-CL")} periodos estables y se acumularon ${formatLiters(state.analysis.summary.stableLiters)} dentro de sus niveles de precio.` +
+      (excluded ? ` Se excluyeron ${excluded.toLocaleString("es-CL")} registros con precio o cantidad no válidos.` : ""),
+      excluded ? "warning" : "success"
     );
   }
 
   function renderEmpty() {
-    ["kpiSales", "kpiChanges", "kpiDown", "kpiUp", "kpiConsistent", "kpiReview"].forEach((id) => {
+    ["kpiTotalLiters", "kpiStableLiters", "kpiPeriods", "kpiDown", "kpiUp", "kpiExceptionLiters"].forEach((id) => {
       $(id).textContent = "—";
     });
     $("kpiPeriod").textContent = "Sin archivo";
-    $("kpiEvents").textContent = "— eventos agrupados";
+    $("kpiCoverage").textContent = "— de cobertura";
+    $("kpiExceptionSales").textContent = "Ventas aisladas";
   }
 
   function renderKpis() {
     const summary = state.analysis.summary;
-    $("kpiSales").textContent = summary.validSales.toLocaleString("es-CL");
-    $("kpiChanges").textContent = summary.changes.toLocaleString("es-CL");
+    const exceptionSales = state.analysis.periods.reduce((total, period) => total + period.exceptionSales.length, 0);
+    $("kpiTotalLiters").textContent = formatLiters(summary.totalLiters);
+    $("kpiStableLiters").textContent = formatLiters(summary.stableLiters);
+    $("kpiPeriods").textContent = summary.periods.toLocaleString("es-CL");
     $("kpiDown").textContent = summary.down.toLocaleString("es-CL");
     $("kpiUp").textContent = summary.up.toLocaleString("es-CL");
-    $("kpiConsistent").textContent = summary.consistent.toLocaleString("es-CL");
-    $("kpiReview").textContent = summary.review.toLocaleString("es-CL");
-    $("kpiEvents").textContent = `${summary.eventCount.toLocaleString("es-CL")} eventos agrupados`;
+    $("kpiExceptionLiters").textContent = formatLiters(summary.exceptionLiters);
+    $("kpiCoverage").textContent = `${formatPercent(summary.stableCoverage)} de cobertura`;
+    $("kpiExceptionSales").textContent = `${exceptionSales.toLocaleString("es-CL")} ventas aisladas`;
     $("kpiPeriod").textContent = summary.dateFrom && summary.dateTo
       ? `${formatDate(summary.dateFrom)} al ${formatDate(summary.dateTo)}`
       : "Sin periodo";
   }
 
-  function renderEvents() {
-    const container = $("eventList");
-    const events = state.analysis?.events || [];
-    if (!events.length) {
-      container.innerHTML = '<div class="vp-empty-panel">No se detectaron eventos con los parámetros actuales.</div>';
-      return;
-    }
-
-    container.innerHTML = events.map((event) => {
-      const direction = event.down && event.up ? "mixed" : event.down ? "down" : "up";
-      const dateLabel = sameDay(event.start, event.end)
-        ? `${formatDate(event.start)} · ${formatTime(event.start)} a ${formatTime(event.end)}`
-        : `${formatDateTime(event.start)} a ${formatDateTime(event.end)}`;
+  function renderProductSummary() {
+    const container = $("productSummary");
+    const products = ["Gasolina 93", "Gasolina 95", "Gasolina 97"];
+    container.innerHTML = products.map((product) => {
+      const periods = state.analysis.periods.filter((period) => period.product === product);
+      if (!periods.length) return "";
+      const stableLiters = sum(periods.map((period) => period.stableLiters));
+      const exceptionLiters = sum(periods.map((period) => period.exceptionLiters));
+      const stableSales = sum(periods.map((period) => period.stableSales.length));
+      const lastPeriod = [...periods].sort((a, b) => b.sequence - a.sequence)[0];
       return `
-        <article class="vp-event vp-event--${direction}">
-          <div class="vp-event-head">
+        <article class="vp-product-card">
+          <div class="vp-product-card-head">
             <div>
-              <h3>${escapeHtml(event.products.join(" · "))}</h3>
-              <p>${dateLabel}</p>
+              <span>${escapeHtml(product)}</span>
+              <strong>${formatMoney(lastPeriod.stablePrice)}</strong>
+              <small>Último precio estable</small>
             </div>
-            <span class="vp-event-count">${event.changes.length} detecciones</span>
+            <span class="vp-product-periods">${periods.length} periodos</span>
           </div>
-          <div class="vp-event-stats">
-            ${event.down ? `<span class="vp-event-chip vp-event-chip--down">${event.down} bajas</span>` : ""}
-            ${event.up ? `<span class="vp-event-chip vp-event-chip--up">${event.up} subidas</span>` : ""}
-            <span class="vp-event-chip">${event.consistent} consistentes</span>
+          <div class="vp-product-metrics">
+            <div><span>Litros estables</span><strong>${formatLiters(stableLiters)}</strong></div>
+            <div><span>Ventas agrupadas</span><strong>${stableSales.toLocaleString("es-CL")}</strong></div>
+            <div><span>Fuera de nivel</span><strong>${formatLiters(exceptionLiters)}</strong></div>
           </div>
         </article>
       `;
-    }).join("");
+    }).join("") || '<div class="vp-empty-panel">No hay productos para mostrar.</div>';
   }
 
-  function renderResults() {
-    const rows = $("resultRows");
+  function renderPeriods() {
+    const rows = $("periodRows");
     if (!state.analysis) {
-      rows.innerHTML = '<tr><td colspan="14" class="vp-empty">Carga un CSV para comenzar.</td></tr>';
+      rows.innerHTML = '<tr><td colspan="12" class="vp-empty">Carga un CSV para comenzar.</td></tr>';
       $("resultCount").textContent = "Sin resultados.";
+      renderExceptions();
       return;
     }
 
-    const direction = $("directionFilter").value;
     const product = $("productFilter").value;
-    const validation = $("validationFilter").value;
+    const direction = $("directionFilter").value;
     const dateFrom = $("dateFrom").value;
     const dateTo = $("dateTo").value;
-    const search = CORE.normalizeText($("searchFilter").value);
+    const search = CORE.normalizeText($("searchFilter").value).replace(/\$/g, "");
 
-    state.filteredChanges = state.analysis.changes.filter((change) => {
-      if (direction !== "all" && change.direction !== direction) return false;
-      if (product !== "all" && change.product !== product) return false;
-      if (validation === "consistent" && change.validation !== "consistent") return false;
-      if (validation === "review" && change.validation === "consistent") return false;
-      if (validation === "insufficient" && change.validation !== "insufficient") return false;
-      const key = toDateKey(change.current.timestamp);
-      if (dateFrom && key < dateFrom) return false;
-      if (dateTo && key > dateTo) return false;
+    state.filteredPeriods = state.analysis.periods.filter((period) => {
+      if (product !== "all" && period.product !== product) return false;
+      if (direction !== "all" && period.direction !== direction) return false;
+      const startKey = toDateKey(period.start);
+      const endKey = toDateKey(period.end);
+      if (dateFrom && endKey < dateFrom) return false;
+      if (dateTo && startKey > dateTo) return false;
       if (search) {
-        const haystack = CORE.normalizeText([
-          change.current.attendant,
-          change.current.pos,
-          change.current.pump,
-          change.current.transactionCode,
-          change.current.transactionId,
-          change.current.paymentMethod
-        ].join(" "));
-        if (!haystack.includes(search)) return false;
+        const prices = [period.stablePrice, ...period.priceBreakdown.map((item) => item.price)].join(" ");
+        if (!CORE.normalizeText(prices).includes(search)) return false;
       }
       return true;
     });
 
-    $("resultCount").textContent = `${state.filteredChanges.length.toLocaleString("es-CL")} de ${state.analysis.changes.length.toLocaleString("es-CL")} detecciones visibles.`;
-    if (!state.filteredChanges.length) {
-      rows.innerHTML = '<tr><td colspan="14" class="vp-empty">No hay detecciones para los filtros seleccionados.</td></tr>';
+    const visibleLiters = sum(state.filteredPeriods.map((period) => period.stableLiters));
+    $("resultCount").textContent = `${state.filteredPeriods.length.toLocaleString("es-CL")} de ${state.analysis.periods.length.toLocaleString("es-CL")} periodos visibles · ${formatLiters(visibleLiters)} estables.`;
+
+    if (!state.filteredPeriods.length) {
+      rows.innerHTML = '<tr><td colspan="12" class="vp-empty">No hay periodos para los filtros seleccionados.</td></tr>';
+      renderExceptions();
       return;
     }
 
-    rows.innerHTML = state.filteredChanges.map((change) => {
-      const isReviewed = Boolean(state.reviewed[change.key]);
-      const validation = validationLabel(change);
-      const transaction = change.current.transactionCode || change.current.transactionId || `Fila ${change.current.rowNumber}`;
-      const shortTransaction = transaction.length > 18 ? `…${transaction.slice(-18)}` : transaction;
-      const discount = sumFinite(change.current.discount, change.current.paymentDiscount);
+    rows.innerHTML = state.filteredPeriods.map((period) => {
+      const prices = period.priceBreakdown.map((item) =>
+        `<span class="vp-price-chip" title="${item.sales} ventas">${formatMoney(item.price)} · ${formatLiters(item.liters)}</span>`
+      ).join("");
       return `
         <tr>
-          <td><span class="vp-status vp-status--${change.direction}">${change.direction === "down" ? "Baja" : "Subida"}</span></td>
-          <td><span class="vp-status vp-status--${change.validation}">${validation}</span></td>
-          <td><strong>${escapeHtml(change.product)}</strong></td>
-          <td>${formatDateTime(change.current.timestamp)}</td>
-          <td class="vp-money">${formatMoney(change.previousPrice)}</td>
-          <td class="vp-money">${formatMoney(change.currentPrice)}</td>
-          <td class="vp-money vp-delta--${change.direction}">${formatSignedMoney(change.delta)}</td>
-          <td class="vp-align-right">${formatGap(change.gapMinutes)}</td>
-          <td>${escapeHtml(change.current.attendant || "—")}</td>
-          <td>${escapeHtml(change.current.pos || change.current.pump || "—")}</td>
-          <td>${escapeHtml(change.current.paymentMethod || "—")}</td>
-          <td class="vp-money">${formatMoney(discount)}</td>
+          <td><strong>${escapeHtml(period.product)}</strong></td>
+          <td><span class="vp-period-number">#${period.sequence}</span></td>
+          <td>${movementBadge(period.direction)}</td>
+          <td class="vp-money">${formatMoney(period.stablePrice)}</td>
+          <td class="vp-money ${period.direction === "down" ? "vp-delta--down" : period.direction === "up" ? "vp-delta--up" : ""}">${period.changeDelta === null ? "—" : formatSignedMoney(period.changeDelta)}</td>
+          <td>${formatDateTime(period.start)}</td>
+          <td>${formatDateTime(period.end)}</td>
+          <td class="vp-align-right">${formatDuration(period.start, period.end)}</td>
+          <td class="vp-align-right">${period.stableSales.length.toLocaleString("es-CL")}</td>
+          <td class="vp-money vp-liters-main">${formatLiters(period.stableLiters)}</td>
+          <td><div class="vp-price-list">${prices}</div></td>
+          <td class="vp-money ${period.exceptionLiters ? "vp-delta--up" : ""}">${formatLiters(period.exceptionLiters)}</td>
+        </tr>
+      `;
+    }).join("");
+    renderExceptions();
+  }
+
+  function renderExceptions() {
+    const rows = $("exceptionRows");
+    if (!state.analysis) {
+      rows.innerHTML = '<tr><td colspan="10" class="vp-empty">Sin datos.</td></tr>';
+      return;
+    }
+
+    state.filteredExceptions = state.filteredPeriods.flatMap((period) =>
+      period.exceptionSales.map((sale) => ({ period, sale }))
+    ).sort((a, b) => a.sale.timestamp - b.sale.timestamp);
+
+    $("exceptionCount").textContent = state.filteredExceptions.length
+      ? `${state.filteredExceptions.length.toLocaleString("es-CL")} ventas visibles que no formaron un nuevo periodo confirmado.`
+      : "No existen ventas fuera del nivel para los filtros seleccionados.";
+
+    if (!state.filteredExceptions.length) {
+      rows.innerHTML = '<tr><td colspan="10" class="vp-empty">No hay ventas aisladas para mostrar.</td></tr>';
+      return;
+    }
+
+    rows.innerHTML = state.filteredExceptions.map(({ period, sale }) => {
+      const transaction = sale.transactionCode || sale.transactionId || `Fila ${sale.rowNumber}`;
+      const shortTransaction = transaction.length > 18 ? `…${transaction.slice(-18)}` : transaction;
+      const reviewKey = `${period.id}|${transaction}|${sale.timestamp.getTime()}`;
+      const isReviewed = Boolean(state.reviewed[reviewKey]);
+      return `
+        <tr>
+          <td><strong>${escapeHtml(period.product)}</strong></td>
+          <td>${formatDateTime(sale.timestamp)}</td>
+          <td class="vp-money">${formatMoney(sale.price)}</td>
+          <td class="vp-money">${formatMoney(period.stablePrice)}</td>
+          <td class="vp-money ${sale.price - period.stablePrice < 0 ? "vp-delta--down" : "vp-delta--up"}">${formatSignedMoney(sale.price - period.stablePrice)}</td>
+          <td class="vp-money">${formatLiters(sale.liters)}</td>
+          <td>${escapeHtml(sale.attendant || "—")}</td>
+          <td>${escapeHtml(sale.pos || sale.pump || "—")}</td>
           <td title="${escapeHtml(transaction)}">${escapeHtml(shortTransaction)}</td>
-          <td><button class="vp-review-btn${isReviewed ? " is-reviewed" : ""}" type="button" data-review-key="${escapeHtml(change.key)}">${isReviewed ? "✓ Revisado" : "Marcar revisado"}</button></td>
+          <td><button class="vp-review-btn${isReviewed ? " is-reviewed" : ""}" type="button" data-review-key="${escapeHtml(reviewKey)}">${isReviewed ? "✓ Revisado" : "Marcar revisado"}</button></td>
         </tr>
       `;
     }).join("");
   }
 
-  function validationLabel(change) {
-    if (change.validation === "consistent") return `Consistente (${change.supportingSales})`;
-    if (change.validation === "insufficient") return "Sin muestra";
-    return "A revisar";
+  function movementBadge(direction) {
+    if (direction === "down") return '<span class="vp-status vp-status--down">Baja</span>';
+    if (direction === "up") return '<span class="vp-status vp-status--up">Subida</span>';
+    return '<span class="vp-status vp-status--initial">Inicial</span>';
   }
 
   function clearFilters() {
-    $("directionFilter").value = "all";
     $("productFilter").value = "all";
-    $("validationFilter").value = "all";
+    $("directionFilter").value = "all";
     $("dateFrom").value = "";
     $("dateTo").value = "";
     $("searchFilter").value = "";
-    renderResults();
+    renderPeriods();
   }
 
   function toggleReviewed(key) {
@@ -328,7 +365,7 @@
     } catch (_) {
       showToast("No fue posible guardar la revisión en este navegador.", true);
     }
-    renderResults();
+    renderExceptions();
   }
 
   function readReviewed() {
@@ -344,51 +381,84 @@
       showToast("No fue posible cargar el exportador de Excel.", true);
       return;
     }
-    const changes = state.filteredChanges.length ? state.filteredChanges : state.analysis.changes;
-    const detail = changes.map((change) => ({
-      "Dirección": change.direction === "down" ? "Baja" : "Subida",
-      "Validación": validationLabel(change),
-      "Producto": change.product,
-      "Fecha y hora": formatDateTime(change.current.timestamp),
-      "Precio anterior": change.previousPrice,
-      "Precio actual": change.currentPrice,
-      "Variación": change.delta,
-      "Minutos desde venta anterior": round(change.gapMinutes, 1),
-      "Atendedor": change.current.attendant,
-      "POS": change.current.pos || change.current.pump,
-      "Forma de pago": change.current.paymentMethod,
-      "Descuento venta": finiteOrZero(change.current.discount),
-      "Descuento pago": finiteOrZero(change.current.paymentDiscount),
-      "Transacción": change.current.transactionCode || change.current.transactionId,
-      "Fila de origen": change.current.rowNumber,
-      "Revisado": state.reviewed[change.key] ? "Sí" : "No"
+    const periods = state.filteredPeriods.length ? state.filteredPeriods : state.analysis.periods;
+    const exceptions = periods.flatMap((period) => period.exceptionSales.map((sale) => ({ period, sale })));
+    const periodRows = periods.map((period) => ({
+      "Producto": period.product,
+      "Periodo": period.sequence,
+      "Origen": period.direction === "initial" ? "Inicial" : period.direction === "down" ? "Baja" : "Subida",
+      "Precio estable": period.stablePrice,
+      "Precio anterior": period.previousPrice,
+      "Cambio": period.changeDelta,
+      "Desde": formatDateTime(period.start),
+      "Hasta": formatDateTime(period.end),
+      "Ventas estables": period.stableSales.length,
+      "Litros estables": period.stableLiters,
+      "Ventas fuera de nivel": period.exceptionSales.length,
+      "Litros fuera de nivel": period.exceptionLiters,
+      "Litros totales del periodo": period.totalLiters
     }));
-    const summary = [
+    const breakdownRows = periods.flatMap((period) => period.priceBreakdown.map((item) => ({
+      "Producto": period.product,
+      "Periodo": period.sequence,
+      "Precio estable principal": period.stablePrice,
+      "Precio incluido": item.price,
+      "Ventas": item.sales,
+      "Litros": item.liters,
+      "Desde": formatDateTime(period.start),
+      "Hasta": formatDateTime(period.end)
+    })));
+    const exceptionRows = exceptions.map(({ period, sale }) => {
+      const transaction = sale.transactionCode || sale.transactionId || `Fila ${sale.rowNumber}`;
+      const reviewKey = `${period.id}|${transaction}|${sale.timestamp.getTime()}`;
+      return {
+        "Producto": period.product,
+        "Periodo": period.sequence,
+        "Fecha y hora": formatDateTime(sale.timestamp),
+        "Precio venta": sale.price,
+        "Precio estable": period.stablePrice,
+        "Diferencia": sale.price - period.stablePrice,
+        "Litros": sale.liters,
+        "Atendedor": sale.attendant,
+        "POS": sale.pos || sale.pump,
+        "Transacción": transaction,
+        "Revisado": state.reviewed[reviewKey] ? "Sí" : "No"
+      };
+    });
+    const summaryRows = [
       { "Indicador": "Archivo", "Valor": state.sourceFile?.name || "" },
-      { "Indicador": "Ventas válidas de gasolina", "Valor": state.analysis.summary.validSales },
-      { "Indicador": "Cambios detectados", "Valor": state.analysis.summary.changes },
-      { "Indicador": "Bajas", "Valor": state.analysis.summary.down },
-      { "Indicador": "Subidas", "Valor": state.analysis.summary.up },
-      { "Indicador": "Cambios consistentes", "Valor": state.analysis.summary.consistent },
-      { "Indicador": "A revisar", "Valor": state.analysis.summary.review },
-      { "Indicador": "Variación mínima", "Valor": state.analysis.options.minVariation },
-      { "Indicador": "Variación máxima", "Valor": state.analysis.options.maxVariation },
-      { "Indicador": "Tiempo máximo (minutos)", "Valor": state.analysis.options.maxGapMinutes }
+      { "Indicador": "Litros analizados", "Valor": state.analysis.summary.totalLiters },
+      { "Indicador": "Litros en precios estables", "Valor": state.analysis.summary.stableLiters },
+      { "Indicador": "Cobertura estable", "Valor": state.analysis.summary.stableCoverage },
+      { "Indicador": "Periodos detectados", "Valor": state.analysis.summary.periods },
+      { "Indicador": "Cambios por baja", "Valor": state.analysis.summary.down },
+      { "Indicador": "Cambios por subida", "Valor": state.analysis.summary.up },
+      { "Indicador": "Litros fuera de nivel", "Valor": state.analysis.summary.exceptionLiters },
+      { "Indicador": "Cambio mínimo", "Valor": state.analysis.options.minVariation },
+      { "Indicador": "Cambio máximo", "Valor": state.analysis.options.maxVariation },
+      { "Indicador": "Banda estable", "Valor": state.analysis.options.stableTolerance }
     ];
 
     const workbook = XLSX.utils.book_new();
-    const detailSheet = XLSX.utils.json_to_sheet(detail);
-    const summarySheet = XLSX.utils.json_to_sheet(summary);
-    detailSheet["!cols"] = [
-      { wch: 11 }, { wch: 19 }, { wch: 17 }, { wch: 19 }, { wch: 15 }, { wch: 14 },
-      { wch: 12 }, { wch: 27 }, { wch: 24 }, { wch: 10 }, { wch: 22 }, { wch: 16 },
-      { wch: 15 }, { wch: 28 }, { wch: 13 }, { wch: 10 }
+    const summarySheet = XLSX.utils.json_to_sheet(summaryRows);
+    const periodsSheet = XLSX.utils.json_to_sheet(periodRows);
+    const breakdownSheet = XLSX.utils.json_to_sheet(breakdownRows);
+    const exceptionsSheet = XLSX.utils.json_to_sheet(exceptionRows);
+    summarySheet["!cols"] = [{ wch: 31 }, { wch: 28 }];
+    periodsSheet["!cols"] = [
+      { wch: 17 }, { wch: 9 }, { wch: 11 }, { wch: 15 }, { wch: 15 }, { wch: 11 },
+      { wch: 19 }, { wch: 19 }, { wch: 16 }, { wch: 15 }, { wch: 20 }, { wch: 19 }, { wch: 21 }
     ];
-    summarySheet["!cols"] = [{ wch: 32 }, { wch: 26 }];
+    breakdownSheet["!cols"] = [{ wch: 17 }, { wch: 9 }, { wch: 22 }, { wch: 16 }, { wch: 11 }, { wch: 14 }, { wch: 19 }, { wch: 19 }];
+    exceptionsSheet["!cols"] = [{ wch: 17 }, { wch: 9 }, { wch: 19 }, { wch: 14 }, { wch: 14 }, { wch: 12 }, { wch: 12 }, { wch: 24 }, { wch: 10 }, { wch: 28 }, { wch: 11 }];
+    summarySheet["B5"].z = "0.00%";
+
     XLSX.utils.book_append_sheet(workbook, summarySheet, "Resumen");
-    XLSX.utils.book_append_sheet(workbook, detailSheet, "Cambios detectados");
-    XLSX.writeFile(workbook, `validador_precios_${toDateKey(new Date())}.xlsx`);
-    showToast(`Se exportaron ${changes.length.toLocaleString("es-CL")} detecciones.`, false);
+    XLSX.utils.book_append_sheet(workbook, periodsSheet, "Periodos estables");
+    XLSX.utils.book_append_sheet(workbook, breakdownSheet, "Detalle por precio");
+    XLSX.utils.book_append_sheet(workbook, exceptionsSheet, "Fuera de nivel");
+    XLSX.writeFile(workbook, `periodos_precios_gasolina_${toDateKey(new Date())}.xlsx`);
+    showToast(`Se exportaron ${periods.length.toLocaleString("es-CL")} periodos.`, false);
   }
 
   function setProgress(percent, text) {
@@ -432,6 +502,15 @@
     return `${number > 0 ? "+" : number < 0 ? "−" : ""}$${formatNumber(Math.abs(number))}`;
   }
 
+  function formatLiters(value) {
+    const number = finiteOrZero(value);
+    return `${number.toLocaleString("es-CL", { minimumFractionDigits: 0, maximumFractionDigits: 2 })} L`;
+  }
+
+  function formatPercent(value) {
+    return Number(value || 0).toLocaleString("es-CL", { style: "percent", minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  }
+
   function formatNumber(value) {
     return Number(value || 0).toLocaleString("es-CL", { maximumFractionDigits: 0 });
   }
@@ -452,17 +531,15 @@
     return `${formatDate(value)} ${formatTime(value)}`;
   }
 
-  function formatGap(value) {
-    if (!Number.isFinite(value)) return "—";
-    if (value < 1) return `${Math.max(0, Math.round(value * 60))} seg`;
-    return `${round(value, 1).toLocaleString("es-CL")} min`;
-  }
-
-  function formatMinutes(value) {
-    const minutes = Number(value || 0);
-    if (minutes < 60) return `${minutes} minutos`;
-    if (minutes % 60 === 0) return `${minutes / 60} ${minutes === 60 ? "hora" : "horas"}`;
-    return `${minutes} minutos`;
+  function formatDuration(start, end) {
+    const minutes = Math.max(0, Math.round((end - start) / 60000));
+    if (minutes < 60) return `${minutes} min`;
+    const hours = Math.floor(minutes / 60);
+    const remaining = minutes % 60;
+    if (hours < 24) return `${hours} h${remaining ? ` ${remaining} min` : ""}`;
+    const days = Math.floor(hours / 24);
+    const remainingHours = hours % 24;
+    return `${days} d${remainingHours ? ` ${remainingHours} h` : ""}`;
   }
 
   function formatFileSize(bytes) {
@@ -479,21 +556,12 @@
     ].join("-");
   }
 
-  function sameDay(a, b) {
-    return toDateKey(a) === toDateKey(b);
-  }
-
   function finiteOrZero(value) {
     return Number.isFinite(Number(value)) ? Number(value) : 0;
   }
 
-  function sumFinite(...values) {
+  function sum(values) {
     return values.reduce((total, value) => total + finiteOrZero(value), 0);
-  }
-
-  function round(value, decimals) {
-    const factor = 10 ** decimals;
-    return Math.round(Number(value || 0) * factor) / factor;
   }
 
   function escapeHtml(value) {
