@@ -9,11 +9,12 @@ const maeMatrix = [
 ];
 
 const bciMatrix = [
-  ["Fecha de transacción", "Hora transacción", "Fecha contable", "Código de transacción", "Tipo de transacción", "Glosa detalle", "Ingreso (+)"],
+  ["Fecha de transacción", "Hora transacción", "Fecha contable", "Código de transacción", "Tipo de transacción", "Glosa detalle", "Ingreso (+)", "Egreso (-)"],
   [46223, "10:02", 46223, "BCI-1", "DEPOSITOS", "Depósito en Caja Depositaria", 100000],
   [46223, "13:30", 46223, "BCI-2", "DEPOSITOS", "Depósito en Caja Depositaria", 200000],
   [46223, "14:00", 46223, "BCI-3", "DEPOSITOS", "Depósito en Caja Depositaria", 50000],
-  [46223, "14:05", 46223, "BCI-4", "DEPOSITOS", "Deposito En Efectivo Por Caja", 25000]
+  [46223, "14:05", 46223, "BCI-4", "DEPOSITOS", "Deposito En Efectivo Por Caja", 25000],
+  [46224, "09:00", 46224, "BCI-1-REV", "", "Reversa De Abono", "", "$100.000"]
 ];
 
 const mae = core.parseMaeMatrix(maeMatrix);
@@ -26,6 +27,9 @@ assert.equal(mae.deposits.length, 2);
 assert.equal(mae.pickups.length, 1);
 assert.equal(bci.inScope.length, 3);
 assert.equal(bci.excluded.length, 1);
+assert.equal(bci.reversals.length, 1);
+assert.equal(bci.movements.length, 5);
+assert.equal(bci.reversals[0].amount, 100000);
 assert.equal(result.summary.matchedCount, 2);
 assert.equal(result.summary.matchedAmount, 300000);
 assert.equal(result.summary.pendingMaeCount, 0);

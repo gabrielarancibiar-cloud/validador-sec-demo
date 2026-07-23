@@ -1,0 +1,198 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Validador de precios de gasolina · VALEPAC</title>
+  <link rel="stylesheet" href="./validador-precios.css">
+  <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+  <script src="./price-change-core.js"></script>
+  <script src="./validador-precios.js" defer></script>
+</head>
+<body>
+  <header class="vp-header">
+    <div>
+      <a class="vp-back" href="/">← Volver a VALEPAC</a>
+      <div class="vp-eyebrow">CONTROL DE PRECIOS · EDS 40098</div>
+      <h1>Validador de precios de gasolina</h1>
+      <p>Detecta ventas consecutivas de un mismo producto con variaciones cercanas a $100.</p>
+    </div>
+    <div class="vp-header-actions">
+      <span id="statusBadge" class="vp-badge vp-badge--neutral">Esperando CSV</span>
+      <button id="exportBtn" class="vp-btn vp-btn--secondary" type="button" disabled>Exportar resultados</button>
+    </div>
+  </header>
+
+  <main class="vp-app">
+    <section class="vp-card vp-upload-card">
+      <div class="vp-card-heading">
+        <div>
+          <div class="vp-eyebrow">CARGA DE DATOS</div>
+          <h2>Reporte de ventas</h2>
+          <p>Carga el CSV descargado desde el sistema de ventas. Se analizarán únicamente Gasolina 93, 95 y 97.</p>
+        </div>
+      </div>
+
+      <label id="dropzone" class="vp-dropzone" for="salesFile" tabindex="0">
+        <input id="salesFile" type="file" accept=".csv,text/csv" hidden>
+        <span class="vp-drop-icon">⇧</span>
+        <span>
+          <strong>Seleccionar reporte de ventas CSV</strong>
+          <small id="fileName">Ningún archivo seleccionado</small>
+        </span>
+        <span class="vp-btn vp-btn--primary vp-fake-btn">Seleccionar CSV</span>
+      </label>
+
+      <div id="progressWrap" class="vp-progress-wrap" hidden>
+        <div class="vp-progress"><div id="progressBar"></div></div>
+        <div id="progressText">Leyendo archivo...</div>
+      </div>
+      <div id="uploadMessage"></div>
+    </section>
+
+    <section class="vp-card">
+      <div class="vp-card-heading vp-card-heading--compact">
+        <div>
+          <div class="vp-eyebrow">REGLA DE DETECCIÓN</div>
+          <h2>Ventana de búsqueda</h2>
+          <p>Los valores pueden ajustarse sin volver a cargar el archivo.</p>
+        </div>
+        <button id="analyzeBtn" class="vp-btn vp-btn--primary vp-btn--large" type="button" disabled>Analizar cambios</button>
+      </div>
+
+      <div class="vp-form-grid">
+        <label class="vp-field">
+          <span>Variación mínima</span>
+          <div class="vp-input-suffix"><span>$</span><input id="minVariation" type="number" min="0" step="1" value="80"></div>
+        </label>
+        <label class="vp-field">
+          <span>Variación máxima</span>
+          <div class="vp-input-suffix"><span>$</span><input id="maxVariation" type="number" min="0" step="1" value="130"></div>
+        </label>
+        <label class="vp-field">
+          <span>Tiempo máximo entre ventas</span>
+          <select id="maxGap">
+            <option value="15">15 minutos</option>
+            <option value="30">30 minutos</option>
+            <option value="60" selected>60 minutos</option>
+            <option value="120">2 horas</option>
+            <option value="360">6 horas</option>
+          </select>
+        </label>
+        <label class="vp-field">
+          <span>Tolerancia para confirmar nivel</span>
+          <div class="vp-input-suffix"><span>± $</span><input id="confirmationTolerance" type="number" min="0" step="1" value="35"></div>
+        </label>
+      </div>
+
+      <div class="vp-rule-note">
+        <strong>Cómo funciona:</strong> cada venta se compara con la venta anterior del mismo tipo de gasolina.
+        Un cambio queda como <b>consistente</b> cuando el nuevo nivel de precio vuelve a aparecer en al menos dos de las cuatro ventas siguientes.
+      </div>
+    </section>
+
+    <section class="vp-kpis">
+      <article class="vp-kpi"><span>Ventas de gasolina</span><strong id="kpiSales">—</strong><small id="kpiPeriod">Sin archivo</small></article>
+      <article class="vp-kpi vp-kpi--detected"><span>Cambios detectados</span><strong id="kpiChanges">—</strong><small id="kpiEvents">— eventos agrupados</small></article>
+      <article class="vp-kpi vp-kpi--down"><span>Bajas de precio</span><strong id="kpiDown">—</strong><small>Variación negativa</small></article>
+      <article class="vp-kpi vp-kpi--up"><span>Subidas de precio</span><strong id="kpiUp">—</strong><small>Variación positiva</small></article>
+      <article class="vp-kpi vp-kpi--consistent"><span>Cambios consistentes</span><strong id="kpiConsistent">—</strong><small>Repetidos en ventas siguientes</small></article>
+      <article class="vp-kpi vp-kpi--review"><span>A revisar</span><strong id="kpiReview">—</strong><small>Aislados o sin muestra</small></article>
+    </section>
+
+    <section class="vp-card">
+      <div class="vp-card-heading vp-card-heading--compact">
+        <div>
+          <div class="vp-eyebrow">RESUMEN</div>
+          <h2>Eventos de cambio</h2>
+          <p>Las detecciones próximas entre sí se agrupan para facilitar la revisión del momento del cambio.</p>
+        </div>
+      </div>
+      <div id="eventList" class="vp-event-list">
+        <div class="vp-empty-panel">Carga un CSV para ver los eventos detectados.</div>
+      </div>
+    </section>
+
+    <section class="vp-card">
+      <div class="vp-card-heading vp-card-heading--compact">
+        <div>
+          <div class="vp-eyebrow">DETALLE</div>
+          <h2>Ventas con cambio de precio</h2>
+          <p id="resultCount">Sin resultados.</p>
+        </div>
+        <button id="clearFiltersBtn" class="vp-btn vp-btn--secondary" type="button">Limpiar filtros</button>
+      </div>
+
+      <div class="vp-filters">
+        <label class="vp-field">
+          <span>Dirección</span>
+          <select id="directionFilter">
+            <option value="all">Bajas y subidas</option>
+            <option value="down">Solo bajas</option>
+            <option value="up">Solo subidas</option>
+          </select>
+        </label>
+        <label class="vp-field">
+          <span>Producto</span>
+          <select id="productFilter">
+            <option value="all">Todas las gasolinas</option>
+            <option value="Gasolina 93">Gasolina 93</option>
+            <option value="Gasolina 95">Gasolina 95</option>
+            <option value="Gasolina 97">Gasolina 97</option>
+          </select>
+        </label>
+        <label class="vp-field">
+          <span>Validación</span>
+          <select id="validationFilter">
+            <option value="all">Todos</option>
+            <option value="consistent">Consistentes</option>
+            <option value="review">A revisar</option>
+            <option value="insufficient">Sin muestra suficiente</option>
+          </select>
+        </label>
+        <label class="vp-field">
+          <span>Desde</span>
+          <input id="dateFrom" type="date">
+        </label>
+        <label class="vp-field">
+          <span>Hasta</span>
+          <input id="dateTo" type="date">
+        </label>
+        <label class="vp-field vp-field--search">
+          <span>Buscar</span>
+          <input id="searchFilter" type="search" placeholder="Atendedor, POS o transacción">
+        </label>
+      </div>
+
+      <div class="vp-table-wrap">
+        <table class="vp-table">
+          <thead>
+            <tr>
+              <th>Dirección</th>
+              <th>Validación</th>
+              <th>Producto</th>
+              <th>Fecha y hora</th>
+              <th class="vp-align-right">Precio anterior</th>
+              <th class="vp-align-right">Precio actual</th>
+              <th class="vp-align-right">Variación</th>
+              <th class="vp-align-right">Tiempo</th>
+              <th>Atendedor</th>
+              <th>POS</th>
+              <th>Forma de pago</th>
+              <th class="vp-align-right">Descuento</th>
+              <th>Transacción</th>
+              <th>Revisión</th>
+            </tr>
+          </thead>
+          <tbody id="resultRows">
+            <tr><td colspan="14" class="vp-empty">Carga un CSV para comenzar.</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+  </main>
+
+  <div id="toast" class="vp-toast" hidden></div>
+</body>
+</html>

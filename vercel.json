@@ -25,6 +25,14 @@
     {
       "source": "/conciliacion-bancaria/",
       "destination": "/conciliacion-bancaria/index.html"
+    },
+    {
+      "source": "/validador-precios-gasolina",
+      "destination": "/validador-precios-gasolina/index.html"
+    },
+    {
+      "source": "/validador-precios-gasolina/",
+      "destination": "/validador-precios-gasolina/index.html"
     }
   ]
 }

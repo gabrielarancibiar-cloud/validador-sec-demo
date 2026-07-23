@@ -3,7 +3,7 @@
   "private": true,
   "scripts": {
     "build": "node scripts/build.mjs",
-    "test": "node tests/reconciliation-core.test.cjs && node tests/api-reconciliation.test.cjs"
+    "test": "node tests/reconciliation-core.test.cjs && node tests/api-reconciliation.test.cjs && node tests/price-change-core.test.cjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.0.0"
